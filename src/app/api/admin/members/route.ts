@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 type MemberItem = {
   id: string;
   email: string;
+  realName: string | null;
   role: UserRole;
   schoolName: string | null;
   grade: string | null;
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
           include: {
             studentProfile: {
               select: {
+                realName: true,
                 schoolName: true,
                 grade: true,
                 residenceCountry: true,
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: "asc" },
         }),
         prisma.featureFlag.findUnique({ where: { key: "billingEnabled" }, select: { valueBool: true } }),
       ]);
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
       const items: MemberItem[] = users.map((u) => ({
         id: u.id,
         email: u.email,
+        realName: u.studentProfile?.realName?.trim() || null,
         role: u.role,
         schoolName: u.studentProfile?.schoolName ?? null,
         grade: u.studentProfile?.grade ?? null,
@@ -82,6 +85,7 @@ export async function GET(request: NextRequest) {
       const items: MemberItem[] = filtered.map((x) => ({
         id: x.id,
         email: x.email,
+        realName: null,
         role: UserRole.STUDENT,
         schoolName: x.schoolName ?? null,
         grade: x.grade ?? null,
