@@ -1,0 +1,554 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+enum VerificationStatus {
+  NOT_SUBMITTED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationDocType {
+  STUDENT_ID
+  ENROLLMENT_CERTIFICATE
+}
+
+enum GroupMemberRole {
+  OWNER
+  MEMBER
+}
+
+enum PostScope {
+  GLOBAL
+  GROUP
+}
+
+enum ProjectStatus {
+  OPEN
+  CLOSED
+}
+
+enum EntitlementStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ChatMessageType {
+  TEXT
+  FILE
+}
+
+enum BoardPostStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+enum BoardCommentStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+enum ReportTargetType {
+  POST
+  COMMENT
+}
+
+model User {
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  passwordHash            String
+  role                    UserRole                 @default(STUDENT)
+  createdAt               DateTime                 @default(now())
+
+  studentProfile          StudentProfile?
+  verificationSubmissions VerificationSubmission[] @relation("UserVerificationSubmissions")
+  reviewedSubmissions     VerificationSubmission[] @relation("ReviewAdmin")
+  announcements           Announcement[]
+  projects                Project[]
+  applications            Application[]
+  projectMemberships      ProjectMember[]
+  chatMessages            ChatMessage[]
+  workspaceFiles          WorkspaceFile[]
+  todoItems               TodoItem[]
+  workspaceSchedules      WorkspaceSchedule[]
+  boardPosts              BoardPost[]
+  boardComments           BoardComment[]
+  boardPostLikes          BoardPostLike[]
+  boardReports            BoardReport[]
+  boardPostViews          BoardPostView[]
+  passwordResetTokens     PasswordResetToken[]
+  posts                   Post[]
+  comments                Comment[]
+  groupMembers            GroupMember[]
+  auditLogs               AuditLog[]
+  entitlements            Entitlement[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model StudentProfile {
+  userId            String   @id
+  realName          String
+  schoolName        String
+  residenceCountry  String?
+  birthDate         DateTime?
+  grade             String
+  className         String?
+  number            String?
+  bio               String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationSubmission {
+  id               String             @id @default(cuid())
+  userId           String
+  status           VerificationStatus @default(PENDING_REVIEW)
+  docType          VerificationDocType
+  fileKey          String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  submittedAt      DateTime           @default(now())
+  reviewedAt       DateTime?
+  reviewedBy       String?
+  rejectReasonCode String?
+  rejectReasonText String?
+
+  user             User               @relation("UserVerificationSubmissions", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer         User?              @relation("ReviewAdmin", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  pinned      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  createdBy   String
+
+  author      User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([pinned, createdAt])
+}
+
+model Project {
+  id                String        @id @default(cuid())
+  title             String
+  summary           String?
+  description       String
+  tab               String?
+  channel           String?
+  thumbnailUrl      String?
+  requirements      String?
+  rolesNeeded       String?
+  capacity          Int
+  deadline          DateTime?
+  status            ProjectStatus @default(OPEN)
+  question1         String?
+  question2         String?
+  question3         String?
+  popularityScore   Int           @default(0)
+  likeCount         Int           @default(0)
+  commentCount      Int           @default(0)
+  ownerId           String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  owner             User          @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  applications      Application[]
+  members           ProjectMember[]
+  workspaceConfig   WorkspaceConfig?
+  chatMessages      ChatMessage[]
+  workspaceFiles    WorkspaceFile[]
+  todoItems         TodoItem[]
+  workspaceSchedules WorkspaceSchedule[]
+  groups            Group[]
+
+  @@index([status, createdAt])
+  @@index([tab, channel])
+}
+
+model Group {
+  id             String        @id @default(cuid())
+  projectId      String
+  name           String
+  joinSecretHash String
+  createdAt      DateTime      @default(now())
+
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  members        GroupMember[]
+  posts          Post[]
+
+  @@index([projectId])
+}
+
+model GroupMember {
+  id        String          @id @default(cuid())
+  groupId   String
+  userId    String
+  role      GroupMemberRole @default(MEMBER)
+  joinedAt  DateTime        @default(now())
+
+  group     Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model Post {
+  id        String    @id @default(cuid())
+  scope     PostScope
+  groupId   String?
+  title     String
+  body      String
+  createdBy String
+  createdAt DateTime  @default(now())
+
+  group     Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  comments  Comment[]
+
+  @@index([scope, createdAt])
+  @@index([groupId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  body      String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([postId, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  actionType  String
+  targetType  String
+  targetId    String
+  metadataJson Json?
+  createdAt   DateTime @default(now())
+
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([actionType, createdAt])
+  @@index([targetType, targetId])
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  projectId      String
+  applicantId    String
+  applicantIntro String
+  contact        String
+  answer1        String?
+  answer2        String?
+  answer3        String?
+  status         ApplicationStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applicant      User              @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, applicantId])
+  @@index([projectId, status])
+  @@index([applicantId, createdAt])
+}
+
+model ProjectMember {
+  id          String    @id @default(cuid())
+  projectId   String
+  userId      String
+  roleInTeam  String?
+  joinedAt    DateTime  @default(now())
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId, joinedAt])
+}
+
+model WorkspaceConfig {
+  id             String   @id @default(cuid())
+  projectId      String   @unique
+  googleDriveUrl String?
+  googleSheetUrl String?
+  googleDocsUrl  String?
+  zoomMeetingUrl String?
+  projectOverview String?
+  pinnedNotice   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id         String          @id @default(cuid())
+  projectId  String
+  userId     String
+  content    String
+  type       ChatMessageType @default(TEXT)
+  fileUrl    String?
+  fileName   String?
+  createdAt  DateTime        @default(now())
+
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model WorkspaceFile {
+  id         String   @id @default(cuid())
+  projectId  String
+  uploaderId String
+  fileUrl    String
+  fileName   String
+  mimeType   String
+  size       Int
+  createdAt  DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([uploaderId, createdAt])
+}
+
+model TodoItem {
+  id         String   @id @default(cuid())
+  projectId  String
+  creatorId  String
+  text       String
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([creatorId, createdAt])
+}
+
+model WorkspaceSchedule {
+  id         String   @id @default(cuid())
+  projectId  String
+  creatorId  String
+  title      String
+  note       String?
+  date       DateTime
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, date])
+  @@index([projectId, done, date])
+  @@index([creatorId, createdAt])
+}
+
+model FeatureFlag {
+  key       String   @id
+  valueBool Boolean  @default(false)
+}
+
+model Plan {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  name         String
+  description  String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+
+  entitlements Entitlement[]
+}
+
+model Entitlement {
+  id         String            @id @default(cuid())
+  userId     String
+  planId     String
+  status     EntitlementStatus @default(ACTIVE)
+  startAt    DateTime          @default(now())
+  endAt      DateTime?
+  createdAt  DateTime          @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan       Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([planId])
+}
+
+model BoardChannel {
+  id           String      @id @default(cuid())
+  communityKey String      @default("exam-community")
+  groupId      String?
+  slug         String      @unique
+  name         String
+  description  String?
+  sortOrder    Int         @default(0)
+  isNotice     Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  group        BoardGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  posts        BoardPost[]
+
+  @@unique([communityKey, slug])
+  @@index([communityKey, sortOrder])
+  @@index([communityKey, groupId, sortOrder])
+}
+
+model BoardGroup {
+  id           String         @id @default(cuid())
+  communityKey String
+  name         String
+  sortOrder    Int
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  boards       BoardChannel[]
+
+  @@unique([communityKey, name])
+  @@index([communityKey, sortOrder])
+}
+
+model BoardPost {
+  id             String          @id @default(cuid())
+  boardChannelId String
+  authorId       String
+  categoryTag    String?
+  title          String
+  content        String
+  attachments    Json?
+  viewCount      Int             @default(0)
+  likeCount      Int             @default(0)
+  commentCount   Int             @default(0)
+  isNotice       Boolean         @default(false)
+  isPinned       Boolean         @default(false)
+  status         BoardPostStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  boardChannel   BoardChannel    @relation(fields: [boardChannelId], references: [id], onDelete: Cascade)
+  author         User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments       BoardComment[]
+  likes          BoardPostLike[]
+  views          BoardPostView[]
+
+  @@index([boardChannelId, status, createdAt])
+  @@index([boardChannelId, isPinned, isNotice, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model BoardComment {
+  id              String             @id @default(cuid())
+  postId          String
+  authorId        String
+  parentCommentId String?
+  content         String
+  status          BoardCommentStatus @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  post            BoardPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentComment   BoardComment?      @relation("BoardCommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies         BoardComment[]     @relation("BoardCommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([authorId, createdAt])
+  @@index([parentCommentId])
+}
+
+model BoardPostLike {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime  @default(now())
+
+  post      BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model BoardReport {
+  id           String           @id @default(cuid())
+  targetType   ReportTargetType
+  targetId     String
+  reporterId   String
+  reasonCode   String
+  detail       String?
+  createdAt    DateTime         @default(now())
+
+  reporter     User             @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId, createdAt])
+  @@index([reporterId, createdAt])
+}
+
+model BoardPostView {
+  id         String    @id @default(cuid())
+  postId     String
+  userId     String?
+  viewerKey  String
+  lastViewedAt DateTime @default(now())
+
+  post       BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, viewerKey])
+  @@index([userId, lastViewedAt])
+}

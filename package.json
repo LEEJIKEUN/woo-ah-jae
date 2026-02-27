@@ -4,23 +4,47 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:up": "node -e \"console.log('SQLite mode: no separate DB server is required.')\"",
+    "db:down": "node -e \"console.log('SQLite mode: no DB shutdown step is required.')\"",
+    "db:migrate": "node scripts/sqlite-migrate.mjs",
+    "db:generate": "prisma generate",
+    "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "bcryptjs": "^3.0.3",
+    "framer-motion": "^12.34.3",
+    "i18n-iso-countries": "^7.14.0",
+    "jose": "^6.1.3",
+    "lucide-react": "^0.542.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "prisma": "^6.19.0",
+    "supertest": "^7.2.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.0.18"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
   }
 }

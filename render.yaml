@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: woo-ah-jae
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /login
+    disk:
+      name: woo-ah-jae-disk
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/var/data/dev.db
+      - key: PRIVATE_UPLOAD_DIR
+        value: /var/data/private_uploads
+      - key: APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_STUDENT_OWNER_EMAIL
+        sync: false
+      - key: SEED_STUDENT_OWNER_PASSWORD
+        sync: false
+      - key: SEED_STUDENT_APPLICANT_EMAIL
+        sync: false
+      - key: SEED_STUDENT_APPLICANT_PASSWORD
+        sync: false

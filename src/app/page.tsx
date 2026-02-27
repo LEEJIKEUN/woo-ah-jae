@@ -1,65 +1,89 @@
-import Image from "next/image";
+import BrandIntro from "@/components/home/BrandIntro";
+import HeroSpotlight from "@/components/home/HeroSpotlight";
+import HorizontalRail from "@/components/home/HorizontalRail";
+import TopTenRail from "@/components/home/TopTenRail";
+import { CategoryTab, PRIMARY_TABS } from "@/lib/categoryConfig";
+import { HOME_PROJECTS, HomeProject } from "@/lib/mockProjects";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+function byCategory(items: HomeProject[], tab: CategoryTab) {
+  return items.filter((item) => item.categoryTab === tab).sort(
+    (a, b) => b.popularityScore - a.popularityScore
+  );
+}
+
+function toCategoryTab(tab: string | null): CategoryTab {
+  if (tab && PRIMARY_TABS.includes(tab as CategoryTab)) {
+    return tab as CategoryTab;
+  }
+  return "교과";
+}
+
+export default async function Home() {
+  const topStudyPosts = await prisma.boardPost.findMany({
+    where: {
+      status: "ACTIVE",
+      boardChannel: { slug: "study-admission" },
+    },
+    orderBy: [{ likeCount: "desc" }, { commentCount: "desc" }, { createdAt: "desc" }],
+    take: 5,
+    select: {
+      id: true,
+      title: true,
+      likeCount: true,
+      commentCount: true,
+    },
+  });
+
+  const dbProjects = await prisma.project.findMany({
+    orderBy: [{ popularityScore: "desc" }, { likeCount: "desc" }, { createdAt: "desc" }],
+    take: 30,
+  });
+
+  const dbHomeProjects: HomeProject[] = dbProjects.map((item) => ({
+    id: item.id,
+    title: item.title,
+    summary: item.summary ?? item.description.slice(0, 120),
+    categoryTab: toCategoryTab(item.tab),
+    channel: item.channel ?? "전체",
+    posterUrl: item.thumbnailUrl ?? undefined,
+    popularityScore: item.popularityScore,
+    likeCount: item.likeCount,
+    commentCount: item.commentCount,
+    tags: [item.status === "OPEN" ? "모집중" : "마감"],
+    deadline: item.deadline?.toISOString().slice(0, 10),
+  }));
+
+  const mergedProjects = [...dbHomeProjects];
+  const seen = new Set(mergedProjects.map((item) => item.id));
+  for (const item of HOME_PROJECTS) {
+    if (seen.has(item.id)) continue;
+    mergedProjects.push(item);
+    if (mergedProjects.length >= 24) break;
+  }
+
+  const displayProjects = mergedProjects.length ? mergedProjects : HOME_PROJECTS;
+  const topTen = [...displayProjects]
+    .sort((a, b) => b.popularityScore - a.popularityScore)
+    .slice(0, 10);
+
+  const spotlight = topTen[0] ?? displayProjects[0];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
+      <section className="mx-auto max-w-6xl space-y-14 px-4 pb-10 pt-[calc(var(--header-h)+1rem)] md:px-6 md:pb-12 md:pt-[calc(var(--header-h)+1.5rem)]">
+        <BrandIntro topPosts={topStudyPosts} />
+
+        <HeroSpotlight item={spotlight} />
+
+        <TopTenRail items={topTen} />
+
+        <HorizontalRail title="교과" items={byCategory(displayProjects, "교과")} />
+        <HorizontalRail title="창체" items={byCategory(displayProjects, "창체")} />
+        <HorizontalRail title="교내대회" items={byCategory(displayProjects, "교내대회")} />
+        <HorizontalRail title="교외대회" items={byCategory(displayProjects, "교외대회")} />
+        <HorizontalRail title="공인시험" items={byCategory(displayProjects, "공인시험")} />
+      </section>
+    </main>
   );
 }

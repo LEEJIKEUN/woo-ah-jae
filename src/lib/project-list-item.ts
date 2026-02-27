@@ -1,0 +1,21 @@
+export type ProjectListItem = {
+  id: string;
+  title: string;
+  summary: string;
+  tab: string;
+  channel: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string;
+  popularityScore: number;
+  likeCount: number;
+  commentCount: number;
+  tags?: string[];
+  targetRoles: string;
+  capacity: number;
+  requirements: string;
+  gradeBand?: string;
+  status: "open" | "closed";
+  kind?: "온라인" | "오프라인" | "하이브리드";
+  deadline?: string;
+  createdAt: string;
+};
