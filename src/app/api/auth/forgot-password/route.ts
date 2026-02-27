@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createPasswordResetToken } from "@/lib/password-reset";
 
 const schema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email(),
 });
 
 const SUCCESS_MESSAGE = "입력하신 이메일로 비밀번호 재설정 안내를 보냈습니다. 메일함을 확인해 주세요.";
@@ -43,13 +43,15 @@ export async function POST(request: NextRequest) {
       devResetUrl = resetUrl;
 
       try {
-        await sendPasswordResetEmail({
+        const messageId = await sendPasswordResetEmail({
           to: user.email,
           resetUrl,
           expiresMinutes,
         });
+        console.log(`[forgot-password] sent reset mail to=${user.email} messageId=${messageId ?? "n/a"}`);
       } catch (mailError) {
         if (process.env.NODE_ENV === "production") {
+          console.error("[forgot-password] mail delivery failed:", mailError);
           throw mailError;
         }
         console.warn("[password-reset] mail delivery failed in non-production:", mailError);
