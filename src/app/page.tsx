@@ -6,6 +6,8 @@ import { CategoryTab, PRIMARY_TABS } from "@/lib/categoryConfig";
 import { HOME_PROJECTS, HomeProject } from "@/lib/mockProjects";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 function byCategory(items: HomeProject[], tab: CategoryTab) {
   return items.filter((item) => item.categoryTab === tab).sort(
     (a, b) => b.popularityScore - a.popularityScore
