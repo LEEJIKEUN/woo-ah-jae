@@ -21,7 +21,7 @@ export default function Header({ session, accountLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [navSection, setNavSection] = useState<"projects" | "boards">("projects");
+  const [navSection, setNavSection] = useState<"projects" | "boards" | null>(null);
   const [activeTab, setActiveTab] = useState<CategoryTab | null>(null);
   const router = useRouter();
 
@@ -40,12 +40,20 @@ export default function Header({ session, accountLabel }: Props) {
   }, [pathname]);
 
   useEffect(() => {
+    if (!session) {
+      setNavSection(null);
+      return;
+    }
     if (pathname?.startsWith("/boards") || pathname?.startsWith("/community/admissions")) {
       setNavSection("boards");
       return;
     }
-    setNavSection("projects");
-  }, [pathname]);
+    if (pathname?.startsWith("/category")) {
+      setNavSection("projects");
+      return;
+    }
+    setNavSection(null);
+  }, [pathname, session]);
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 12);
@@ -85,6 +93,28 @@ export default function Header({ session, accountLabel }: Props) {
             <Link href="/" className="shrink-0 text-base font-semibold tracking-tight text-[color:var(--foreground)]">
               Woo Ah Jae
             </Link>
+            {session ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setNavSection((prev) => (prev === "projects" ? null : "projects"))}
+                  className={`shrink-0 text-sm font-medium transition ${
+                    navSection === "projects" ? "text-white" : "text-slate-300 hover:text-white"
+                  }`}
+                >
+                  프로젝트 둘러보기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNavSection((prev) => (prev === "boards" ? null : "boards"))}
+                  className={`shrink-0 text-sm font-medium transition ${
+                    navSection === "boards" ? "text-white" : "text-slate-300 hover:text-white"
+                  }`}
+                >
+                  게시판
+                </button>
+              </>
+            ) : null}
             {!session ? (
               <Link href="/usage" className="shrink-0 text-sm font-medium text-slate-300 transition hover:text-white">
                 사용법
@@ -169,31 +199,8 @@ export default function Header({ session, accountLabel }: Props) {
           )}
         </div>
 
-        {session ? (
+        {session && navSection ? (
           <>
-            <div className="border-t border-white/10 py-2">
-              <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <button
-                  type="button"
-                  onClick={() => setNavSection("projects")}
-                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                    navSection === "projects" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
-                  }`}
-                >
-                  프로젝트 함께하기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNavSection("boards")}
-                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                    navSection === "boards" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
-                  }`}
-                >
-                  게시판
-                </button>
-              </div>
-            </div>
-
             <div className="border-t border-white/10 py-2">
               <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {navSection === "projects"

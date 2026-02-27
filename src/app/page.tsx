@@ -2,6 +2,8 @@ import BrandIntro from "@/components/home/BrandIntro";
 import HeroSpotlight from "@/components/home/HeroSpotlight";
 import HorizontalRail from "@/components/home/HorizontalRail";
 import TopTenRail from "@/components/home/TopTenRail";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { CategoryTab, PRIMARY_TABS } from "@/lib/categoryConfig";
 import { HOME_PROJECTS, HomeProject } from "@/lib/mockProjects";
 import { prisma } from "@/lib/prisma";
@@ -22,6 +24,18 @@ function toCategoryTab(tab: string | null): CategoryTab {
 }
 
 export default async function Home() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  let isLoggedIn = false;
+  if (token) {
+    try {
+      await verifySessionToken(token);
+      isLoggedIn = true;
+    } catch {
+      isLoggedIn = false;
+    }
+  }
+
   const topStudyPosts = await prisma.boardPost.findMany({
     where: {
       status: "ACTIVE",
@@ -73,7 +87,11 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
-      <section className="mx-auto max-w-6xl space-y-14 px-4 pb-10 pt-4 md:px-6 md:pb-12 md:pt-5">
+      <section
+        className={`mx-auto max-w-6xl space-y-14 px-4 pb-10 pt-4 md:px-6 md:pb-12 md:pt-5 ${
+          isLoggedIn ? "" : "pointer-events-none select-none"
+        }`}
+      >
         <BrandIntro topPosts={topStudyPosts} />
 
         <HeroSpotlight item={spotlight} />

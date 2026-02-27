@@ -11,6 +11,7 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(72),
   passwordConfirm: z.string().min(8).max(72),
+  realName: z.string().min(1).max(80),
   residenceCountry: z.string().min(1).max(80),
   schoolName: z.string().min(1),
   schoolNameCustom: z.string().optional(),
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
       email: form.get("email"),
       password: form.get("password"),
       passwordConfirm: form.get("passwordConfirm"),
+      realName: form.get("realName"),
       residenceCountry: form.get("residenceCountry"),
       schoolName: form.get("schoolName"),
       schoolNameCustom: form.get("schoolNameCustom"),
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
         await tx.studentProfile.create({
           data: {
             userId: user.id,
-            realName: "",
+            realName: parsed.realName.trim(),
             schoolName: finalSchoolName,
             residenceCountry: parsed.residenceCountry,
             birthDate: new Date(parsed.birthDate),

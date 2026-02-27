@@ -202,7 +202,17 @@ export default function SignupPage() {
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">7. 학생증 또는 재학증명서 업로드</span>
+          <span className="text-sm font-medium">7. 이름(실명)</span>
+          <input
+            name="realName"
+            required
+            className="w-full rounded-md border border-slate-600 bg-[color:var(--surface-elevated)] px-3 py-2"
+            placeholder="실명을 입력하세요"
+          />
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium">8. 학생증 또는 재학증명서 업로드</span>
           <input
             ref={verificationFileRef}
             name="verificationFile"
