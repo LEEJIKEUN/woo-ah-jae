@@ -15,48 +15,49 @@ export async function POST(request: NextRequest) {
     const body = schema.parse(await request.json());
 
     const user = await prisma.user.findUnique({ where: { email: body.email } });
+    if (!user) {
+      return NextResponse.json({ error: "등록되지 않은 이메일입니다." }, { status: 404 });
+    }
+
     let devResetUrl: string | undefined;
     let devWarning: string | undefined;
+    const { token, tokenHash } = createPasswordResetToken();
+    const expiresMinutes = 30;
+    const expiresAt = new Date(Date.now() + expiresMinutes * 60 * 1000);
 
-    if (user) {
-      const { token, tokenHash } = createPasswordResetToken();
-      const expiresMinutes = 30;
-      const expiresAt = new Date(Date.now() + expiresMinutes * 60 * 1000);
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        userId: user.id,
+        OR: [{ usedAt: null }, { expiresAt: { lt: new Date() } }],
+      },
+    });
 
-      await prisma.passwordResetToken.deleteMany({
-        where: {
-          userId: user.id,
-          OR: [{ usedAt: null }, { expiresAt: { lt: new Date() } }],
-        },
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || request.nextUrl.origin;
+    const resetUrl = `${origin}/reset-password?token=${token}`;
+    devResetUrl = resetUrl;
+
+    try {
+      const messageId = await sendPasswordResetEmail({
+        to: user.email,
+        resetUrl,
+        expiresMinutes,
       });
-
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-        },
-      });
-
-      const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || request.nextUrl.origin;
-      const resetUrl = `${origin}/reset-password?token=${token}`;
-      devResetUrl = resetUrl;
-
-      try {
-        const messageId = await sendPasswordResetEmail({
-          to: user.email,
-          resetUrl,
-          expiresMinutes,
-        });
-        console.log(`[forgot-password] sent reset mail to=${user.email} messageId=${messageId ?? "n/a"}`);
-      } catch (mailError) {
-        if (process.env.NODE_ENV === "production") {
-          console.error("[forgot-password] mail delivery failed:", mailError);
-          throw mailError;
-        }
-        console.warn("[password-reset] mail delivery failed in non-production:", mailError);
-        devWarning = "메일 설정이 없어 개발용 재설정 링크를 표시합니다.";
+      console.log(`[forgot-password] sent reset mail to=${user.email} messageId=${messageId ?? "n/a"}`);
+    } catch (mailError) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("[forgot-password] mail delivery failed:", mailError);
+        throw mailError;
       }
+      console.warn("[password-reset] mail delivery failed in non-production:", mailError);
+      devWarning = "메일 설정이 없어 개발용 재설정 링크를 표시합니다.";
     }
 
     return NextResponse.json({
