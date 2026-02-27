@@ -14,4 +14,4 @@ COPY . .
 RUN npm run db:generate && npm run build:render
 
 EXPOSE 10000
-CMD ["sh", "-c", "node scripts/sqlite-migrate.mjs && npm run start -- -p ${PORT:-10000}"]
+CMD ["sh", "-c", "node scripts/sqlite-migrate.mjs && npm run db:seed && npm run start -- -p ${PORT:-10000}"]
