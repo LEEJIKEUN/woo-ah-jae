@@ -213,30 +213,23 @@ export default function SignupPage() {
 
         <label className="block space-y-1">
           <span className="text-sm font-medium">8. 학생증 또는 재학증명서 업로드</span>
-          <input
-            ref={verificationFileRef}
-            name="verificationFile"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/heic,.png,.jpg,.jpeg,.webp,.heic,.pdf"
-            required
-            className="hidden"
-            onChange={(e) => {
-              const file = e.currentTarget.files?.[0];
-              setSelectedFileName(file?.name ?? "");
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => verificationFileRef.current?.click()}
-            className="flex w-full items-center gap-3 rounded-md border border-slate-600 bg-[color:var(--surface-elevated)] px-3 py-2 text-left text-slate-100"
-          >
-            <span className="rounded bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-900">
-              업로드
-            </span>
-            <span className="truncate text-sm text-slate-200">
+          <div className="relative w-full rounded-md border border-slate-600 bg-[color:var(--surface-elevated)] px-3 py-2 text-left text-slate-100">
+            <input
+              ref={verificationFileRef}
+              name="verificationFile"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/heic,.png,.jpg,.jpeg,.webp,.heic,.pdf"
+              required
+              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                setSelectedFileName(file?.name ?? "");
+              }}
+            />
+            <span className="block truncate text-sm text-slate-200">
               {selectedFileName || "학생증/재학증명서 파일을 선택하세요"}
             </span>
-          </button>
+          </div>
           <p className="text-xs text-slate-500">사진 촬영 업로드 또는 저장된 파일 업로드 가능 (최대 10MB)</p>
         </label>
 
