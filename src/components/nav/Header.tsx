@@ -81,9 +81,16 @@ export default function Header({ session, accountLabel }: Props) {
     >
       <nav className="mx-auto w-full max-w-[1600px] px-4 md:px-6">
         <div className="flex h-14 items-center justify-between gap-3">
-          <Link href="/" className="shrink-0 text-base font-semibold tracking-tight text-[color:var(--foreground)]">
-            Woo Ah Jae
-          </Link>
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="shrink-0 text-base font-semibold tracking-tight text-[color:var(--foreground)]">
+              Woo Ah Jae
+            </Link>
+            {!session ? (
+              <Link href="/usage" className="shrink-0 text-sm font-medium text-slate-300 transition hover:text-white">
+                사용법
+              </Link>
+            ) : null}
+          </div>
 
           {!session ? (
             <div className="flex items-center gap-3 text-sm font-medium">
@@ -162,63 +169,67 @@ export default function Header({ session, accountLabel }: Props) {
           )}
         </div>
 
-        <div className="border-t border-white/10 py-2">
-          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              type="button"
-              onClick={() => setNavSection("projects")}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                navSection === "projects" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
-              }`}
-            >
-              프로젝트 함께하기
-            </button>
-            <button
-              type="button"
-              onClick={() => setNavSection("boards")}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                navSection === "boards" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
-              }`}
-            >
-              게시판
-            </button>
-          </div>
-        </div>
+        {session ? (
+          <>
+            <div className="border-t border-white/10 py-2">
+              <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <button
+                  type="button"
+                  onClick={() => setNavSection("projects")}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                    navSection === "projects" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
+                  }`}
+                >
+                  프로젝트 함께하기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNavSection("boards")}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                    navSection === "boards" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
+                  }`}
+                >
+                  게시판
+                </button>
+              </div>
+            </div>
 
-        <div className="border-t border-white/10 py-2">
-          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {navSection === "projects"
-              ? PRIMARY_TABS.map((tab) => (
-              <Link
-                key={tab}
-                href={`/category?tab=${encodeURIComponent(tab)}&channel=전체&sort=popular`}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium transition ${
-                  activeTab === tab
-                    ? "bg-slate-100/10 text-slate-100"
-                    : "text-slate-300 hover:text-slate-100"
-                }`}
-              >
-                <span className="whitespace-nowrap">{tab}</span>
-              </Link>
-              ))
-              : (
-                <>
-                  <Link
-                    href="/community/admissions?board=all"
-                    className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
-                  >
-                    학습+입시 정보 공유
-                  </Link>
-                  <Link
-                    href="/boards/talk"
-                    className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
-                  >
-                    이야기 나눠요
-                  </Link>
-                </>
-              )}
-          </div>
-        </div>
+            <div className="border-t border-white/10 py-2">
+              <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {navSection === "projects"
+                  ? PRIMARY_TABS.map((tab) => (
+                    <Link
+                      key={tab}
+                      href={`/category?tab=${encodeURIComponent(tab)}&channel=전체&sort=popular`}
+                      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium transition ${
+                        activeTab === tab
+                          ? "bg-slate-100/10 text-slate-100"
+                          : "text-slate-300 hover:text-slate-100"
+                      }`}
+                    >
+                      <span className="whitespace-nowrap">{tab}</span>
+                    </Link>
+                  ))
+                  : (
+                    <>
+                      <Link
+                        href="/community/admissions?board=all"
+                        className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
+                      >
+                        학습+입시 정보 공유
+                      </Link>
+                      <Link
+                        href="/boards/talk"
+                        className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
+                      >
+                        이야기 나눠요
+                      </Link>
+                    </>
+                  )}
+              </div>
+            </div>
+          </>
+        ) : null}
       </nav>
     </header>
   );

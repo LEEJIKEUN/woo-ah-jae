@@ -73,7 +73,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
-      <section className="mx-auto max-w-6xl space-y-14 px-4 pb-10 pt-[calc(var(--header-h)+1rem)] md:px-6 md:pb-12 md:pt-[calc(var(--header-h)+1.5rem)]">
+      <section className="mx-auto max-w-6xl space-y-14 px-4 pb-10 pt-4 md:px-6 md:pb-12 md:pt-5">
         <BrandIntro topPosts={topStudyPosts} />
 
         <HeroSpotlight item={spotlight} />

@@ -194,12 +194,11 @@ export default function SignupPage() {
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">7. 인증 사진 업로드</span>
+          <span className="text-sm font-medium">7. 학생증 또는 재학증명서 업로드</span>
           <input
             name="verificationFile"
             type="file"
             accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp,.pdf"
-            capture="environment"
             required
             className="w-full rounded-md border border-slate-600 bg-[color:var(--surface-elevated)] px-3 py-2"
           />
