@@ -48,10 +48,6 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6">
       <h1 className="mb-2 text-3xl font-bold text-slate-100">로그인</h1>
-      <p className="mb-6 text-sm text-slate-400">
-        관리자 테스트 계정: <span className="font-mono">admin@wooahjae.local / ChangeMe123!</span>
-      </p>
-
       <form onSubmit={onSubmit} className="space-y-4 rounded-2xl bg-[color:var(--surface)] p-6">
         <label className="block space-y-1">
           <span className="text-sm font-medium text-slate-200">이메일</span>
