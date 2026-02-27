@@ -21,6 +21,7 @@ export default function Header({ session, accountLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [navSection, setNavSection] = useState<"projects" | "boards">("projects");
   const [activeTab, setActiveTab] = useState<CategoryTab | null>(null);
   const router = useRouter();
 
@@ -36,6 +37,14 @@ export default function Header({ session, accountLabel }: Props) {
     } else {
       setActiveTab("교과");
     }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname?.startsWith("/boards") || pathname?.startsWith("/community/admissions")) {
+      setNavSection("boards");
+      return;
+    }
+    setNavSection("projects");
   }, [pathname]);
 
   useEffect(() => {
@@ -70,14 +79,116 @@ export default function Header({ session, accountLabel }: Props) {
           : "border-white/10 bg-black/35 backdrop-blur-md"
       }`}
     >
-      <nav className="mx-auto flex h-[var(--header-h)] w-full max-w-[1600px] items-center justify-between gap-8 px-6 md:px-8">
-        <div className="flex min-w-0 flex-1 items-center gap-6">
+      <nav className="mx-auto w-full max-w-[1600px] px-4 md:px-6">
+        <div className="flex h-14 items-center justify-between gap-3">
           <Link href="/" className="shrink-0 text-base font-semibold tracking-tight text-[color:var(--foreground)]">
             Woo Ah Jae
           </Link>
 
-          <div className="hidden min-w-0 flex-nowrap items-center gap-2 md:flex">
-            {PRIMARY_TABS.map((tab) => (
+          {!session ? (
+            <div className="flex items-center gap-3 text-sm font-medium">
+              <Link href="/signup" className="text-slate-300 transition hover:text-white">
+                회원가입
+              </Link>
+              <Link href="/login" className="text-slate-300 transition hover:text-white">
+                로그인
+              </Link>
+            </div>
+          ) : (
+            <div className="relative ml-2 flex shrink-0 items-center gap-2">
+              <div className="hidden items-center gap-2 xl:flex">
+                <Link href="/me/projects" className="whitespace-nowrap rounded-md border border-slate-500/70 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white">
+                  내 프로젝트 관리
+                </Link>
+                <Link href="/projects/new" className="whitespace-nowrap rounded-md border border-slate-500/70 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white">
+                  새 프로젝트 만들기
+                </Link>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 bg-slate-900 text-sm font-semibold text-slate-100"
+                aria-label="계정 메뉴"
+              >
+                {accountInitial}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="max-w-[96px] truncate text-left text-xs text-slate-300 transition hover:text-slate-100"
+                aria-label="계정 정보"
+                title={accountLabel ?? session.email}
+              >
+                {accountLabel ?? session.email}
+              </button>
+
+              {open ? (
+                <div className="absolute right-0 top-11 z-50 w-44 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1.5 shadow-xl shadow-black/40">
+                  <Link
+                    href="/account"
+                    onClick={() => setOpen(false)}
+                    className="block rounded-md px-3 py-2 text-sm text-slate-100 hover:bg-[color:var(--surface-elevated)]"
+                  >
+                    내정보
+                  </Link>
+                  {session.role === "ADMIN" ? (
+                    <Link
+                      href="/admin/members"
+                      onClick={() => setOpen(false)}
+                      className="mt-1 block rounded-md px-3 py-2 text-sm text-slate-100 hover:bg-[color:var(--surface-elevated)]"
+                    >
+                      회원 관리
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/me/projects"
+                      onClick={() => setOpen(false)}
+                      className="mt-1 block rounded-md px-3 py-2 text-sm text-slate-100 hover:bg-[color:var(--surface-elevated)]"
+                    >
+                      내 프로젝트 관리
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={logout}
+                    className="mt-1 block w-full rounded-md px-3 py-2 text-left text-sm text-rose-300 hover:bg-rose-500/10 disabled:opacity-60"
+                  >
+                    {loading ? "로그아웃 중..." : "로그아웃"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-white/10 py-2">
+          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => setNavSection("projects")}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                navSection === "projects" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
+              }`}
+            >
+              프로젝트 함께하기
+            </button>
+            <button
+              type="button"
+              onClick={() => setNavSection("boards")}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                navSection === "boards" ? "bg-slate-100/15 text-slate-100" : "text-slate-300 hover:text-slate-100"
+              }`}
+            >
+              게시판
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 py-2">
+          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {navSection === "projects"
+              ? PRIMARY_TABS.map((tab) => (
               <Link
                 key={tab}
                 href={`/category?tab=${encodeURIComponent(tab)}&channel=전체&sort=popular`}
@@ -89,96 +200,25 @@ export default function Header({ session, accountLabel }: Props) {
               >
                 <span className="whitespace-nowrap">{tab}</span>
               </Link>
-            ))}
-            <Link
-              href="/community/admissions?board=all"
-              className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
-            >
-              학습+입시 정보 공유
-            </Link>
-            <Link
-              href="/boards/talk"
-              className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
-            >
-              이야기 나눠요
-            </Link>
+              ))
+              : (
+                <>
+                  <Link
+                    href="/community/admissions?board=all"
+                    className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
+                  >
+                    학습+입시 정보 공유
+                  </Link>
+                  <Link
+                    href="/boards/talk"
+                    className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-1 text-sm font-medium text-slate-300 transition hover:text-slate-100"
+                  >
+                    이야기 나눠요
+                  </Link>
+                </>
+              )}
           </div>
         </div>
-
-        {!session ? (
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <Link href="/signup" className="text-slate-300 transition hover:text-white">
-              회원가입
-            </Link>
-            <Link href="/login" className="text-slate-300 transition hover:text-white">
-              로그인
-            </Link>
-          </div>
-        ) : (
-          <div className="relative ml-4 flex shrink-0 items-center gap-2">
-            <div className="hidden items-center gap-2 md:flex">
-              <Link href="/me/projects" className="whitespace-nowrap rounded-md border border-slate-500/70 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white">
-                내 프로젝트 관리
-              </Link>
-              <Link href="/projects/new" className="whitespace-nowrap rounded-md border border-slate-500/70 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-300 hover:text-white">
-                새 프로젝트 만들기
-              </Link>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 bg-slate-900 text-sm font-semibold text-slate-100"
-              aria-label="계정 메뉴"
-            >
-              {accountInitial}
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="max-w-[180px] truncate text-left text-xs text-slate-300 transition hover:text-slate-100 md:max-w-[260px]"
-              aria-label="계정 정보"
-            >
-              {accountLabel ?? session.email}
-            </button>
-
-            {open ? (
-              <div className="absolute right-0 top-11 z-50 w-44 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1.5 shadow-xl shadow-black/40">
-                <Link
-                  href="/account"
-                  onClick={() => setOpen(false)}
-                  className="block rounded-md px-3 py-2 text-sm text-slate-100 hover:bg-[color:var(--surface-elevated)]"
-                >
-                  내정보
-                </Link>
-                {session.role === "ADMIN" ? (
-                  <Link
-                    href="/admin/members"
-                    onClick={() => setOpen(false)}
-                    className="mt-1 block rounded-md px-3 py-2 text-sm text-slate-100 hover:bg-[color:var(--surface-elevated)]"
-                  >
-                    회원 관리
-                  </Link>
-                ) : (
-                  <Link
-                    href="/me/projects"
-                    onClick={() => setOpen(false)}
-                    className="mt-1 block rounded-md px-3 py-2 text-sm text-slate-100 hover:bg-[color:var(--surface-elevated)]"
-                  >
-                    내 프로젝트 관리
-                  </Link>
-                )}
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={logout}
-                  className="mt-1 block w-full rounded-md px-3 py-2 text-left text-sm text-rose-300 hover:bg-rose-500/10 disabled:opacity-60"
-                >
-                  {loading ? "로그아웃 중..." : "로그아웃"}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        )}
       </nav>
     </header>
   );

@@ -35,7 +35,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   if (session) {
     const emailLocalPart = session.email.split("@")[0] || "사용자";
-    const fallbackBase = `학교미입력-${session.role === "ADMIN" ? "운영" : "학년미입력"}-${emailLocalPart}`;
+    const fallbackBase = emailLocalPart;
 
     try {
       const user = await prisma.user.findUnique({
@@ -52,12 +52,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         },
       });
 
-      const school = user?.studentProfile?.schoolName?.trim() || "학교미입력";
-      const grade = user?.studentProfile?.grade?.trim() || (session.role === "ADMIN" ? "운영" : "학년미입력");
       const name = user?.studentProfile?.realName?.trim() || emailLocalPart;
-      accountLabel = `${school}-${grade}-${name}${session.role === "ADMIN" ? " (관리자)" : ""}`;
+      accountLabel = name;
     } catch {
-      accountLabel = `${fallbackBase}${session.role === "ADMIN" ? " (관리자)" : ""}`;
+      accountLabel = fallbackBase;
     }
   }
 
