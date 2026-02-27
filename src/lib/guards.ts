@@ -26,7 +26,14 @@ export async function getAuthFromRequest(request: NextRequest) {
 
 export async function requireAdmin(request: NextRequest) {
   const auth = await getAuthFromRequest(request);
-  if (auth.role !== UserRole.ADMIN) {
+  const user = await prisma.user.findUnique({
+    where: { id: auth.userId },
+    select: { id: true, role: true },
+  });
+  if (!user) {
+    throw new HttpError(401, "세션이 만료되었습니다. 다시 로그인해 주세요.");
+  }
+  if (user.role !== UserRole.ADMIN) {
     throw new HttpError(403, "Admin only");
   }
   return auth;
@@ -43,7 +50,14 @@ export async function getUserVerificationStatus(userId: string) {
 
 export async function requireVerifiedOrAdmin(request: NextRequest) {
   const auth = await getAuthFromRequest(request);
-  if (auth.role === UserRole.ADMIN) {
+  const user = await prisma.user.findUnique({
+    where: { id: auth.userId },
+    select: { id: true, role: true },
+  });
+  if (!user) {
+    throw new HttpError(401, "세션이 만료되었습니다. 다시 로그인해 주세요.");
+  }
+  if (user.role === UserRole.ADMIN) {
     return auth;
   }
   const status = await getUserVerificationStatus(auth.userId);

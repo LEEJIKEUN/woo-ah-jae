@@ -109,6 +109,17 @@ export async function POST(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2003"
+    ) {
+      return NextResponse.json(
+        { error: "세션 정보가 만료되었습니다. 다시 로그인 후 승인/거절을 진행해주세요." },
+        { status: 401 }
+      );
+    }
     return jsonError(error);
   }
 }

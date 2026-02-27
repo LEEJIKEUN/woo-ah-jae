@@ -112,4 +112,37 @@ describe("POST /api/admin/verifications/[id]/decision", () => {
       })
     );
   });
+
+  it("returns 401 with relogin message when FK error(P2003) occurs", async () => {
+    const guards = await import("@/lib/guards");
+    vi.mocked(guards.requireAdmin).mockResolvedValue({
+      userId: "stale_admin_id",
+      role: "ADMIN",
+      email: "admin@example.com",
+    });
+
+    findUniqueMock.mockResolvedValue({
+      id: "sub_1",
+      userId: "student_1",
+      status: "PENDING_REVIEW",
+    });
+
+    const fkError = new Error("Foreign key failed") as Error & { code: string };
+    fkError.code = "P2003";
+    prismaMock.$transaction.mockRejectedValueOnce(fkError);
+
+    const { POST } = await import("@/app/api/admin/verifications/[id]/decision/route");
+
+    const req = new NextRequest("http://localhost/api/admin/verifications/sub_1/decision", {
+      method: "POST",
+      body: JSON.stringify({ decision: "APPROVE" }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await POST(req, { params: Promise.resolve({ id: "sub_1" }) });
+    const json = (await res.json()) as { error: string };
+
+    expect(res.status).toBe(401);
+    expect(json.error).toContain("다시 로그인");
+  });
 });
