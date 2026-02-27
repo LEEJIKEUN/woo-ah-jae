@@ -11,7 +11,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run db:generate && npm run build
+RUN npm run db:generate && npm run build:render
 
 EXPOSE 10000
 CMD ["sh", "-c", "node scripts/sqlite-migrate.mjs && npm run start -- -p ${PORT:-10000}"]

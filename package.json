@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "build:render": "DATABASE_URL=file:./build.db node scripts/sqlite-migrate.mjs && DATABASE_URL=file:./build.db next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
