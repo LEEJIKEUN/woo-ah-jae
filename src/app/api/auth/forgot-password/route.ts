@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "등록되지 않은 이메일입니다." }, { status: 404 });
     }
 
-    let devResetUrl: string | undefined;
     let devWarning: string | undefined;
     const { token, tokenHash } = createPasswordResetToken();
     const expiresMinutes = 30;
@@ -42,7 +41,6 @@ export async function POST(request: NextRequest) {
 
     const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || request.nextUrl.origin;
     const resetUrl = `${origin}/reset-password?token=${token}`;
-    devResetUrl = resetUrl;
 
     try {
       const messageId = await sendPasswordResetEmail({
@@ -62,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: SUCCESS_MESSAGE,
-      ...(process.env.NODE_ENV !== "production" && devResetUrl ? { resetUrl: devResetUrl } : {}),
+      ...(process.env.NODE_ENV !== "production" ? { resetUrl } : {}),
       ...(process.env.NODE_ENV !== "production" && devWarning ? { warning: devWarning } : {}),
     });
   } catch (error) {

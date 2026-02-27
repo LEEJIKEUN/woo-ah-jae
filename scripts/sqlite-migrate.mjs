@@ -27,6 +27,12 @@ function resolveSqlitePath() {
 const dbPath = resolveSqlitePath();
 const migrationsDir = path.join(root, "prisma", "migrations");
 
+if (process.env.RENDER && !dbPath.startsWith("/var/data/")) {
+  console.warn(
+    `[db-warning] Render에서 영속 DB를 사용하려면 DATABASE_URL을 /var/data 경로로 설정하세요. 현재: ${dbPath}`
+  );
+}
+
 mkdirSync(path.dirname(dbPath), { recursive: true });
 mkdirSync(migrationsDir, { recursive: true });
 

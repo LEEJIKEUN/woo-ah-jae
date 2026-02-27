@@ -14,7 +14,8 @@
     "db:down": "node -e \"console.log('SQLite mode: no DB shutdown step is required.')\"",
     "db:migrate": "node scripts/sqlite-migrate.mjs",
     "db:generate": "prisma generate",
-    "db:seed": "node prisma/seed.mjs"
+    "db:seed": "node prisma/seed.mjs",
+    "db:seed:if-empty": "node scripts/seed-if-empty.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

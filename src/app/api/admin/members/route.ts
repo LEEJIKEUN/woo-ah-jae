@@ -79,6 +79,21 @@ export async function GET(request: NextRequest) {
     } catch (dbError) {
       if (!isDbConnectionError(dbError)) throw dbError;
 
+      // 운영 환경에서는 부분 데이터(local)로 오인되지 않게 fallback을 차단한다.
+      const allowLocalFallback =
+        process.env.NODE_ENV !== "production" ||
+        request.nextUrl.searchParams.get("allowLocalFallback") === "1";
+      if (!allowLocalFallback) {
+        return NextResponse.json(
+          {
+            error:
+              "회원 목록 DB 연결이 일시적으로 불안정합니다. 잠시 후 새로고침해주세요. (부분 목록 전환 방지)",
+            source: "db_unavailable",
+          },
+          { status: 503 }
+        );
+      }
+
       const locals = await listLocalSignups();
       const filtered = locals.filter((x) => !q || x.email.toLowerCase().includes(q.toLowerCase()));
 
