@@ -26,7 +26,8 @@ export async function PATCH(
       return NextResponse.json({ error: "프로젝트를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (project.ownerId !== auth.userId) {
+    const canManage = auth.role === "ADMIN" || project.ownerId === auth.userId;
+    if (!canManage) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
@@ -110,7 +111,8 @@ export async function DELETE(
       return NextResponse.json({ error: "프로젝트를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    if (project.ownerId !== auth.userId) {
+    const canManage = auth.role === "ADMIN" || project.ownerId === auth.userId;
+    if (!canManage) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 

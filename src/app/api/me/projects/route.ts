@@ -7,9 +7,17 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthFromRequest(request);
     const items = await prisma.project.findMany({
-      where: { ownerId: auth.userId },
+      where: auth.role === "ADMIN" ? undefined : { ownerId: auth.userId },
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { applications: true, members: true } } },
+      include: {
+        _count: { select: { applications: true, members: true } },
+        owner: {
+          select: {
+            email: true,
+            studentProfile: { select: { realName: true } },
+          },
+        },
+      },
     });
 
     return NextResponse.json({
@@ -17,6 +25,8 @@ export async function GET(request: NextRequest) {
         ...toCardItem(item),
         applicationCount: item._count.applications,
         memberCount: item._count.members,
+        ownerName: item.owner.studentProfile?.realName ?? item.owner.email.split("@")[0],
+        ownerEmail: item.owner.email,
       })),
     });
   } catch (error) {

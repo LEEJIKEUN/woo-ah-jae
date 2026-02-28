@@ -13,12 +13,102 @@ type Item = {
   applicationCount: number;
   memberCount: number;
   createdAt: string;
+  ownerName?: string;
+  ownerEmail?: string;
 };
 
-export default function MyProjectsDashboard({ initialItems }: { initialItems: Item[] }) {
+export default function MyProjectsDashboard({ initialItems, isAdmin = false }: { initialItems: Item[]; isAdmin?: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSummary, setEditSummary] = useState("");
+  const [editCapacity, setEditCapacity] = useState(1);
+  const [editDescription, setEditDescription] = useState("");
+  const [editRequirements, setEditRequirements] = useState("");
+  const [editRolesNeeded, setEditRolesNeeded] = useState("");
+
+  async function openEditor(item: Item) {
+    setLoadingId(item.id);
+    try {
+      const res = await fetch(`/api/projects/${item.id}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("프로젝트를 불러오지 못했습니다.");
+      const data = (await res.json()) as {
+        item: {
+          title: string;
+          summary: string;
+          description: string;
+          capacity: number;
+          requirements: string | null;
+          rolesNeeded: string | null;
+        };
+      };
+
+      setEditTitle(data.item.title);
+      setEditSummary(data.item.summary ?? "");
+      setEditDescription(data.item.description ?? "");
+      setEditCapacity(data.item.capacity);
+      setEditRequirements(data.item.requirements ?? "");
+      setEditRolesNeeded(data.item.rolesNeeded ?? "");
+      setEditingItem(item);
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function saveEdit() {
+    if (!editingItem) return;
+    setLoadingId(editingItem.id);
+    try {
+      const res = await fetch(`/api/me/projects/${editingItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          summary: editSummary.trim(),
+          description: editDescription.trim(),
+          capacity: editCapacity,
+          requirements: editRequirements.trim(),
+          rolesNeeded: editRolesNeeded.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("프로젝트 수정 실패");
+
+      setItems((prev) =>
+        prev.map((entry) =>
+          entry.id === editingItem.id
+            ? {
+                ...entry,
+                title: editTitle.trim(),
+                summary: editSummary.trim(),
+                capacity: editCapacity,
+              }
+            : entry
+        )
+      );
+      setEditingItem(null);
+      router.refresh();
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function removeProject(item: Item) {
+    const ok = window.confirm(`"${item.title}" 프로젝트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`);
+    if (!ok) return;
+
+    setLoadingId(item.id);
+    try {
+      const res = await fetch(`/api/me/projects/${item.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("삭제 실패");
+
+      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+      router.refresh();
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   async function toggleStatus(item: Item) {
     setLoadingId(item.id);
@@ -60,6 +150,11 @@ export default function MyProjectsDashboard({ initialItems }: { initialItems: It
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-slate-100">{item.title}</h2>
               <p className="text-sm text-slate-300">{item.summary}</p>
+              {isAdmin ? (
+                <p className="text-xs text-slate-400">
+                  소유자: {item.ownerName ?? "-"} ({item.ownerEmail ?? "-"})
+                </p>
+              ) : null}
               <p className="text-xs text-slate-400">
                 상태: {item.status === "open" ? "모집중" : "마감"} · 모집 {item.capacity}명 · 지원 {item.applicationCount}건 · 확정 {item.memberCount}명
               </p>
@@ -73,6 +168,14 @@ export default function MyProjectsDashboard({ initialItems }: { initialItems: It
               >
                 {loadingId === item.id ? "변경 중..." : item.status === "open" ? "모집 마감" : "모집 재개"}
               </button>
+              <button
+                type="button"
+                onClick={() => openEditor(item)}
+                disabled={loadingId === item.id}
+                className="rounded-md border border-slate-500 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300 disabled:opacity-60"
+              >
+                수정
+              </button>
               <Link
                 href={`/me/projects/${item.id}/applications`}
                 className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-white"
@@ -80,15 +183,96 @@ export default function MyProjectsDashboard({ initialItems }: { initialItems: It
                 지원자 관리
               </Link>
               <Link
+                href={`/projects/${item.id}`}
+                className="rounded-md border border-slate-500 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300"
+              >
+                상세 열람
+              </Link>
+              <Link
                 href={`/workspace/${item.id}`}
                 className="rounded-md border border-slate-500 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300"
               >
                 프로젝트 공간
               </Link>
+              <button
+                type="button"
+                onClick={() => removeProject(item)}
+                disabled={loadingId === item.id}
+                className="rounded-md bg-rose-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-400 disabled:opacity-60"
+              >
+                삭제
+              </button>
             </div>
           </div>
         </article>
       ))}
+
+      {editingItem ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-2xl space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-4">
+            <h3 className="text-lg font-semibold text-slate-100">프로젝트 수정</h3>
+            <input
+              value={editTitle}
+              onChange={(event) => setEditTitle(event.target.value)}
+              placeholder="제목"
+              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            />
+            <input
+              value={editSummary}
+              onChange={(event) => setEditSummary(event.target.value)}
+              placeholder="요약"
+              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            />
+            <textarea
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              placeholder="상세 설명"
+              rows={5}
+              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            />
+            <div className="grid gap-2 md:grid-cols-3">
+              <input
+                value={editRequirements}
+                onChange={(event) => setEditRequirements(event.target.value)}
+                placeholder="조건"
+                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              />
+              <input
+                value={editRolesNeeded}
+                onChange={(event) => setEditRolesNeeded(event.target.value)}
+                placeholder="모집 역할"
+                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              />
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={editCapacity}
+                onChange={(event) => setEditCapacity(Math.max(1, Number(event.target.value || 1)))}
+                placeholder="모집 인원"
+                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-200"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={loadingId === editingItem.id}
+                className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-900 disabled:opacity-60"
+              >
+                {loadingId === editingItem.id ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

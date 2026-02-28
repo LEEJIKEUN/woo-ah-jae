@@ -13,12 +13,21 @@ function appStatusLabel(status: "PENDING" | "ACCEPTED" | "REJECTED") {
 
 export default async function MyProjectsPage() {
   const user = await requireUser("/login");
+  const isAdmin = user.role === "ADMIN";
 
   const [projects, appliedProjects, joinedProjects] = await Promise.all([
     prisma.project.findMany({
-      where: { ownerId: user.id },
+      where: isAdmin ? undefined : { ownerId: user.id },
       orderBy: { createdAt: "desc" },
-      include: { _count: { select: { applications: true, members: true } } },
+      include: {
+        _count: { select: { applications: true, members: true } },
+        owner: {
+          select: {
+            email: true,
+            studentProfile: { select: { realName: true } },
+          },
+        },
+      },
     }),
     prisma.application.findMany({
       where: { applicantId: user.id },
@@ -68,6 +77,8 @@ export default async function MyProjectsPage() {
       ...card,
       applicationCount: project._count.applications,
       memberCount: project._count.members,
+      ownerName: project.owner.studentProfile?.realName ?? project.owner.email.split("@")[0],
+      ownerEmail: project.owner.email,
     };
   });
 
@@ -76,15 +87,17 @@ export default async function MyProjectsPage() {
       <section className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">내 프로젝트 관리</h1>
-            <p className="text-sm text-slate-400">내가 만든 프로젝트와 지원 현황을 관리합니다.</p>
+            <h1 className="text-3xl font-bold">{isAdmin ? "전체 프로젝트 관리" : "내 프로젝트 관리"}</h1>
+            <p className="text-sm text-slate-400">
+              {isAdmin ? "관리자 권한으로 모든 학생 프로젝트를 관리합니다." : "내가 만든 프로젝트와 지원 현황을 관리합니다."}
+            </p>
           </div>
           <Link href="/projects/new" className="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-white">
             새 프로젝트
           </Link>
         </div>
 
-        <MyProjectsDashboard initialItems={items} />
+        <MyProjectsDashboard initialItems={items} isAdmin={isAdmin} />
 
         <section id="applied-projects" className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-100">내가 지원한 프로젝트 현황</h2>

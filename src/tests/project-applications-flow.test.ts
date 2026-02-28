@@ -69,6 +69,30 @@ describe("project application flow APIs", () => {
     expect(res.status).toBe(403);
   });
 
+  it("allows admin to view applications admin endpoint", async () => {
+    getAuthFromRequestMock.mockResolvedValue({ userId: "admin_1", role: "ADMIN" });
+    projectFindUniqueMock.mockResolvedValue({
+      id: "p1",
+      title: "Project",
+      ownerId: "student_owner",
+      capacity: 4,
+      status: "OPEN",
+      question1: "Q1",
+      question2: null,
+      question3: null,
+    });
+
+    const applicationFindManyMock = vi.fn().mockResolvedValue([]);
+    const prismaModule = await import("@/lib/prisma");
+    (prismaModule.prisma.application as unknown as { findMany: typeof applicationFindManyMock }).findMany = applicationFindManyMock;
+
+    const { GET } = await import("@/app/api/me/projects/[id]/applications/route");
+    const req = new NextRequest("http://localhost/api/me/projects/p1/applications", { method: "GET" });
+    const res = await GET(req, { params: Promise.resolve({ id: "p1" }) });
+
+    expect(res.status).toBe(200);
+  });
+
   it("returns 409 when applicant submits duplicate application", async () => {
     getAuthFromRequestMock.mockResolvedValue({ userId: "applicant_1" });
     projectFindUniqueMock.mockResolvedValue({ id: "p1", status: "OPEN", ownerId: "owner_1" });

@@ -38,7 +38,8 @@ export default async function MyProjectApplicationsPage({ params }: { params: Pr
   });
 
   if (!project) notFound();
-  if (project.ownerId !== user.id) {
+  const canManage = user.role === "ADMIN" || project.ownerId === user.id;
+  if (!canManage) {
     return (
       <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
         <section className="mx-auto max-w-4xl px-4 py-12 md:px-6">
@@ -75,6 +76,9 @@ export default async function MyProjectApplicationsPage({ params }: { params: Pr
           <p className="text-sm text-slate-400">
             {project.title} · 모집 {project.capacity}명 · 지원 {project._count.applications}건 · 확정 {project._count.members}명
           </p>
+          {user.role === "ADMIN" && project.ownerId !== user.id ? (
+            <p className="text-xs text-amber-300">관리자 권한으로 다른 학생의 프로젝트를 관리 중입니다.</p>
+          ) : null}
         </div>
 
         <ApplicationsManager

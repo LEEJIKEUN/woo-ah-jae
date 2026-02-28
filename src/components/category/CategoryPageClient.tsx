@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import ProjectGrid from "@/components/project/ProjectGrid";
 import SearchFilterBar, { FilterState } from "@/components/project/SearchFilterBar";
 import { CategoryTab, CHANNELS_BY_TAB, PRIMARY_TABS, SortOption } from "@/lib/categoryConfig";
-import { MOCK_PROJECTS } from "@/lib/mockProjects";
 import { ProjectListItem } from "@/lib/project-list-item";
 
 type Props = {
@@ -93,7 +92,7 @@ export default function CategoryPageClient(props: Props) {
 
   const filteredItems = useMemo(() => {
     const cutoff = dateCutoff(filters.date);
-    const sourceItems: ProjectListItem[] = [...remoteItems, ...MOCK_PROJECTS];
+    const sourceItems: ProjectListItem[] = [...remoteItems];
 
     return sourceItems.filter((item) => {
       if (item.tab !== activeTab) return false;

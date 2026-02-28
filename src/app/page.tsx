@@ -5,7 +5,7 @@ import TopTenRail from "@/components/home/TopTenRail";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { CategoryTab, PRIMARY_TABS } from "@/lib/categoryConfig";
-import { HOME_PROJECTS, HomeProject } from "@/lib/mockProjects";
+import { HomeProject } from "@/lib/mockProjects";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -70,20 +70,12 @@ export default async function Home() {
     deadline: item.deadline?.toISOString().slice(0, 10),
   }));
 
-  const mergedProjects = [...dbHomeProjects];
-  const seen = new Set(mergedProjects.map((item) => item.id));
-  for (const item of HOME_PROJECTS) {
-    if (seen.has(item.id)) continue;
-    mergedProjects.push(item);
-    if (mergedProjects.length >= 24) break;
-  }
-
-  const displayProjects = mergedProjects.length ? mergedProjects : HOME_PROJECTS;
+  const displayProjects = dbHomeProjects;
   const topTen = [...displayProjects]
     .sort((a, b) => b.popularityScore - a.popularityScore)
     .slice(0, 10);
 
-  const spotlight = topTen[0] ?? displayProjects[0];
+  const spotlight = topTen[0] ?? displayProjects[0] ?? null;
 
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
@@ -94,15 +86,21 @@ export default async function Home() {
       >
         <BrandIntro topPosts={topStudyPosts} />
 
-        <HeroSpotlight item={spotlight} />
-
-        <TopTenRail items={topTen} />
-
-        <HorizontalRail title="교과" items={byCategory(displayProjects, "교과")} />
-        <HorizontalRail title="창체" items={byCategory(displayProjects, "창체")} />
-        <HorizontalRail title="교내대회" items={byCategory(displayProjects, "교내대회")} />
-        <HorizontalRail title="교외대회" items={byCategory(displayProjects, "교외대회")} />
-        <HorizontalRail title="공인시험" items={byCategory(displayProjects, "공인시험")} />
+        {spotlight ? (
+          <>
+            <HeroSpotlight item={spotlight} />
+            <TopTenRail items={topTen} />
+            <HorizontalRail title="교과" items={byCategory(displayProjects, "교과")} />
+            <HorizontalRail title="창체" items={byCategory(displayProjects, "창체")} />
+            <HorizontalRail title="교내대회" items={byCategory(displayProjects, "교내대회")} />
+            <HorizontalRail title="교외대회" items={byCategory(displayProjects, "교외대회")} />
+            <HorizontalRail title="공인시험" items={byCategory(displayProjects, "공인시험")} />
+          </>
+        ) : (
+          <section className="rounded-2xl border border-slate-700/70 bg-[color:var(--surface)] p-6 text-sm text-slate-300">
+            현재 등록된 프로젝트가 없습니다.
+          </section>
+        )}
       </section>
     </main>
   );
