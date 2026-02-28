@@ -7,6 +7,9 @@ import { formatKstDate } from "@/lib/date-format";
 type Item = {
   id: string;
   status: "NOT_SUBMITTED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
+  docType?: "STUDENT_ID" | "ENROLLMENT_CERT";
+  originalFilename?: string;
+  mimeType?: string;
   submittedAt: string;
   rejectReasonText: string | null;
   user: {
@@ -34,6 +37,7 @@ export default function AdminVerificationPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<Item | null>(null);
 
   const qs = useMemo(() => {
     const params = new URLSearchParams();
@@ -117,6 +121,34 @@ export default function AdminVerificationPanel() {
                 {item.user.studentProfile?.schoolName ?? "-"} · {item.user.studentProfile?.grade ?? "-"} · {item.user.studentProfile?.residenceCountry ?? "-"}
               </p>
               <p className="text-xs text-slate-400">상태: {item.status} · 제출일: {formatKstDate(item.submittedAt)}</p>
+              <div className="space-y-2 rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
+                <p className="text-[11px] text-slate-400">
+                  제출 문서: {item.docType === "ENROLLMENT_CERT" ? "재학증명서" : "학생증"} · {item.originalFilename ?? "파일"}
+                </p>
+                {item.mimeType?.startsWith("image/") ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewItem(item)}
+                    className="group block"
+                    aria-label="신원확인 이미지 크게 보기"
+                  >
+                    <img
+                      src={`/api/admin/verifications/${item.id}/file`}
+                      alt="신원확인 문서 미리보기"
+                      className="h-28 w-44 rounded-md border border-slate-700 object-cover transition group-hover:opacity-90"
+                    />
+                  </button>
+                ) : (
+                  <a
+                    href={`/api/admin/verifications/${item.id}/file`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                  >
+                    문서 보기
+                  </a>
+                )}
+              </div>
 
               <div className="flex gap-2 pt-1">
                 <button onClick={() => void decide(item.id, "APPROVE")} disabled={item.status !== "PENDING_REVIEW" || processingId === item.id} className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">승인</button>
@@ -126,6 +158,34 @@ export default function AdminVerificationPanel() {
           ))
         )}
       </div>
+
+      {previewItem ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="신원확인 이미지 확대 보기"
+          onClick={() => setPreviewItem(null)}
+        >
+          <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="max-w-[70vw] truncate text-xs text-slate-200">{previewItem.originalFilename ?? "문서 이미지"}</p>
+              <button
+                type="button"
+                onClick={() => setPreviewItem(null)}
+                className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+              >
+                닫기
+              </button>
+            </div>
+            <img
+              src={`/api/admin/verifications/${previewItem.id}/file`}
+              alt="신원확인 문서 확대"
+              className="max-h-[82vh] max-w-[90vw] rounded-md border border-slate-700 object-contain"
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

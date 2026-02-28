@@ -69,6 +69,9 @@ export async function GET(request: NextRequest) {
       const items = filtered.map((x) => ({
         id: x.id,
         status: x.status,
+        docType: "STUDENT_ID",
+        originalFilename: x.originalFilename,
+        mimeType: x.mimeType,
         submittedAt: x.submittedAt,
         reviewedAt: x.reviewedAt,
         rejectReasonCode: x.rejectReasonCode,
