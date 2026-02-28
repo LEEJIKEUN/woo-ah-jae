@@ -27,6 +27,15 @@ const verificationLabel: Record<MemberItem["verificationStatus"], string> = {
   UNKNOWN: "UNK",
 };
 
+function compactCountry(value: string | null) {
+  if (!value) return "-";
+  const raw = value.trim();
+  if (!raw) return "-";
+  if (raw.length <= 3) return raw.toUpperCase();
+  // Country name(Andorra 등)는 3글자 약어로 고정해 표 폭을 확보한다.
+  return raw.replace(/[^a-zA-Z]/g, "").slice(0, 3).toUpperCase() || raw.slice(0, 3).toUpperCase();
+}
+
 export default function AdminMembersPage() {
   const [items, setItems] = useState<MemberItem[]>([]);
   const [q, setQ] = useState("");
@@ -287,7 +296,7 @@ export default function AdminMembersPage() {
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.role}</td>
                       <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.schoolName ?? "-"}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.grade ?? "-"}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.residenceCountry ?? "-"}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{compactCountry(x.residenceCountry)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{verificationLabel[x.verificationStatus]}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.planCode}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.entitlementStatus}</td>
