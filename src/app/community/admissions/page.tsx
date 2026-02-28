@@ -73,12 +73,17 @@ export default async function AdmissionsCommunityPage({
     ? { OR: [{ title: { contains: query } }, { content: { contains: query } }] }
     : {};
 
+  const includeAllPostsInList = boardParam === "all";
+  const basePostWhere = {
+    boardChannelId: boardFilter,
+    status: BoardPostStatus.ACTIVE,
+    ...searchFilter,
+  } as const;
+
   const [noticePosts, total, posts] = await Promise.all([
     prisma.boardPost.findMany({
       where: {
-        boardChannelId: boardFilter,
-        status: BoardPostStatus.ACTIVE,
-        ...searchFilter,
+        ...basePostWhere,
         OR: [{ isNotice: true }, { isPinned: true }],
       },
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
@@ -90,20 +95,14 @@ export default async function AdmissionsCommunityPage({
     }),
     prisma.boardPost.count({
       where: {
-        boardChannelId: boardFilter,
-        status: BoardPostStatus.ACTIVE,
-        ...searchFilter,
-        isNotice: false,
-        isPinned: false,
+        ...basePostWhere,
+        ...(includeAllPostsInList ? {} : { isNotice: false, isPinned: false }),
       },
     }),
     prisma.boardPost.findMany({
       where: {
-        boardChannelId: boardFilter,
-        status: BoardPostStatus.ACTIVE,
-        ...searchFilter,
-        isNotice: false,
-        isPinned: false,
+        ...basePostWhere,
+        ...(includeAllPostsInList ? {} : { isNotice: false, isPinned: false }),
       },
       orderBy: orderByFor(sort),
       skip: (page - 1) * pageSize,
