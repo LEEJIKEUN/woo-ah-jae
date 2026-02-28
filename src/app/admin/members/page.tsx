@@ -19,6 +19,14 @@ type MemberItem = {
   createdAt: string;
 };
 
+const verificationLabel: Record<MemberItem["verificationStatus"], string> = {
+  NOT_SUBMITTED: "NOT-SUB",
+  PENDING_REVIEW: "PEND",
+  VERIFIED: "VERIFIED",
+  REJECTED: "REJECTED",
+  UNKNOWN: "UNKNOWN",
+};
+
 export default function AdminMembersPage() {
   const [items, setItems] = useState<MemberItem[]>([]);
   const [q, setQ] = useState("");
@@ -160,45 +168,45 @@ export default function AdminMembersPage() {
             <div className="py-8 text-center text-sm text-slate-400">회원 데이터가 없습니다.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-left text-sm text-slate-200">
+              <table className="min-w-[1340px] border-collapse text-left text-sm text-slate-200">
                 <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
                   <tr>
-                    <th className="px-3 py-3">순</th>
-                    <th className="px-3 py-3">이름</th>
-                    <th className="px-4 py-3">이메일</th>
-                    <th className="px-3 py-3">권한</th>
-                    <th className="px-3 py-3">
+                    <th className="whitespace-nowrap px-3 py-3">순</th>
+                    <th className="whitespace-nowrap px-3 py-3">이름</th>
+                    <th className="whitespace-nowrap px-4 py-3">이메일</th>
+                    <th className="whitespace-nowrap px-3 py-3">권한</th>
+                    <th className="whitespace-nowrap px-3 py-3">
                       <button
                         type="button"
                         onClick={() => setOpenFilterKey((prev) => (prev === "school" ? null : "school"))}
-                        className="text-left text-xs uppercase tracking-wide text-slate-300 hover:text-white"
+                        className="whitespace-nowrap text-left text-xs uppercase tracking-wide text-slate-300 hover:text-white"
                       >
                         학교
                       </button>
                     </th>
-                    <th className="px-3 py-3">
+                    <th className="whitespace-nowrap px-3 py-3">
                       <button
                         type="button"
                         onClick={() => setOpenFilterKey((prev) => (prev === "grade" ? null : "grade"))}
-                        className="text-left text-xs uppercase tracking-wide text-slate-300 hover:text-white"
+                        className="whitespace-nowrap text-left text-xs uppercase tracking-wide text-slate-300 hover:text-white"
                       >
                         학년
                       </button>
                     </th>
-                    <th className="px-3 py-3">
+                    <th className="whitespace-nowrap px-3 py-3">
                       <button
                         type="button"
                         onClick={() => setOpenFilterKey((prev) => (prev === "country" ? null : "country"))}
-                        className="text-left text-xs uppercase tracking-wide text-slate-300 hover:text-white"
+                        className="whitespace-nowrap text-left text-xs uppercase tracking-wide text-slate-300 hover:text-white"
                       >
                         국가
                       </button>
                     </th>
-                    <th className="px-3 py-3">인증</th>
-                    <th className="px-3 py-3">플랜</th>
-                    <th className="px-3 py-3">구독</th>
-                    <th className="px-3 py-3">가입일</th>
-                    <th className="px-3 py-3 text-right">관리</th>
+                    <th className="whitespace-nowrap px-3 py-3">인증</th>
+                    <th className="whitespace-nowrap px-3 py-3">플랜</th>
+                    <th className="whitespace-nowrap px-3 py-3">구독</th>
+                    <th className="whitespace-nowrap px-3 py-3">가입일</th>
+                    <th className="whitespace-nowrap px-3 py-3 text-right">관리</th>
                   </tr>
                   {openFilterKey ? (
                     <tr className="border-t border-slate-700/60 bg-slate-950/60">
@@ -259,22 +267,22 @@ export default function AdminMembersPage() {
                 <tbody>
                   {filteredItems.map((x, idx) => (
                     <tr key={x.id} className="border-t border-slate-700/60 hover:bg-slate-800/30">
-                      <td className="px-3 py-3 text-xs text-slate-400">{idx + 1}</td>
-                      <td className="max-w-[120px] truncate px-3 py-3 text-xs text-slate-300">{x.realName ?? "-"}</td>
-                      <td className="max-w-[260px] truncate px-4 py-3 font-medium text-slate-100">{x.email}</td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{x.role}</td>
-                      <td className="max-w-[200px] truncate px-3 py-3 text-xs text-slate-300">{x.schoolName ?? "-"}</td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{x.grade ?? "-"}</td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{x.residenceCountry ?? "-"}</td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{x.verificationStatus}</td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{x.planCode}</td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{x.entitlementStatus}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">{idx + 1}</td>
+                      <td className="max-w-[120px] truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.realName ?? "-"}</td>
+                      <td className="max-w-[260px] truncate whitespace-nowrap px-4 py-3 font-medium text-slate-100">{x.email}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.role}</td>
+                      <td className="max-w-[200px] truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.schoolName ?? "-"}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.grade ?? "-"}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.residenceCountry ?? "-"}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{verificationLabel[x.verificationStatus]}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.planCode}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.entitlementStatus}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">{formatKstDate(x.createdAt)}</td>
                       <td className="px-3 py-3 text-right">
                         <button
                           onClick={() => void memberAction(x.id, "WITHDRAW")}
                           disabled={processingMemberId === x.id}
-                          className="rounded-md bg-rose-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                          className="whitespace-nowrap rounded-md bg-rose-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
                         >
                           탈퇴
                         </button>
