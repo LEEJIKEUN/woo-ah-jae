@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
               email: true,
               studentProfile: {
                 select: {
+                  realName: true,
                   schoolName: true,
                   grade: true,
                   residenceCountry: true,
@@ -76,15 +77,16 @@ export async function GET(request: NextRequest) {
         reviewedAt: x.reviewedAt,
         rejectReasonCode: x.rejectReasonCode,
         rejectReasonText: x.rejectReasonText,
-        user: {
-          id: x.id,
-          email: x.email,
-          studentProfile: {
-            schoolName: x.schoolName,
-            grade: x.grade,
-            residenceCountry: x.residenceCountry,
-            birthDate: x.birthDate,
-          },
+          user: {
+            id: x.id,
+            email: x.email,
+            studentProfile: {
+              realName: null,
+              schoolName: x.schoolName,
+              grade: x.grade,
+              residenceCountry: x.residenceCountry,
+              birthDate: x.birthDate,
+            },
         },
       }));
 

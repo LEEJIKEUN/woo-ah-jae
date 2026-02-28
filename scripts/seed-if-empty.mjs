@@ -4,7 +4,10 @@ import { PrismaClient } from "@prisma/client";
 async function main() {
   const prisma = new PrismaClient();
   try {
-    const forceSeed = process.env.FORCE_SEED_ON_STARTUP === "true";
+    const forceSeedRequested = process.env.FORCE_SEED_ON_STARTUP === "true";
+    const forceSeedAllowed =
+      process.env.NODE_ENV !== "production" || process.env.ALLOW_FORCE_SEED_IN_PROD === "true";
+    const forceSeed = forceSeedRequested && forceSeedAllowed;
     const userCount = await prisma.user.count();
 
     if (forceSeed || userCount === 0) {
@@ -22,4 +25,3 @@ main().catch((error) => {
   console.error("[seed-if-empty] failed:", error);
   process.exit(1);
 });
-

@@ -57,14 +57,15 @@ export default async function AdmissionsCommunityPage({
     notFound();
   }
 
-  const communityBoardIds = await prisma.boardChannel.findMany({
-    where: { communityKey: ADMISSIONS_COMMUNITY_KEY, isNotice: false },
-    select: { id: true, slug: true },
+  const communityBoards = await prisma.boardChannel.findMany({
+    where: { communityKey: ADMISSIONS_COMMUNITY_KEY },
+    select: { id: true, slug: true, isNotice: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 
-  const boardIds = communityBoardIds.map((item) => item.id);
-  const defaultWriteSlug = communityBoardIds[0]?.slug ?? null;
+  const boardIds = communityBoards.map((item) => item.id);
+  const writableBoards = communityBoards.filter((item) => !item.isNotice);
+  const defaultWriteSlug = writableBoards[0]?.slug ?? null;
   const writeSlug = activeBoard && !activeBoard.isNotice ? activeBoard.slug : defaultWriteSlug;
 
   const boardFilter = boardParam === "all" ? { in: boardIds } : activeBoard!.id;

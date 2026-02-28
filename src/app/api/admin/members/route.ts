@@ -22,12 +22,23 @@ export async function GET(request: NextRequest) {
   try {
     await requireAdmin(request);
 
-    const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+    const nameQuery =
+      request.nextUrl.searchParams.get("name")?.trim() ??
+      request.nextUrl.searchParams.get("q")?.trim() ??
+      "";
 
     try {
       const [users, billingFlag] = await Promise.all([
         prisma.user.findMany({
-          where: q ? { email: { contains: q } } : undefined,
+          where: nameQuery
+            ? {
+                studentProfile: {
+                  is: {
+                    realName: { contains: nameQuery },
+                  },
+                },
+              }
+            : undefined,
           include: {
             studentProfile: {
               select: {
@@ -95,7 +106,10 @@ export async function GET(request: NextRequest) {
       }
 
       const locals = await listLocalSignups();
-      const filtered = locals.filter((x) => !q || x.email.toLowerCase().includes(q.toLowerCase()));
+      const filtered = locals.filter(() => {
+        if (!nameQuery) return true;
+        return false;
+      });
 
       const items: MemberItem[] = filtered.map((x) => ({
         id: x.id,

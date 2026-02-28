@@ -7,12 +7,13 @@ async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@wooahjae.local";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
   const passwordHash = await bcrypt.hash(adminPassword, 12);
+  const seedDemoUsers =
+    process.env.SEED_DEMO_USERS === "true" ||
+    (process.env.SEED_DEMO_USERS == null && process.env.NODE_ENV !== "production");
   const studentOwnerEmail = process.env.SEED_STUDENT_OWNER_EMAIL || "student.owner@wooahjae.local";
   const studentOwnerPassword = process.env.SEED_STUDENT_OWNER_PASSWORD || "Student123!";
   const studentApplicantEmail = process.env.SEED_STUDENT_APPLICANT_EMAIL || "student.applicant@wooahjae.local";
   const studentApplicantPassword = process.env.SEED_STUDENT_APPLICANT_PASSWORD || "Student123!";
-  const ownerHash = await bcrypt.hash(studentOwnerPassword, 12);
-  const applicantHash = await bcrypt.hash(studentApplicantPassword, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
@@ -20,96 +21,101 @@ async function main() {
     create: { email: adminEmail, passwordHash, role: UserRole.ADMIN },
   });
 
-  const owner = await prisma.user.upsert({
-    where: { email: studentOwnerEmail },
-    update: { passwordHash: ownerHash, role: UserRole.STUDENT },
-    create: { email: studentOwnerEmail, passwordHash: ownerHash, role: UserRole.STUDENT },
-  });
+  if (seedDemoUsers) {
+    const ownerHash = await bcrypt.hash(studentOwnerPassword, 12);
+    const applicantHash = await bcrypt.hash(studentApplicantPassword, 12);
 
-  const applicant = await prisma.user.upsert({
-    where: { email: studentApplicantEmail },
-    update: { passwordHash: applicantHash, role: UserRole.STUDENT },
-    create: { email: studentApplicantEmail, passwordHash: applicantHash, role: UserRole.STUDENT },
-  });
+    const owner = await prisma.user.upsert({
+      where: { email: studentOwnerEmail },
+      update: { passwordHash: ownerHash, role: UserRole.STUDENT },
+      create: { email: studentOwnerEmail, passwordHash: ownerHash, role: UserRole.STUDENT },
+    });
 
-  await prisma.studentProfile.upsert({
-    where: { userId: owner.id },
-    update: {
-      realName: "프로젝트대표",
-      schoolName: "상해한국학교",
-      grade: "G11",
-      className: "A",
-      number: "11",
-      residenceCountry: "CN",
-    },
-    create: {
-      userId: owner.id,
-      realName: "프로젝트대표",
-      schoolName: "상해한국학교",
-      grade: "G11",
-      className: "A",
-      number: "11",
-      residenceCountry: "CN",
-    },
-  });
+    const applicant = await prisma.user.upsert({
+      where: { email: studentApplicantEmail },
+      update: { passwordHash: applicantHash, role: UserRole.STUDENT },
+      create: { email: studentApplicantEmail, passwordHash: applicantHash, role: UserRole.STUDENT },
+    });
 
-  await prisma.studentProfile.upsert({
-    where: { userId: applicant.id },
-    update: {
-      realName: "지원학생",
-      schoolName: "싱가포르한국국제학교",
-      grade: "G10",
-      className: "B",
-      number: "7",
-      residenceCountry: "SG",
-    },
-    create: {
-      userId: applicant.id,
-      realName: "지원학생",
-      schoolName: "싱가포르한국국제학교",
-      grade: "G10",
-      className: "B",
-      number: "7",
-      residenceCountry: "SG",
-    },
-  });
-
-  const ownerVerification = await prisma.verificationSubmission.findFirst({
-    where: { userId: owner.id, status: "VERIFIED" },
-  });
-  if (!ownerVerification) {
-    await prisma.verificationSubmission.create({
-      data: {
+    await prisma.studentProfile.upsert({
+      where: { userId: owner.id },
+      update: {
+        realName: "프로젝트대표",
+        schoolName: "상해한국학교",
+        grade: "G11",
+        className: "A",
+        number: "11",
+        residenceCountry: "CN",
+      },
+      create: {
         userId: owner.id,
-        status: "VERIFIED",
-        docType: "STUDENT_ID",
-        fileKey: "seed/owner.png",
-        originalFilename: "owner.png",
-        mimeType: "image/png",
-        sizeBytes: 1024,
-        reviewedAt: new Date(),
-        reviewedBy: admin.id,
+        realName: "프로젝트대표",
+        schoolName: "상해한국학교",
+        grade: "G11",
+        className: "A",
+        number: "11",
+        residenceCountry: "CN",
       },
     });
-  }
 
-  const applicantVerification = await prisma.verificationSubmission.findFirst({
-    where: { userId: applicant.id, status: "VERIFIED" },
-  });
-  if (!applicantVerification) {
-    await prisma.verificationSubmission.create({
-      data: {
+    await prisma.studentProfile.upsert({
+      where: { userId: applicant.id },
+      update: {
+        realName: "지원학생",
+        schoolName: "싱가포르한국국제학교",
+        grade: "G10",
+        className: "B",
+        number: "7",
+        residenceCountry: "SG",
+      },
+      create: {
         userId: applicant.id,
-        status: "VERIFIED",
-        docType: "STUDENT_ID",
-        fileKey: "seed/applicant.png",
-        originalFilename: "applicant.png",
-        mimeType: "image/png",
-        sizeBytes: 1024,
-        reviewedAt: new Date(),
-        reviewedBy: admin.id,
+        realName: "지원학생",
+        schoolName: "싱가포르한국국제학교",
+        grade: "G10",
+        className: "B",
+        number: "7",
+        residenceCountry: "SG",
       },
     });
+
+    const ownerVerification = await prisma.verificationSubmission.findFirst({
+      where: { userId: owner.id, status: "VERIFIED" },
+    });
+    if (!ownerVerification) {
+      await prisma.verificationSubmission.create({
+        data: {
+          userId: owner.id,
+          status: "VERIFIED",
+          docType: "STUDENT_ID",
+          fileKey: "seed/owner.png",
+          originalFilename: "owner.png",
+          mimeType: "image/png",
+          sizeBytes: 1024,
+          reviewedAt: new Date(),
+          reviewedBy: admin.id,
+        },
+      });
+    }
+
+    const applicantVerification = await prisma.verificationSubmission.findFirst({
+      where: { userId: applicant.id, status: "VERIFIED" },
+    });
+    if (!applicantVerification) {
+      await prisma.verificationSubmission.create({
+        data: {
+          userId: applicant.id,
+          status: "VERIFIED",
+          docType: "STUDENT_ID",
+          fileKey: "seed/applicant.png",
+          originalFilename: "applicant.png",
+          mimeType: "image/png",
+          sizeBytes: 1024,
+          reviewedAt: new Date(),
+          reviewedBy: admin.id,
+        },
+      });
+    }
   }
 
   await prisma.featureFlag.upsert({
@@ -291,7 +297,9 @@ async function main() {
     });
   }
 
-  console.log("Seed completed: ADMIN + 2 STUDENT users, billingEnabled=false, FREE plan, board communities");
+  console.log(
+    `Seed completed: ADMIN${seedDemoUsers ? " + demo STUDENT users" : ""}, billingEnabled=false, FREE plan, board communities`
+  );
 }
 
 main()

@@ -13,6 +13,13 @@ const bodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_BETA_RESET !== "true") {
+      return NextResponse.json(
+        { error: "운영 환경에서는 베타 초기화가 비활성화되어 있습니다." },
+        { status: 403 }
+      );
+    }
+
     await requireAdmin(request);
     const body = bodySchema.parse(await request.json());
     if (body.confirm !== "RUN_PREPARE_BETA_CONTENT") {

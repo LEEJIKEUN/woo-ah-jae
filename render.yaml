@@ -38,3 +38,5 @@ services:
         sync: false
       - key: SEED_STUDENT_APPLICANT_PASSWORD
         sync: false
+      - key: SEED_DEMO_USERS
+        value: "false"

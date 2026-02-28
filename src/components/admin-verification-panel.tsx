@@ -15,6 +15,7 @@ type Item = {
   user: {
     email: string;
     studentProfile: {
+      realName: string | null;
       schoolName: string;
       grade: string;
       residenceCountry: string | null;
@@ -116,60 +117,70 @@ export default function AdminVerificationPanel() {
           <div className="py-8 text-center text-sm text-slate-400">신청 내역이 없습니다.</div>
         ) : (
           items.map((item) => (
-            <Card key={item.id} className="space-y-2 p-4">
-              <p className="text-sm font-medium text-slate-100">{item.user.email}</p>
-              <p className="text-xs text-slate-400">
-                {item.user.studentProfile?.schoolName ?? "-"} · {item.user.studentProfile?.grade ?? "-"} · {item.user.studentProfile?.residenceCountry ?? "-"}
-              </p>
-              <p className="text-xs text-slate-400">상태: {item.status} · 제출일: {formatKstDate(item.submittedAt)}</p>
-              <div className="space-y-2 rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
-                <p className="text-[11px] text-slate-400">
-                  제출 문서: {item.docType === "ENROLLMENT_CERTIFICATE" ? "재학증명서" : "학생증"} · {item.originalFilename ?? "파일"}
-                </p>
-                {item.mimeType?.startsWith("image/") && !brokenPreviewIds[item.id] ? (
-                  <button
-                    type="button"
-                    onClick={() => setPreviewItem(item)}
-                    className="group block"
-                    aria-label="신원확인 이미지 크게 보기"
-                  >
-                    <img
-                      src={`/api/admin/verifications/${item.id}/file`}
-                      alt="신원확인 문서 미리보기"
-                      className="h-28 w-44 rounded-md border border-slate-700 object-cover transition group-hover:opacity-90"
-                      onError={() =>
-                        setBrokenPreviewIds((prev) => ({
-                          ...prev,
-                          [item.id]: true,
-                        }))
-                      }
-                    />
-                  </button>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={`/api/admin/verifications/${item.id}/file`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
-                  >
-                    문서 열기
-                  </a>
-                  {item.mimeType?.startsWith("image/") ? (
+            <Card key={item.id} className="p-4">
+              <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-100">{item.user.email}</p>
+                  <p className="text-xs text-slate-400">
+                    실명: {item.user.studentProfile?.realName ?? "-"} · {item.user.studentProfile?.schoolName ?? "-"} ·{" "}
+                    {item.user.studentProfile?.grade ?? "-"} · {item.user.studentProfile?.residenceCountry ?? "-"}
+                  </p>
+                  <p className="text-xs text-slate-400">상태: {item.status} · 제출일: {formatKstDate(item.submittedAt)}</p>
+                  <p className="text-[11px] text-slate-400">
+                    제출 문서: {item.docType === "ENROLLMENT_CERTIFICATE" ? "재학증명서" : "학생증"} · {item.originalFilename ?? "파일"}
+                  </p>
+
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => void decide(item.id, "APPROVE")} disabled={item.status !== "PENDING_REVIEW" || processingId === item.id} className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">승인</button>
+                    <button onClick={() => void decide(item.id, "REJECT")} disabled={item.status !== "PENDING_REVIEW" || processingId === item.id} className="rounded-md bg-rose-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">거절</button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
+                  {item.mimeType?.startsWith("image/") && !brokenPreviewIds[item.id] ? (
                     <button
                       type="button"
                       onClick={() => setPreviewItem(item)}
+                      className="group block w-full"
+                      aria-label="신원확인 이미지 크게 보기"
+                    >
+                      <img
+                        src={`/api/admin/verifications/${item.id}/file`}
+                        alt="신원확인 문서 미리보기"
+                        className="h-44 w-full rounded-md border border-slate-700 object-cover transition group-hover:opacity-90"
+                        onError={() =>
+                          setBrokenPreviewIds((prev) => ({
+                            ...prev,
+                            [item.id]: true,
+                          }))
+                        }
+                      />
+                    </button>
+                  ) : (
+                    <div className="flex h-44 items-center justify-center rounded-md border border-dashed border-slate-700 text-xs text-slate-500">
+                      미리보기 없음
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={`/api/admin/verifications/${item.id}/file`}
+                      target="_blank"
+                      rel="noreferrer"
                       className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
                     >
-                      크게 보기
-                    </button>
-                  ) : null}
+                      문서 열기
+                    </a>
+                    {item.mimeType?.startsWith("image/") ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewItem(item)}
+                        className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                      >
+                        크게 보기
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => void decide(item.id, "APPROVE")} disabled={item.status !== "PENDING_REVIEW" || processingId === item.id} className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">승인</button>
-                <button onClick={() => void decide(item.id, "REJECT")} disabled={item.status !== "PENDING_REVIEW" || processingId === item.id} className="rounded-md bg-rose-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">거절</button>
               </div>
             </Card>
           ))
