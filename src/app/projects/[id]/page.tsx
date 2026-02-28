@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ProjectStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { getUser } from "@/lib/auth";
-import { MOCK_PROJECTS } from "@/lib/mockProjects";
 import { prisma } from "@/lib/prisma";
 
 function statusText(status: ProjectStatus) {
@@ -28,25 +27,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   });
 
   if (!project) {
-    const mock = MOCK_PROJECTS.find((item) => item.id === id);
-    if (!mock) notFound();
-    return (
-      <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
-        <section className="mx-auto max-w-4xl space-y-6 px-4 py-8 md:px-6">
-          <article className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
-            <p className="text-xs text-slate-400">{mock.tab} · {mock.channel}</p>
-            <h1 className="text-3xl font-bold text-slate-100">{mock.title}</h1>
-            <p className="text-sm text-slate-300">{mock.summary}</p>
-            <p className="text-sm text-slate-300">모집 상태: {mock.status === "open" ? "모집중" : "마감"}</p>
-            <p className="text-sm text-slate-300">모집 인원: {mock.capacity}명</p>
-            <p className="text-sm text-slate-300">모집 역할: {mock.targetRoles}</p>
-            <p className="text-sm text-slate-300">조건: {mock.requirements}</p>
-            <p className="text-xs text-slate-500">샘플 데이터입니다. 지원 기능은 DB 생성 프로젝트에서만 동작합니다.</p>
-            <Link href="/projects" className="text-sm text-slate-300 hover:text-white">목록으로</Link>
-          </article>
-        </section>
-      </main>
-    );
+    notFound();
   }
 
   const myApplication = user

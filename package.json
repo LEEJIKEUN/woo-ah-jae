@@ -16,7 +16,8 @@
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.mjs",
     "db:seed:if-empty": "node scripts/seed-if-empty.mjs",
-    "db:prepare:beta": "node scripts/prepare-beta-content.mjs"
+    "db:prepare:beta": "node scripts/prepare-beta-content.mjs",
+    "db:purge:sample-projects": "node scripts/purge-sample-projects.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
