@@ -96,6 +96,8 @@ model User {
   boardPostLikes          BoardPostLike[]
   boardReports            BoardReport[]
   boardPostViews          BoardPostView[]
+  projectLikes            ProjectLike[]
+  projectComments         ProjectComment[]
   passwordResetTokens     PasswordResetToken[]
   posts                   Post[]
   comments                Comment[]
@@ -201,6 +203,8 @@ model Project {
   todoItems         TodoItem[]
   workspaceSchedules WorkspaceSchedule[]
   groups            Group[]
+  likes             ProjectLike[]
+  comments          ProjectComment[]
 
   @@index([status, createdAt])
   @@index([tab, channel])
@@ -376,6 +380,35 @@ model TodoItem {
 
   @@index([projectId, createdAt])
   @@index([creatorId, createdAt])
+}
+
+model ProjectLike {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model ProjectComment {
+  id         String   @id @default(cuid())
+  projectId  String
+  authorId   String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([authorId, createdAt])
 }
 
 model WorkspaceSchedule {

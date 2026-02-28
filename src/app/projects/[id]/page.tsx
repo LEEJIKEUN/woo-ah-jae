@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ProjectStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { getUser } from "@/lib/auth";
+import ProjectEngagementPanel from "@/components/project/ProjectEngagementPanel";
 import { prisma } from "@/lib/prisma";
 
 function statusText(status: ProjectStatus) {
@@ -39,6 +40,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           },
         },
         select: { status: true },
+      })
+    : null;
+
+  const myLike = user
+    ? await prisma.projectLike.findUnique({
+        where: { projectId_userId: { projectId: project.id, userId: user.id } },
+        select: { id: true },
       })
     : null;
 
@@ -114,6 +122,15 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <Link href="/projects" className="text-sm text-slate-300 hover:text-white">목록으로</Link>
           </div>
         </article>
+
+        <ProjectEngagementPanel
+          projectId={project.id}
+          initialLikeCount={project.likeCount}
+          initialCommentCount={project.commentCount}
+          initialLiked={Boolean(myLike)}
+          currentUserId={user?.id}
+          isAdmin={user?.role === "ADMIN"}
+        />
       </section>
     </main>
   );
