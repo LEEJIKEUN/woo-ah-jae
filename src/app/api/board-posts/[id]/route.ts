@@ -14,6 +14,7 @@ const attachmentSchema = z.object({
 });
 
 const patchSchema = z.object({
+  boardChannelSlug: z.string().min(1).max(120).optional(),
   categoryTag: z.string().max(40).optional().nullable(),
   title: z.string().min(2).max(160).optional(),
   content: z.string().min(2).max(12000).optional(),
@@ -172,6 +173,16 @@ export async function PATCH(
     }
 
     if (isAdmin) {
+      if (body.boardChannelSlug !== undefined) {
+        const targetChannel = await prisma.boardChannel.findUnique({
+          where: { slug: body.boardChannelSlug },
+          select: { id: true },
+        });
+        if (!targetChannel) {
+          return NextResponse.json({ error: "이동할 게시판을 찾을 수 없습니다." }, { status: 404 });
+        }
+        updateData.boardChannelId = targetChannel.id;
+      }
       if (body.isNotice !== undefined) updateData.isNotice = body.isNotice;
       if (body.isPinned !== undefined) updateData.isPinned = body.isPinned;
       if (body.status !== undefined) updateData.status = body.status;

@@ -15,6 +15,12 @@ type Props = {
   channelSlug: string;
   mode: "create" | "edit";
   postId?: string;
+  initialChannelSlug?: string;
+  availableChannels?: Array<{
+    slug: string;
+    name: string;
+    communityKey: string;
+  }>;
   initial?: {
     categoryTag?: string | null;
     title?: string;
@@ -27,8 +33,21 @@ type Props = {
   isAdmin: boolean;
 };
 
-export default function BoardPostEditor({ channelSlug, mode, postId, initial, isAdmin }: Props) {
+function channelLabel(channel: { name: string; communityKey: string }) {
+  return `${channel.communityKey === "admissions" ? "입시게시판" : "커뮤니티"} · ${channel.name}`;
+}
+
+export default function BoardPostEditor({
+  channelSlug,
+  mode,
+  postId,
+  initialChannelSlug,
+  availableChannels = [],
+  initial,
+  isAdmin,
+}: Props) {
   const router = useRouter();
+  const [targetChannelSlug, setTargetChannelSlug] = useState(initialChannelSlug ?? channelSlug);
   const [categoryTag, setCategoryTag] = useState(initial?.categoryTag ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
@@ -87,6 +106,7 @@ export default function BoardPostEditor({ channelSlug, mode, postId, initial, is
     setError(null);
     try {
       const payload = {
+        ...(isAdmin ? { boardChannelSlug: targetChannelSlug } : {}),
         categoryTag: categoryTag || null,
         title,
         content,
@@ -187,6 +207,22 @@ export default function BoardPostEditor({ channelSlug, mode, postId, initial, is
 
       {isAdmin ? (
         <div className="grid gap-3 rounded-md border border-slate-700/70 p-3 md:grid-cols-3">
+          {mode === "edit" ? (
+            <label className="space-y-1 text-sm text-slate-300 md:col-span-3">
+              게시판 이동
+              <select
+                value={targetChannelSlug}
+                onChange={(e) => setTargetChannelSlug(e.target.value)}
+                className="h-9 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-2 text-sm text-slate-100"
+              >
+                {availableChannels.map((channel) => (
+                  <option key={channel.slug} value={channel.slug}>
+                    {channelLabel(channel)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" checked={isNotice} onChange={(e) => setIsNotice(e.target.checked)} />
             공지글

@@ -22,12 +22,23 @@ export default async function BoardEditPostPage({ params }: { params: Promise<{ 
     redirect(`/boards/posts/${id}`);
   }
 
+  const channels = await prisma.boardChannel.findMany({
+    select: { slug: true, name: true, communityKey: true, sortOrder: true },
+    orderBy: [{ communityKey: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+  });
+
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
       <section className="mx-auto max-w-4xl space-y-4 px-4 py-8 md:px-6">
         <h1 className="text-2xl font-bold">게시글 수정</h1>
         <BoardPostEditor
           channelSlug={post.boardChannel.slug}
+          initialChannelSlug={post.boardChannel.slug}
+          availableChannels={channels.map((channel) => ({
+            slug: channel.slug,
+            name: channel.name,
+            communityKey: channel.communityKey,
+          }))}
           mode="edit"
           postId={post.id}
           isAdmin={isAdmin}
