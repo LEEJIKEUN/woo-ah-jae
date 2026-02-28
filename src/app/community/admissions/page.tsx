@@ -63,19 +63,21 @@ export default async function AdmissionsCommunityPage({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 
-  const boardIds = communityBoards.map((item) => item.id);
   const writableBoards = communityBoards.filter((item) => !item.isNotice);
   const defaultWriteSlug = writableBoards[0]?.slug ?? null;
   const writeSlug = activeBoard && !activeBoard.isNotice ? activeBoard.slug : defaultWriteSlug;
 
-  const boardFilter = boardParam === "all" ? { in: boardIds } : activeBoard!.id;
+  const boardScopeFilter =
+    boardParam === "all"
+      ? { boardChannel: { communityKey: ADMISSIONS_COMMUNITY_KEY } }
+      : { boardChannelId: activeBoard!.id };
   const searchFilter = query
     ? { OR: [{ title: { contains: query } }, { content: { contains: query } }] }
     : {};
 
   const includeAllPostsInList = boardParam === "all";
   const basePostWhere = {
-    boardChannelId: boardFilter,
+    ...boardScopeFilter,
     status: BoardPostStatus.ACTIVE,
     ...searchFilter,
   } as const;
