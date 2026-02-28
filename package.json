@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "build:render": "DATABASE_URL=file:./build.db node scripts/sqlite-migrate.mjs && DATABASE_URL=file:./build.db next build --webpack",
+    "build:render": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
@@ -16,10 +16,14 @@
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.mjs",
     "db:seed:if-empty": "node scripts/seed-if-empty.mjs",
+    "db:backup": "node scripts/backup-sqlite.mjs",
+    "db:restore": "node scripts/restore-sqlite-from-backup.mjs",
     "db:prepare:beta": "node scripts/prepare-beta-content.mjs",
-    "db:purge:sample-projects": "node scripts/purge-sample-projects.mjs"
+    "db:purge:sample-projects": "node scripts/purge-sample-projects.mjs",
+    "ops:check": "node scripts/ops-check.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1000.0",
     "@prisma/client": "^6.19.0",
     "bcryptjs": "^3.0.3",
     "framer-motion": "^12.34.3",

@@ -39,6 +39,15 @@ export async function requireAdmin(request: NextRequest) {
   return auth;
 }
 
+export async function requireSuperAdmin(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "admin@wooahjae.local").toLowerCase();
+  if ((auth.email || "").toLowerCase() !== superAdminEmail) {
+    throw new HttpError(403, "Super admin only");
+  }
+  return auth;
+}
+
 export async function getUserVerificationStatus(userId: string) {
   const latest = await prisma.verificationSubmission.findFirst({
     where: { userId },

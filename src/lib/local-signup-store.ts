@@ -23,21 +23,25 @@ export type LocalSignupItem = {
   rejectReasonText: string | null;
 };
 
-const storeDir = path.join(process.cwd(), ".local_data");
-const storePath = path.join(storeDir, "signup_queue.json");
+const persistentStoreDir =
+  process.env.LOCAL_DATA_DIR ||
+  (process.env.NODE_ENV === "production"
+    ? "/var/data/local_data"
+    : path.join(process.cwd(), ".local_data"));
+const resolvedStorePath = path.join(persistentStoreDir, "signup_queue.json");
 
 async function ensureStore() {
-  await fs.mkdir(storeDir, { recursive: true });
+  await fs.mkdir(persistentStoreDir, { recursive: true });
   try {
-    await fs.access(storePath);
+    await fs.access(resolvedStorePath);
   } catch {
-    await fs.writeFile(storePath, "[]", "utf8");
+    await fs.writeFile(resolvedStorePath, "[]", "utf8");
   }
 }
 
 async function readAll(): Promise<LocalSignupItem[]> {
   await ensureStore();
-  const raw = await fs.readFile(storePath, "utf8");
+  const raw = await fs.readFile(resolvedStorePath, "utf8");
   try {
     const parsed = JSON.parse(raw) as LocalSignupItem[];
     return Array.isArray(parsed) ? parsed : [];
@@ -48,7 +52,7 @@ async function readAll(): Promise<LocalSignupItem[]> {
 
 async function writeAll(items: LocalSignupItem[]) {
   await ensureStore();
-  await fs.writeFile(storePath, JSON.stringify(items, null, 2), "utf8");
+  await fs.writeFile(resolvedStorePath, JSON.stringify(items, null, 2), "utf8");
 }
 
 export async function createLocalSignup(

@@ -12,8 +12,24 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: STORAGE_BACKEND
+        value: local
       - key: DATABASE_URL
-        value: file:/var/data/dev.db
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_PUBLIC
+        sync: false
+      - key: R2_BUCKET_PRIVATE
+        sync: false
+      - key: R2_PUBLIC_BASE_URL
+        sync: false
       - key: PRIVATE_UPLOAD_DIR
         value: /var/data/private_uploads
       - key: APP_URL
@@ -22,6 +38,14 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: SUPER_ADMIN_EMAIL
+        value: admin@wooahjae.local
+      - key: ALLOW_DESTRUCTIVE_ADMIN_SCRIPT
+        value: "false"
+      - key: ALLOW_MEMBER_WITHDRAW_IN_PROD
+        value: "false"
+      - key: ALLOW_DEMO_SEED_IN_PROD
+        value: "false"
       - key: RESEND_API_KEY
         sync: false
       - key: MAIL_FROM

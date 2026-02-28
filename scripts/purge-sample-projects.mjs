@@ -2,6 +2,12 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+if (process.env.NODE_ENV === "production" && process.env.ALLOW_DESTRUCTIVE_ADMIN_SCRIPT !== "true") {
+  throw new Error(
+    "[safety-lock] purge-sample-projects is blocked in production. Set ALLOW_DESTRUCTIVE_ADMIN_SCRIPT=true only for explicit maintenance."
+  );
+}
+
 async function main() {
   const before = await prisma.project.count();
 

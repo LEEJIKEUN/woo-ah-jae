@@ -2,6 +2,12 @@ import { PrismaClient, ProjectStatus, UserRole } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+if (process.env.NODE_ENV === "production" && process.env.ALLOW_DESTRUCTIVE_ADMIN_SCRIPT !== "true") {
+  throw new Error(
+    "[safety-lock] prepare-beta-content is blocked in production. Set ALLOW_DESTRUCTIVE_ADMIN_SCRIPT=true only for explicit maintenance."
+  );
+}
+
 const usageNoticeBody = `안녕하세요.
 WooAhJae는 재외국민 및 국제학교 학생들을 위한 학습·프로젝트 협업 플랫폼입니다.
 

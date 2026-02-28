@@ -8,8 +8,8 @@ async function main() {
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || "ChangeMe123!";
   const passwordHash = await bcrypt.hash(adminPassword, 12);
   const seedDemoUsers =
-    process.env.SEED_DEMO_USERS === "true" ||
-    (process.env.SEED_DEMO_USERS == null && process.env.NODE_ENV !== "production");
+    process.env.SEED_DEMO_USERS === "true" &&
+    (process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_SEED_IN_PROD === "true");
   const studentOwnerEmail = process.env.SEED_STUDENT_OWNER_EMAIL || "student.owner@wooahjae.local";
   const studentOwnerPassword = process.env.SEED_STUDENT_OWNER_PASSWORD || "Student123!";
   const studentApplicantEmail = process.env.SEED_STUDENT_APPLICANT_EMAIL || "student.applicant@wooahjae.local";

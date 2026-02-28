@@ -5,9 +5,9 @@
 ## 기술 스택
 
 - Next.js (App Router) + TypeScript + Tailwind
-- SQLite + Prisma
+- Prisma (현재 기본: SQLite, 운영 권장: 외부 Postgres)
 - 인증: 이메일/비밀번호 + JWT 세션 쿠키
-- 파일 업로드: 비공개 로컬 저장소(`.private_uploads`)
+- 파일 업로드: Local 또는 Cloudflare R2 (`STORAGE_BACKEND`로 선택)
 - 테스트: Vitest
 
 ## 구현된 핵심 기능
@@ -51,6 +51,17 @@ UNSPLASH_ACCESS_KEY=...
 ```bash
 RESEND_API_KEY=...
 MAIL_FROM="Woo Ah Jae <no-reply@yourdomain.com>"
+```
+
+Cloudflare R2 사용(선택):
+```bash
+STORAGE_BACKEND=r2
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET_PUBLIC=wooahjae-public
+R2_BUCKET_PRIVATE=wooahjae-private
+R2_PUBLIC_BASE_URL=https://cdn.wooahjae.com
 ```
 
 2. SQLite 스키마 생성
@@ -182,3 +193,17 @@ npm run build
 ```
 
 현재 기본 운영은 무료(`billingEnabled=false`)이며, 결제 미연동 상태입니다.
+
+## 데이터 자산 최우선 운영(권장)
+
+- Render Web Service(앱)
+- 외부 Postgres(Neon/Supabase/Render Postgres 중 택1)
+- Cloudflare R2(파일)
+
+장점:
+- 앱/DB/파일 분리로 장애 격리
+- 서버 이전 쉬움
+- 장기 운영 시 데이터 자산 보호
+
+자세한 단계별 전환 절차:
+- [DEPLOY_DATA_ASSET_FIRST.md](/Users/skye/Pictures/woo-ah-jae/DEPLOY_DATA_ASSET_FIRST.md)

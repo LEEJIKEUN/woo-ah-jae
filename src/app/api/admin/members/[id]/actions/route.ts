@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { deleteLocalSignup, isDbConnectionError } from "@/lib/local-signup-store";
-import { jsonError, requireAdmin } from "@/lib/guards";
+import { HttpError, jsonError, requireSuperAdmin } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -13,11 +13,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireAdmin(request);
+    const admin = await requireSuperAdmin(request);
     const { id } = await params;
     const { action } = bodySchema.parse(await request.json());
 
     const normalizedAction = action === "CANCEL_SIGNUP" ? "WITHDRAW" : action;
+
+    if (
+      normalizedAction === "WITHDRAW" &&
+      process.env.NODE_ENV === "production" &&
+      process.env.ALLOW_MEMBER_WITHDRAW_IN_PROD !== "true"
+    ) {
+      throw new HttpError(
+        403,
+        "운영 환경에서 강제 탈퇴는 잠겨 있습니다. 허용 시 ALLOW_MEMBER_WITHDRAW_IN_PROD=true를 설정하세요."
+      );
+    }
 
     if (id.startsWith("local_")) {
       if (normalizedAction === "WITHDRAW") {

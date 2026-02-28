@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getPrivateObject, getStorageBackend, putPrivateObject } from "@/lib/r2";
 
 const ALLOWED_MIME = new Set([
   "image/png",
@@ -30,15 +31,25 @@ export function validateUpload(file: File) {
 }
 
 export async function savePrivateFile(file: File) {
-  await fs.mkdir(privateUploadDir, { recursive: true });
-  const uniqueName = `${Date.now()}_${crypto.randomUUID()}_${safeBasename(file.name)}`;
-  const fileKey = path.join(privateUploadDir, uniqueName);
   const buffer = Buffer.from(await file.arrayBuffer());
+  const uniqueName = `${Date.now()}_${crypto.randomUUID()}_${safeBasename(file.name)}`;
+
+  if (getStorageBackend() === "r2") {
+    const key = `private/${uniqueName}`;
+    return putPrivateObject(key, buffer, file.type);
+  }
+
+  await fs.mkdir(privateUploadDir, { recursive: true });
+  const fileKey = path.join(privateUploadDir, uniqueName);
   await fs.writeFile(fileKey, buffer);
   return fileKey;
 }
 
 export async function readPrivateFile(fileKey: string) {
+  if (fileKey.startsWith("r2://")) {
+    return getPrivateObject(fileKey);
+  }
+
   const resolved = path.resolve(fileKey);
   const base = path.resolve(privateUploadDir);
 

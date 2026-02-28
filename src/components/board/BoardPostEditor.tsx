@@ -47,6 +47,16 @@ export default function BoardPostEditor({
   isAdmin,
 }: Props) {
   const router = useRouter();
+  const channelOptions =
+    availableChannels.length > 0
+      ? availableChannels
+      : [
+          {
+            slug: initialChannelSlug ?? channelSlug,
+            name: "현재 게시판",
+            communityKey: "admissions",
+          },
+        ];
   const [targetChannelSlug, setTargetChannelSlug] = useState(initialChannelSlug ?? channelSlug);
   const [categoryTag, setCategoryTag] = useState(initial?.categoryTag ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -144,7 +154,7 @@ export default function BoardPostEditor({
   return (
     <section className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
       <div className="grid gap-3 md:grid-cols-2">
-        {mode === "create" && availableChannels.length > 0 ? (
+        {mode === "create" ? (
           <label className="space-y-1 md:col-span-2">
             <span className="text-sm text-slate-300">게시판</span>
             <select
@@ -152,7 +162,7 @@ export default function BoardPostEditor({
               onChange={(e) => setTargetChannelSlug(e.target.value)}
               className="h-10 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
             >
-              {availableChannels.map((channel) => (
+              {channelOptions.map((channel) => (
                 <option key={channel.slug} value={channel.slug}>
                   {channelLabel(channel)}
                 </option>
