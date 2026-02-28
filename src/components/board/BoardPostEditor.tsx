@@ -78,7 +78,8 @@ export default function BoardPostEditor({
       for (const file of Array.from(files)) {
         const fd = new FormData();
         fd.append("file", file);
-        const res = await fetch(`/api/boards/upload?slug=${encodeURIComponent(channelSlug)}`, {
+        const uploadSlug = mode === "create" ? targetChannelSlug : channelSlug;
+        const res = await fetch(`/api/boards/upload?slug=${encodeURIComponent(uploadSlug)}`, {
           method: "POST",
           body: fd,
         });
@@ -113,7 +114,10 @@ export default function BoardPostEditor({
         attachments,
         ...(isAdmin ? { isNotice, isPinned, status } : {}),
       };
-      const endpoint = mode === "create" ? `/api/boards/${channelSlug}/posts` : `/api/board-posts/${postId}`;
+      const endpoint =
+        mode === "create"
+          ? `/api/boards/${encodeURIComponent(targetChannelSlug)}/posts`
+          : `/api/board-posts/${postId}`;
       const method = mode === "create" ? "POST" : "PATCH";
       const res = await fetch(endpoint, {
         method,
@@ -140,6 +144,22 @@ export default function BoardPostEditor({
   return (
     <section className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
       <div className="grid gap-3 md:grid-cols-2">
+        {mode === "create" && availableChannels.length > 0 ? (
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-sm text-slate-300">게시판</span>
+            <select
+              value={targetChannelSlug}
+              onChange={(e) => setTargetChannelSlug(e.target.value)}
+              className="h-10 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+            >
+              {availableChannels.map((channel) => (
+                <option key={channel.slug} value={channel.slug}>
+                  {channelLabel(channel)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="space-y-1">
           <span className="text-sm text-slate-300">말머리</span>
           <select

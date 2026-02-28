@@ -16,6 +16,19 @@ export default async function BoardNewPostPage({ params }: { params: Promise<{ s
   });
   if (!channel) notFound();
 
+  const availableChannels = await prisma.boardChannel.findMany({
+    where: {
+      communityKey: channel.communityKey,
+      isNotice: false,
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: {
+      slug: true,
+      name: true,
+      communityKey: true,
+    },
+  });
+
   if (!user) redirect(`/login?next=/boards/${slug}/new`);
 
   return (
@@ -26,7 +39,13 @@ export default async function BoardNewPostPage({ params }: { params: Promise<{ s
             ? "학습+입시 정보 공유"
             : channel.name}
         </h1>
-        <BoardPostEditor channelSlug={slug} mode="create" isAdmin={user.role === "ADMIN"} />
+        <BoardPostEditor
+          channelSlug={slug}
+          mode="create"
+          isAdmin={user.role === "ADMIN"}
+          initialChannelSlug={slug}
+          availableChannels={availableChannels}
+        />
       </section>
     </main>
   );
