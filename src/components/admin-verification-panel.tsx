@@ -7,7 +7,7 @@ import { formatKstDate } from "@/lib/date-format";
 type Item = {
   id: string;
   status: "NOT_SUBMITTED" | "PENDING_REVIEW" | "VERIFIED" | "REJECTED";
-  docType?: "STUDENT_ID" | "ENROLLMENT_CERT";
+  docType?: "STUDENT_ID" | "ENROLLMENT_CERTIFICATE";
   originalFilename?: string;
   mimeType?: string;
   submittedAt: string;
@@ -38,6 +38,7 @@ export default function AdminVerificationPanel() {
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<Item | null>(null);
+  const [brokenPreviewIds, setBrokenPreviewIds] = useState<Record<string, true>>({});
 
   const qs = useMemo(() => {
     const params = new URLSearchParams();
@@ -123,9 +124,9 @@ export default function AdminVerificationPanel() {
               <p className="text-xs text-slate-400">상태: {item.status} · 제출일: {formatKstDate(item.submittedAt)}</p>
               <div className="space-y-2 rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
                 <p className="text-[11px] text-slate-400">
-                  제출 문서: {item.docType === "ENROLLMENT_CERT" ? "재학증명서" : "학생증"} · {item.originalFilename ?? "파일"}
+                  제출 문서: {item.docType === "ENROLLMENT_CERTIFICATE" ? "재학증명서" : "학생증"} · {item.originalFilename ?? "파일"}
                 </p>
-                {item.mimeType?.startsWith("image/") ? (
+                {item.mimeType?.startsWith("image/") && !brokenPreviewIds[item.id] ? (
                   <button
                     type="button"
                     onClick={() => setPreviewItem(item)}
@@ -136,18 +137,34 @@ export default function AdminVerificationPanel() {
                       src={`/api/admin/verifications/${item.id}/file`}
                       alt="신원확인 문서 미리보기"
                       className="h-28 w-44 rounded-md border border-slate-700 object-cover transition group-hover:opacity-90"
+                      onError={() =>
+                        setBrokenPreviewIds((prev) => ({
+                          ...prev,
+                          [item.id]: true,
+                        }))
+                      }
                     />
                   </button>
-                ) : (
+                ) : null}
+                <div className="flex flex-wrap gap-2">
                   <a
                     href={`/api/admin/verifications/${item.id}/file`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
                   >
-                    문서 보기
+                    문서 열기
                   </a>
-                )}
+                  {item.mimeType?.startsWith("image/") ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewItem(item)}
+                      className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                    >
+                      크게 보기
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="flex gap-2 pt-1">
