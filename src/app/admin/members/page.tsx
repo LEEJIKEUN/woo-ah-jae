@@ -20,11 +20,11 @@ type MemberItem = {
 };
 
 const verificationLabel: Record<MemberItem["verificationStatus"], string> = {
-  NOT_SUBMITTED: "NOT-SUB",
+  NOT_SUBMITTED: "N/S",
   PENDING_REVIEW: "PEND",
-  VERIFIED: "VERIFIED",
-  REJECTED: "REJECTED",
-  UNKNOWN: "UNKNOWN",
+  VERIFIED: "VER",
+  REJECTED: "REJ",
+  UNKNOWN: "UNK",
 };
 
 export default function AdminMembersPage() {
@@ -168,7 +168,21 @@ export default function AdminMembersPage() {
             <div className="py-8 text-center text-sm text-slate-400">회원 데이터가 없습니다.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-[1340px] border-collapse text-left text-sm text-slate-200">
+              <table className="min-w-[1320px] table-fixed border-collapse text-left text-sm text-slate-200">
+                <colgroup>
+                  <col className="w-[52px]" />
+                  <col className="w-[140px]" />
+                  <col className="w-[370px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[210px]" />
+                  <col className="w-[78px]" />
+                  <col className="w-[78px]" />
+                  <col className="w-[86px]" />
+                  <col className="w-[86px]" />
+                  <col className="w-[86px]" />
+                  <col className="w-[118px]" />
+                  <col className="w-[98px]" />
+                </colgroup>
                 <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
                   <tr>
                     <th className="whitespace-nowrap px-3 py-3">순</th>
@@ -268,10 +282,10 @@ export default function AdminMembersPage() {
                   {filteredItems.map((x, idx) => (
                     <tr key={x.id} className="border-t border-slate-700/60 hover:bg-slate-800/30">
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">{idx + 1}</td>
-                      <td className="max-w-[120px] truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.realName ?? "-"}</td>
-                      <td className="max-w-[260px] truncate whitespace-nowrap px-4 py-3 font-medium text-slate-100">{x.email}</td>
+                      <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.realName ?? "-"}</td>
+                      <td className="truncate whitespace-nowrap px-4 py-3 font-medium text-slate-100">{x.email}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.role}</td>
-                      <td className="max-w-[200px] truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.schoolName ?? "-"}</td>
+                      <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.schoolName ?? "-"}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.grade ?? "-"}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.residenceCountry ?? "-"}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{verificationLabel[x.verificationStatus]}</td>
@@ -282,7 +296,7 @@ export default function AdminMembersPage() {
                         <button
                           onClick={() => void memberAction(x.id, "WITHDRAW")}
                           disabled={processingMemberId === x.id}
-                          className="whitespace-nowrap rounded-md bg-rose-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                          className="whitespace-nowrap rounded-md bg-rose-500 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-40"
                         >
                           탈퇴
                         </button>
