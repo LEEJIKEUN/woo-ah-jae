@@ -58,6 +58,8 @@ export default async function WorkspacePage({ params }: { params: Promise<{ proj
               googleSheetUrl: config.googleSheetUrl,
               googleDocsUrl: config.googleDocsUrl,
               zoomMeetingUrl: config.zoomMeetingUrl,
+              pptUrl: config.pptUrl,
+              finalReportPdfUrl: config.finalReportPdfUrl,
               projectOverview: config.projectOverview,
               pinnedNotice: config.pinnedNotice,
             }}

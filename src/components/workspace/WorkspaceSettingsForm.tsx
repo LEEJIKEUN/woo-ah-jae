@@ -11,18 +11,22 @@ export default function WorkspaceSettingsForm({
 }: {
   projectId: string;
   initial: {
+    pinnedNotice: string | null;
     googleDriveUrl: string | null;
     googleSheetUrl: string | null;
     googleDocsUrl: string | null;
     zoomMeetingUrl: string | null;
-    pinnedNotice: string | null;
+    pptUrl: string | null;
+    finalReportPdfUrl: string | null;
   };
 }) {
+  const [pinnedNotice, setPinnedNotice] = useState(initial.pinnedNotice ?? "");
   const [googleDriveUrl, setGoogleDriveUrl] = useState(initial.googleDriveUrl ?? "");
   const [googleSheetUrl, setGoogleSheetUrl] = useState(initial.googleSheetUrl ?? "");
   const [googleDocsUrl, setGoogleDocsUrl] = useState(initial.googleDocsUrl ?? "");
   const [zoomMeetingUrl, setZoomMeetingUrl] = useState(initial.zoomMeetingUrl ?? "");
-  const [pinnedNotice, setPinnedNotice] = useState(initial.pinnedNotice ?? "");
+  const [pptUrl, setPptUrl] = useState(initial.pptUrl ?? "");
+  const [finalReportPdfUrl, setFinalReportPdfUrl] = useState(initial.finalReportPdfUrl ?? "");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +40,13 @@ export default function WorkspaceSettingsForm({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          pinnedNotice: pinnedNotice.trim() || null,
           googleDriveUrl: googleDriveUrl.trim() || null,
           googleSheetUrl: googleSheetUrl.trim() || null,
           googleDocsUrl: googleDocsUrl.trim() || null,
           zoomMeetingUrl: zoomMeetingUrl.trim() || null,
-          pinnedNotice: pinnedNotice.trim() || null,
+          pptUrl: pptUrl.trim() || null,
+          finalReportPdfUrl: finalReportPdfUrl.trim() || null,
         }),
       });
       const json = (await res.json()) as { error?: string };
@@ -56,7 +62,11 @@ export default function WorkspaceSettingsForm({
   return (
     <section className="space-y-4">
       <label className="block space-y-1">
-        <span className="text-sm text-slate-300">Google Drive 공유 폴더 URL</span>
+        <span className="text-sm text-slate-300">상단 고정 공지</span>
+        <textarea value={pinnedNotice} onChange={(e) => setPinnedNotice(e.target.value)} rows={5} className={INPUT_CLASS} />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm text-slate-300">Google Drive URL</span>
         <input
           value={googleDriveUrl}
           onChange={(e) => setGoogleDriveUrl(e.target.value)}
@@ -77,8 +87,12 @@ export default function WorkspaceSettingsForm({
         <input value={zoomMeetingUrl} onChange={(e) => setZoomMeetingUrl(e.target.value)} className={INPUT_CLASS} placeholder="https://zoom.us/j/..." />
       </label>
       <label className="block space-y-1">
-        <span className="text-sm text-slate-300">상단 고정 공지</span>
-        <textarea value={pinnedNotice} onChange={(e) => setPinnedNotice(e.target.value)} rows={5} className={INPUT_CLASS} />
+        <span className="text-sm text-slate-300">PPT URL</span>
+        <input value={pptUrl} onChange={(e) => setPptUrl(e.target.value)} className={INPUT_CLASS} placeholder="https://docs.google.com/presentation/..." />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm text-slate-300">최종 보고서(PDF)</span>
+        <input value={finalReportPdfUrl} onChange={(e) => setFinalReportPdfUrl(e.target.value)} className={INPUT_CLASS} placeholder="https://.../final-report.pdf" />
       </label>
 
       {message ? <p className="text-sm text-emerald-300">{message}</p> : null}

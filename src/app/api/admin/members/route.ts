@@ -1,4 +1,4 @@
-import { EntitlementStatus, UserRole, VerificationStatus } from "@prisma/client";
+import { EntitlementStatus, UserLifecycleStatus, UserRole, VerificationStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { isDbConnectionError, listLocalSignups } from "@/lib/local-signup-store";
 import { jsonError, requireAdmin } from "@/lib/guards";
@@ -9,6 +9,9 @@ type MemberItem = {
   email: string;
   realName: string | null;
   role: UserRole;
+  lifecycleStatus: UserLifecycleStatus;
+  deletedAt: string | null;
+  achievedAt: string | null;
   schoolName: string | null;
   grade: string | null;
   residenceCountry: string | null;
@@ -22,6 +25,16 @@ export async function GET(request: NextRequest) {
   try {
     await requireAdmin(request);
 
+    const lifecycleParam = (request.nextUrl.searchParams.get("lifecycle") ?? "ACTIVE").toUpperCase();
+    const lifecycleFilter =
+      lifecycleParam === "ALL"
+        ? undefined
+        : lifecycleParam === "DELETED"
+          ? UserLifecycleStatus.DELETED
+          : lifecycleParam === "ACHIEVED"
+            ? UserLifecycleStatus.ACHIEVED
+            : UserLifecycleStatus.ACTIVE;
+
     const nameQuery =
       request.nextUrl.searchParams.get("name")?.trim() ??
       request.nextUrl.searchParams.get("q")?.trim() ??
@@ -30,15 +43,23 @@ export async function GET(request: NextRequest) {
     try {
       const [users, billingFlag] = await Promise.all([
         prisma.user.findMany({
-          where: nameQuery
-            ? {
-                studentProfile: {
-                  is: {
-                    realName: { contains: nameQuery },
-                  },
-                },
-              }
-            : undefined,
+          where: {
+            ...(lifecycleFilter ? { lifecycleStatus: lifecycleFilter } : {}),
+            ...(nameQuery
+              ? {
+                  OR: [
+                    {
+                      studentProfile: {
+                        is: {
+                          realName: { contains: nameQuery, mode: "insensitive" },
+                        },
+                      },
+                    },
+                    { email: { contains: nameQuery, mode: "insensitive" } },
+                  ],
+                }
+              : {}),
+          },
           include: {
             studentProfile: {
               select: {
@@ -72,6 +93,9 @@ export async function GET(request: NextRequest) {
         email: u.email,
         realName: u.studentProfile?.realName?.trim() || null,
         role: u.role,
+        lifecycleStatus: u.lifecycleStatus,
+        deletedAt: u.deletedAt?.toISOString() ?? null,
+        achievedAt: u.achievedAt?.toISOString() ?? null,
         schoolName: u.studentProfile?.schoolName ?? null,
         grade: u.studentProfile?.grade ?? null,
         residenceCountry: u.studentProfile?.residenceCountry ?? null,
@@ -116,6 +140,9 @@ export async function GET(request: NextRequest) {
         email: x.email,
         realName: null,
         role: UserRole.STUDENT,
+        lifecycleStatus: UserLifecycleStatus.ACTIVE,
+        deletedAt: null,
+        achievedAt: null,
         schoolName: x.schoolName ?? null,
         grade: x.grade ?? null,
         residenceCountry: x.residenceCountry ?? null,

@@ -9,6 +9,7 @@ type Item = {
   title: string;
   summary: string;
   status: "open" | "closed";
+  achievedAt?: string | null;
   capacity: number;
   applicationCount: number;
   memberCount: number;
@@ -17,7 +18,15 @@ type Item = {
   ownerEmail?: string;
 };
 
-export default function MyProjectsDashboard({ initialItems, isAdmin = false }: { initialItems: Item[]; isAdmin?: boolean }) {
+export default function MyProjectsDashboard({
+  initialItems,
+  isAdmin = false,
+  emptyText,
+}: {
+  initialItems: Item[];
+  isAdmin?: boolean;
+  emptyText?: string;
+}) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -138,8 +147,36 @@ export default function MyProjectsDashboard({ initialItems, isAdmin = false }: {
     }
   }
 
+  async function toggleAchieved(item: Item) {
+    setLoadingId(item.id);
+    const nextAchieved = !item.achievedAt;
+    try {
+      const res = await fetch(`/api/me/projects/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ achieved: nextAchieved }),
+      });
+      if (!res.ok) throw new Error("Achieved 상태 변경 실패");
+
+      setItems((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id
+            ? {
+                ...entry,
+                achievedAt: nextAchieved ? new Date().toISOString() : null,
+                status: nextAchieved ? "closed" : entry.status,
+              }
+            : entry
+        )
+      );
+      router.refresh();
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
   if (!items.length) {
-    return <p className="text-sm text-slate-400">아직 만든 프로젝트가 없습니다. 상단의 내 프로젝트 만들기 버튼으로 시작하세요.</p>;
+    return <p className="text-sm text-slate-400">{emptyText ?? "아직 만든 프로젝트가 없습니다. 상단의 내 프로젝트 만들기 버튼으로 시작하세요."}</p>;
   }
 
   return (
@@ -156,18 +193,28 @@ export default function MyProjectsDashboard({ initialItems, isAdmin = false }: {
                 </p>
               ) : null}
               <p className="text-xs text-slate-400">
-                상태: {item.status === "open" ? "모집중" : "마감"} · 모집 {item.capacity}명 · 지원 {item.applicationCount}건 · 확정 {item.memberCount}명
+                상태: {item.achievedAt ? "Achieved" : item.status === "open" ? "모집중" : "마감"} · 모집 {item.capacity}명 · 지원 {item.applicationCount}건 · 확정 {item.memberCount}명
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={loadingId === item.id}
-                onClick={() => toggleStatus(item)}
-                className="rounded-md border border-slate-500 px-3 py-1.5 text-xs text-slate-100 hover:border-slate-300 disabled:opacity-60"
+                onClick={() => toggleAchieved(item)}
+                className="rounded-md border border-emerald-500/70 px-3 py-1.5 text-xs text-emerald-200 hover:border-emerald-300 disabled:opacity-60"
               >
-                {loadingId === item.id ? "변경 중..." : item.status === "open" ? "모집 마감" : "모집 재개"}
+                {loadingId === item.id ? "변경 중..." : item.achievedAt ? "Achieved 해제" : "Achieved 이동"}
               </button>
+              {!item.achievedAt ? (
+                <button
+                  type="button"
+                  disabled={loadingId === item.id}
+                  onClick={() => toggleStatus(item)}
+                  className="rounded-md border border-slate-500 px-3 py-1.5 text-xs text-slate-100 hover:border-slate-300 disabled:opacity-60"
+                >
+                  {loadingId === item.id ? "변경 중..." : item.status === "open" ? "모집 마감" : "모집 재개"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => openEditor(item)}

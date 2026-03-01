@@ -45,6 +45,8 @@ type Props = {
     googleSheetUrl: string | null;
     googleDocsUrl: string | null;
     zoomMeetingUrl: string | null;
+    pptUrl: string | null;
+    finalReportPdfUrl: string | null;
     projectOverview: string | null;
     pinnedNotice: string | null;
   };
@@ -372,6 +374,8 @@ export default function WorkspaceHomeClient(props: Props) {
           <ExternalLinkButton label="Google Sheet" href={props.config.googleSheetUrl} />
           <ExternalLinkButton label="Google Docs" href={props.config.googleDocsUrl} />
           <ExternalLinkButton label="Zoom Meeting" href={props.config.zoomMeetingUrl} />
+          <ExternalLinkButton label="PPT" href={props.config.pptUrl} />
+          <ExternalLinkButton label="최종 보고서(PDF)" href={props.config.finalReportPdfUrl} />
         </div>
       </div>
 

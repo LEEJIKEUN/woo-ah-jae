@@ -59,18 +59,38 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <section className="mx-auto max-w-4xl space-y-6 px-4 py-8 md:px-6">
         <article className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
           <p className="text-xs text-slate-400">{project.tab ?? "교과"} · {project.channel ?? "전체"}</p>
-          <h1 className="text-3xl font-bold text-slate-100">{project.title}</h1>
-          <p className="text-sm text-slate-300">{project.summary ?? project.description.slice(0, 160)}</p>
-          <p className="text-sm leading-7 text-slate-200">{project.description}</p>
+          <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
+            <div className="space-y-4">
+              <h1 className="text-3xl font-bold text-slate-100">{project.title}</h1>
+              <p className="text-sm text-slate-300">{project.summary ?? project.description.slice(0, 160)}</p>
+              <p className="text-sm leading-7 text-slate-200">{project.description}</p>
 
-          <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
-            <p>대표: {ownerSchool} · {ownerGrade} · {ownerName}</p>
-            <p>모집 상태: {statusText(project.status)}</p>
-            <p>모집 인원: {project.capacity}명 (확정 {project._count.members}명)</p>
-            <p>지원서: {project._count.applications}건</p>
-            <p>모집 역할: {project.rolesNeeded ?? "미지정"}</p>
-            <p>조건: {project.requirements ?? "없음"}</p>
-            <p>마감일: {project.deadline ? project.deadline.toISOString().slice(0, 10) : "상시"}</p>
+              <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+                <p>대표: {ownerSchool} · {ownerGrade} · {ownerName}</p>
+                <p>모집 인원: {project.capacity}명 (확정 {project._count.members}명)</p>
+                <p>모집 상태: {statusText(project.status)}</p>
+                <p>지원서: {project._count.applications}건</p>
+                <p className="md:col-span-2">조건: {project.requirements ?? "없음"}</p>
+                <p>모집 역할: {project.rolesNeeded ?? "미지정"}</p>
+                <p>마감일: {project.deadline ? project.deadline.toISOString().slice(0, 10) : "상시"}</p>
+              </div>
+            </div>
+
+            <div className="lg:sticky lg:top-24">
+              <div className="overflow-hidden rounded-lg border border-slate-700/80 bg-slate-900/60">
+                {project.thumbnailUrl ? (
+                  <img
+                    src={project.thumbnailUrl}
+                    alt={`${project.title} 썸네일`}
+                    className="h-[260px] w-full object-cover md:h-[320px]"
+                  />
+                ) : (
+                  <div className="flex h-[260px] w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700 text-sm text-slate-300 md:h-[320px]">
+                    썸네일 없음
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2 rounded-md border border-slate-700/70 p-3 text-sm text-slate-300">
@@ -89,6 +109,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </Link>
             ) : project.ownerId === user.id ? (
               <>
+                <Link href={`/projects/${project.id}/edit`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                  프로젝트 수정
+                </Link>
                 <Link href={`/me/projects/${project.id}/applications`} className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white">
                   지원자 관리
                 </Link>
@@ -97,9 +120,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </Link>
               </>
             ) : user.role === "ADMIN" ? (
-              <Link href={`/workspace/${project.id}`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
-                관리자 권한으로 프로젝트 공간 입장
-              </Link>
+              <>
+                <Link href={`/projects/${project.id}/edit`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                  관리자 권한으로 수정
+                </Link>
+                <Link href={`/workspace/${project.id}`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                  관리자 권한으로 프로젝트 공간 입장
+                </Link>
+              </>
             ) : myApplication ? (
               <>
                 <p className="rounded-md border border-slate-500/80 px-4 py-2 text-sm text-slate-200">

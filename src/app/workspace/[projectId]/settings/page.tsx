@@ -48,11 +48,13 @@ export default async function WorkspaceSettingsPage({ params }: { params: Promis
         <WorkspaceSettingsForm
           projectId={projectId}
           initial={{
+            pinnedNotice: config.pinnedNotice,
             googleDriveUrl: config.googleDriveUrl,
             googleSheetUrl: config.googleSheetUrl,
             googleDocsUrl: config.googleDocsUrl,
             zoomMeetingUrl: config.zoomMeetingUrl,
-            pinnedNotice: config.pinnedNotice,
+            pptUrl: config.pptUrl,
+            finalReportPdfUrl: config.finalReportPdfUrl,
           }}
         />
       </section>

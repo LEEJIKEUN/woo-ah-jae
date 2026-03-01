@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserLifecycleStatus, UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createSessionToken, hashPassword, setSessionCookie, verifyPassword } from "@/lib/auth";
@@ -20,9 +20,21 @@ export async function POST(request: NextRequest) {
     const parsed = bodySchema.parse(body);
 
     try {
-      const user = await prisma.user.findUnique({ where: { email: parsed.email } });
+      const user = await prisma.user.findUnique({
+        where: { email: parsed.email },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          passwordHash: true,
+          lifecycleStatus: true,
+        },
+      });
       if (!user) {
         return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      }
+      if (user.lifecycleStatus !== UserLifecycleStatus.ACTIVE) {
+        return NextResponse.json({ error: "비활성화된 계정입니다. 관리자에게 문의하세요." }, { status: 403 });
       }
 
       const ok = await verifyPassword(parsed.password, user.passwordHash);

@@ -14,4 +14,4 @@ COPY . .
 RUN npm run db:generate && npm run build:render
 
 EXPOSE 10000
-CMD ["sh", "-c", "npm run ops:check && node scripts/prepare-db.mjs && npm run db:seed:if-empty && npm run start -- -p ${PORT:-10000}"]
+CMD ["sh", "-c", "npm run ops:check && node scripts/prepare-db.mjs && npm run ops:guard:prod-data && npm run db:seed:if-empty && npm run start -- -p ${PORT:-10000}"]

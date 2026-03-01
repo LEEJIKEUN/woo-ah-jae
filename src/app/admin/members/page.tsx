@@ -252,11 +252,15 @@ export default function AdminMembersPage() {
     return <span className="text-sky-300">{sortDirection === "asc" ? "▲" : "▼"}</span>;
   }
 
-  async function memberAction(id: string, action: "WITHDRAW") {
+  async function memberAction(id: string, action: "MOVE_DELETED" | "MOVE_ACHIEVED") {
     setProcessingMemberId(id);
     setError(null);
     try {
-      const ok = window.confirm("정말 탈퇴 처리하시겠습니까? 계정과 연관 데이터가 즉시 삭제됩니다.");
+      const ok = window.confirm(
+        action === "MOVE_DELETED"
+          ? "정말 Delete 처리하시겠습니까? (복구는 관리자 복구 기능에서 가능합니다)"
+          : "이 회원을 Achieve 상태로 이동하시겠습니까?"
+      );
       if (!ok) return;
 
       const res = await fetch(`/api/admin/members/${id}/actions`, {
@@ -327,11 +331,11 @@ export default function AdminMembersPage() {
         {loading ? <p className="text-sm text-slate-400">불러오는 중...</p> : null}
         {error ? <p className="rounded-md bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
 
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-visible p-0">
           {filteredItems.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-400">회원 데이터가 없습니다.</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto overflow-y-visible">
               <table className="min-w-[1320px] table-fixed border-collapse text-left text-sm text-slate-200">
                 <colgroup>
                   <col className="w-[52px]" />
@@ -369,7 +373,7 @@ export default function AdminMembersPage() {
                       ["planCode", "플랜"],
                       ["entitlementStatus", "구독"],
                     ] as Array<[ColumnFilterKey, string]>).map(([key, label]) => (
-                      <th key={key} className="relative whitespace-nowrap px-3 py-3">
+                      <th key={key} className={`relative whitespace-nowrap px-3 py-3 ${activeFilterKey === key ? "z-50" : ""}`}>
                         <div className="inline-flex items-center gap-1">
                           <button
                             onClick={() => toggleSort(key)}
@@ -390,7 +394,7 @@ export default function AdminMembersPage() {
                         {activeFilterKey === key ? (
                           <div
                             ref={filterMenuRef}
-                            className="absolute right-0 top-full z-30 mt-1 w-56 rounded-md border border-slate-600 bg-slate-900 p-2 shadow-xl"
+                            className="absolute right-0 top-full z-[120] mt-1 w-56 rounded-md border border-slate-600 bg-slate-900 p-2 shadow-2xl"
                           >
                             <div className="mb-2 flex items-center justify-between text-[11px] text-slate-300">
                               <span>{label} 필터</span>
@@ -466,13 +470,22 @@ export default function AdminMembersPage() {
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-300">{x.entitlementStatus}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">{formatKstDate(x.createdAt)}</td>
                       <td className="px-3 py-3 text-right">
-                        <button
-                          onClick={() => void memberAction(x.id, "WITHDRAW")}
-                          disabled={processingMemberId === x.id}
-                          className="whitespace-nowrap rounded-md bg-rose-500 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-40"
-                        >
-                          탈퇴
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => void memberAction(x.id, "MOVE_DELETED")}
+                            disabled={processingMemberId === x.id}
+                            className="whitespace-nowrap rounded-md bg-rose-500 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => void memberAction(x.id, "MOVE_ACHIEVED")}
+                            disabled={processingMemberId === x.id}
+                            className="whitespace-nowrap rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-medium text-slate-950 disabled:opacity-40"
+                          >
+                            Achieve
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

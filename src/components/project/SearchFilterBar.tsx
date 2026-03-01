@@ -20,7 +20,7 @@ type Props = {
 };
 
 const INPUT_CLASS =
-  "h-9 rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100 outline-none transition focus:border-slate-400";
+  "h-10 rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100 outline-none transition focus:border-slate-400";
 
 export type { FilterState };
 
@@ -58,8 +58,8 @@ export default function SearchFilterBar({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="relative min-w-[220px] flex-1">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <label className="relative min-w-0 sm:col-span-2 xl:col-span-2">
           <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={filters.query}
@@ -70,24 +70,24 @@ export default function SearchFilterBar({
           />
         </label>
 
-        <select value={sort} onChange={(e) => onSortChange(e.target.value as SortOption)} className={INPUT_CLASS} aria-label="정렬">
+        <select value={sort} onChange={(e) => onSortChange(e.target.value as SortOption)} className={`${INPUT_CLASS} min-w-0`} aria-label="정렬">
           <option value="popular">인기순</option>
           <option value="latest">최신순</option>
         </select>
 
-        <select value={filters.date} onChange={(e) => onFilterChange("date", e.target.value)} className={INPUT_CLASS} aria-label="날짜">
+        <select value={filters.date} onChange={(e) => onFilterChange("date", e.target.value)} className={`${INPUT_CLASS} min-w-0`} aria-label="날짜">
           {FILTER_OPTIONS.date.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select value={filters.grade} onChange={(e) => onFilterChange("grade", e.target.value)} className={INPUT_CLASS} aria-label="학년">
+        <select value={filters.grade} onChange={(e) => onFilterChange("grade", e.target.value)} className={`${INPUT_CLASS} min-w-0`} aria-label="학년">
           {FILTER_OPTIONS.grade.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select value={filters.recruit} onChange={(e) => onFilterChange("recruit", e.target.value)} className={INPUT_CLASS} aria-label="모집 상태">
+        <select value={filters.recruit} onChange={(e) => onFilterChange("recruit", e.target.value)} className={`${INPUT_CLASS} min-w-0`} aria-label="모집 상태">
           {FILTER_OPTIONS.recruit.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
 
-        <select value={filters.kind} onChange={(e) => onFilterChange("kind", e.target.value)} className={INPUT_CLASS} aria-label="유형">
+        <select value={filters.kind} onChange={(e) => onFilterChange("kind", e.target.value)} className={`${INPUT_CLASS} min-w-0`} aria-label="유형">
           {FILTER_OPTIONS.kind.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </div>

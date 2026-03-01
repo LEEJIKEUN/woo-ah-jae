@@ -65,7 +65,7 @@ export default function ProjectCard({ project }: Props) {
   }, [cacheKey, project.channel, project.id, project.summary, project.tab, project.title, thumbnailUrl]);
 
   return (
-    <Card className="group space-y-3 p-3.5 transition hover:bg-[color:var(--surface-elevated)]">
+    <Card className="group flex h-full min-h-[260px] flex-col gap-3 p-3.5 transition hover:bg-[color:var(--surface-elevated)]">
       <div className="flex items-start gap-3">
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
           {thumbnailUrl && !imageFailed ? (
@@ -97,7 +97,7 @@ export default function ProjectCard({ project }: Props) {
         <p className="line-clamp-1">조건: {project.requirements}</p>
       </div>
 
-      <div className="flex items-center justify-between pt-1">
+      <div className="mt-auto flex items-center justify-between pt-1">
         <LikeButton projectId={project.id} initialCount={project.likeCount} className="inline-flex items-center gap-1 text-xs text-slate-300 hover:text-slate-100" />
         <Link href={`/projects/${project.id}`} className="text-xs font-medium text-slate-200 transition hover:text-white">상세 보기</Link>
       </div>

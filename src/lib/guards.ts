@@ -1,4 +1,4 @@
-import { UserRole, VerificationStatus } from "@prisma/client";
+import { UserLifecycleStatus, UserRole, VerificationStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,13 +28,16 @@ export async function requireAdmin(request: NextRequest) {
   const auth = await getAuthFromRequest(request);
   const user = await prisma.user.findUnique({
     where: { id: auth.userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, lifecycleStatus: true },
   });
   if (!user) {
     throw new HttpError(401, "세션이 만료되었습니다. 다시 로그인해 주세요.");
   }
   if (user.role !== UserRole.ADMIN) {
     throw new HttpError(403, "Admin only");
+  }
+  if (user.lifecycleStatus !== UserLifecycleStatus.ACTIVE) {
+    throw new HttpError(403, "비활성화된 관리자 계정입니다.");
   }
   return auth;
 }
@@ -61,13 +64,16 @@ export async function requireVerifiedOrAdmin(request: NextRequest) {
   const auth = await getAuthFromRequest(request);
   const user = await prisma.user.findUnique({
     where: { id: auth.userId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, lifecycleStatus: true },
   });
   if (!user) {
     throw new HttpError(401, "세션이 만료되었습니다. 다시 로그인해 주세요.");
   }
   if (user.role === UserRole.ADMIN) {
     return auth;
+  }
+  if (user.lifecycleStatus !== UserLifecycleStatus.ACTIVE) {
+    throw new HttpError(403, "비활성화된 계정입니다.");
   }
   const status = await getUserVerificationStatus(auth.userId);
   if (status !== VerificationStatus.VERIFIED) {

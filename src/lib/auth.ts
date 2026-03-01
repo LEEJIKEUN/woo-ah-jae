@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserLifecycleStatus, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { redirect } from "next/navigation";
@@ -86,8 +86,8 @@ export async function getUser() {
 
   try {
     const session = await verifySessionToken(token);
-    return await prisma.user.findUnique({
-      where: { id: session.userId },
+    return await prisma.user.findFirst({
+      where: { id: session.userId, lifecycleStatus: UserLifecycleStatus.ACTIVE },
       include: { studentProfile: true },
     });
   } catch {

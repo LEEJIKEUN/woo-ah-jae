@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { UserLifecycleStatus } from "@prisma/client";
 import { deleteLocalSignup, isDbConnectionError } from "@/lib/local-signup-store";
 import { HttpError, jsonError, requireSuperAdmin } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
-  action: z.enum(["WITHDRAW", "CANCEL_SIGNUP"]),
+  action: z.enum(["WITHDRAW", "CANCEL_SIGNUP", "MOVE_DELETED", "MOVE_ACHIEVED", "RESTORE_ACTIVE"]),
 });
 
 export async function POST(
@@ -17,25 +18,17 @@ export async function POST(
     const { id } = await params;
     const { action } = bodySchema.parse(await request.json());
 
-    const normalizedAction = action === "CANCEL_SIGNUP" ? "WITHDRAW" : action;
-
-    if (
-      normalizedAction === "WITHDRAW" &&
-      process.env.NODE_ENV === "production" &&
-      process.env.ALLOW_MEMBER_WITHDRAW_IN_PROD !== "true"
-    ) {
-      throw new HttpError(
-        403,
-        "운영 환경에서 강제 탈퇴는 잠겨 있습니다. 허용 시 ALLOW_MEMBER_WITHDRAW_IN_PROD=true를 설정하세요."
-      );
-    }
+    const normalizedAction =
+      action === "WITHDRAW" || action === "CANCEL_SIGNUP" ? "MOVE_DELETED" : action;
 
     if (id.startsWith("local_")) {
-      if (normalizedAction === "WITHDRAW") {
+      if (normalizedAction === "MOVE_DELETED") {
         const removed = await deleteLocalSignup(id);
         if (!removed) {
           return NextResponse.json({ error: "Member not found" }, { status: 404 });
         }
+      } else {
+        throw new HttpError(400, "로컬 가입자는 삭제 전용 처리만 가능합니다.");
       }
 
       return NextResponse.json({ ok: true, source: "local" });
@@ -48,31 +41,36 @@ export async function POST(
       }
 
       await prisma.$transaction(async (tx) => {
-        if (normalizedAction === "WITHDRAW") {
-          await tx.projectMember.deleteMany({ where: { userId: id } });
-          await tx.application.deleteMany({ where: { applicantId: id } });
-          await tx.groupMember.deleteMany({ where: { userId: id } });
-          await tx.comment.deleteMany({ where: { createdBy: id } });
-          await tx.post.deleteMany({ where: { createdBy: id } });
-          await tx.group.deleteMany({ where: { project: { ownerId: id } } });
-          await tx.project.deleteMany({ where: { ownerId: id } });
-          await tx.verificationSubmission.deleteMany({ where: { userId: id } });
-          await tx.studentProfile.deleteMany({ where: { userId: id } });
-          await tx.entitlement.deleteMany({ where: { userId: id } });
-          await tx.auditLog.deleteMany({ where: { actorUserId: id } });
-          await tx.user.delete({ where: { id } });
+        const nextStatus =
+          normalizedAction === "MOVE_DELETED"
+            ? UserLifecycleStatus.DELETED
+            : normalizedAction === "MOVE_ACHIEVED"
+              ? UserLifecycleStatus.ACHIEVED
+              : UserLifecycleStatus.ACTIVE;
 
-          await tx.auditLog.create({
-            data: {
-              actorUserId: admin.userId,
-              actionType: "MEMBER_WITHDRAWN",
-              targetType: "UserDeletion",
-              targetId: id,
-              metadataJson: { action: normalizedAction },
-            },
-          });
-        }
+        await tx.user.update({
+          where: { id },
+          data: {
+            lifecycleStatus: nextStatus,
+            deletedAt: nextStatus === UserLifecycleStatus.DELETED ? new Date() : null,
+            achievedAt: nextStatus === UserLifecycleStatus.ACHIEVED ? new Date() : null,
+          },
+        });
 
+        await tx.auditLog.create({
+          data: {
+            actorUserId: admin.userId,
+            actionType:
+              normalizedAction === "MOVE_DELETED"
+                ? "MEMBER_MOVED_DELETED"
+                : normalizedAction === "MOVE_ACHIEVED"
+                  ? "MEMBER_MOVED_ACHIEVED"
+                  : "MEMBER_RESTORED_ACTIVE",
+            targetType: "UserLifecycle",
+            targetId: id,
+            metadataJson: { action: normalizedAction },
+          },
+        });
       });
 
       return NextResponse.json({ ok: true, source: "db" });

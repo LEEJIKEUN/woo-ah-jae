@@ -17,7 +17,7 @@ export default async function MyProjectsPage() {
 
   const [projects, appliedProjects, joinedProjects] = await Promise.all([
     prisma.project.findMany({
-      where: isAdmin ? undefined : { ownerId: user.id },
+      where: isAdmin ? { isDeleted: false } : { ownerId: user.id, isDeleted: false, achievedAt: null },
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { applications: true, members: true } },
@@ -79,8 +79,12 @@ export default async function MyProjectsPage() {
       memberCount: project._count.members,
       ownerName: project.owner.studentProfile?.realName ?? project.owner.email.split("@")[0],
       ownerEmail: project.owner.email,
+      achievedAt: project.achievedAt?.toISOString() ?? null,
     };
   });
+
+  const activeItems = isAdmin ? items.filter((item) => !item.achievedAt) : items;
+  const achievedItems = isAdmin ? items.filter((item) => Boolean(item.achievedAt)) : [];
 
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
@@ -97,7 +101,21 @@ export default async function MyProjectsPage() {
           </Link>
         </div>
 
-        <MyProjectsDashboard initialItems={items} isAdmin={isAdmin} />
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-100">{isAdmin ? "운영중 프로젝트" : "내 프로젝트"}</h2>
+          <MyProjectsDashboard
+            initialItems={activeItems}
+            isAdmin={isAdmin}
+            emptyText={isAdmin ? "현재 운영중인 프로젝트가 없습니다." : "아직 만든 프로젝트가 없습니다. 상단의 내 프로젝트 만들기 버튼으로 시작하세요."}
+          />
+        </section>
+
+        {isAdmin ? (
+          <section className="space-y-2">
+            <h2 className="text-xl font-semibold text-slate-100">Achieved 프로젝트 (관리자 전용)</h2>
+            <MyProjectsDashboard initialItems={achievedItems} isAdmin emptyText="Achieved로 이동된 프로젝트가 없습니다." />
+          </section>
+        ) : null}
 
         <section id="applied-projects" className="space-y-3">
           <h2 className="text-xl font-semibold text-slate-100">내가 지원한 프로젝트 현황</h2>

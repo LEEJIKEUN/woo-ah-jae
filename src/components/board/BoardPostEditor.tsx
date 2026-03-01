@@ -34,7 +34,7 @@ type Props = {
 };
 
 function channelLabel(channel: { name: string; communityKey: string }) {
-  return `${channel.communityKey === "admissions" ? "입시게시판" : "커뮤니티"} · ${channel.name}`;
+  return channel.name;
 }
 
 export default function BoardPostEditor({

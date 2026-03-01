@@ -5,11 +5,13 @@ import { requireTeamMember, requireWorkspaceManager } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const patchSchema = z.object({
+  pinnedNotice: z.string().max(4000).nullable().optional(),
   googleDriveUrl: z.string().url().nullable().optional(),
   googleSheetUrl: z.string().url().nullable().optional(),
   googleDocsUrl: z.string().url().nullable().optional(),
   zoomMeetingUrl: z.string().url().nullable().optional(),
-  pinnedNotice: z.string().max(4000).nullable().optional(),
+  pptUrl: z.string().url().nullable().optional(),
+  finalReportPdfUrl: z.string().url().nullable().optional(),
 });
 
 export async function GET(
@@ -63,13 +65,18 @@ export async function PATCH(
     const body = patchSchema.parse(await request.json());
 
     const updateData: {
+      pinnedNotice?: string | null;
       googleDriveUrl?: string | null;
       googleSheetUrl?: string | null;
       googleDocsUrl?: string | null;
       zoomMeetingUrl?: string | null;
-      pinnedNotice?: string | null;
+      pptUrl?: string | null;
+      finalReportPdfUrl?: string | null;
     } = {};
 
+    if (Object.prototype.hasOwnProperty.call(body, "pinnedNotice")) {
+      updateData.pinnedNotice = body.pinnedNotice ?? null;
+    }
     if (Object.prototype.hasOwnProperty.call(body, "googleDriveUrl")) {
       updateData.googleDriveUrl = body.googleDriveUrl ?? null;
     }
@@ -82,8 +89,11 @@ export async function PATCH(
     if (Object.prototype.hasOwnProperty.call(body, "zoomMeetingUrl")) {
       updateData.zoomMeetingUrl = body.zoomMeetingUrl ?? null;
     }
-    if (Object.prototype.hasOwnProperty.call(body, "pinnedNotice")) {
-      updateData.pinnedNotice = body.pinnedNotice ?? null;
+    if (Object.prototype.hasOwnProperty.call(body, "pptUrl")) {
+      updateData.pptUrl = body.pptUrl ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "finalReportPdfUrl")) {
+      updateData.finalReportPdfUrl = body.finalReportPdfUrl ?? null;
     }
 
     const item = await prisma.workspaceConfig.upsert({
@@ -91,11 +101,13 @@ export async function PATCH(
       update: updateData,
       create: {
         projectId,
+        pinnedNotice: body.pinnedNotice ?? null,
         googleDriveUrl: body.googleDriveUrl ?? null,
         googleSheetUrl: body.googleSheetUrl ?? null,
         googleDocsUrl: body.googleDocsUrl ?? null,
         zoomMeetingUrl: body.zoomMeetingUrl ?? null,
-        pinnedNotice: body.pinnedNotice ?? null,
+        pptUrl: body.pptUrl ?? null,
+        finalReportPdfUrl: body.finalReportPdfUrl ?? null,
       },
     });
 

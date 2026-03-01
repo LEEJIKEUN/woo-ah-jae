@@ -19,7 +19,15 @@ export default async function BoardNewPostPage({ params }: { params: Promise<{ s
   const availableChannels = await prisma.boardChannel.findMany({
     where: {
       communityKey: channel.communityKey,
-      isNotice: false,
+      ...(channel.communityKey === ADMISSIONS_COMMUNITY_KEY
+        ? {
+            slug: {
+              not: "special-eligibility-prep",
+            },
+          }
+        : {
+            isNotice: false,
+          }),
     },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: {
