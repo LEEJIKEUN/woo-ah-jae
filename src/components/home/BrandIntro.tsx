@@ -23,6 +23,7 @@ export default function BrandIntro({ topPosts }: Props) {
         <h1 className="text-xl font-bold leading-tight tracking-tight text-[color:var(--primary)] md:text-3xl md:leading-tight">
           <span className="block">함께 연구하고 성장하는</span>
           <span className="block">프로젝트 커뮤니티</span>
+          <span className="mt-1 block text-base font-semibold md:text-xl">(Closed Beta)</span>
         </h1>
         <p className="text-sm leading-7 text-[color:var(--muted)] md:text-base">
           전 세계 한국학교와 국제학교, 로컬학교 학생들이 팀을 만들어 함께 즐겁게 연구할 수 있는 실명 기반의 안전한 협업공간을 제공합니다.

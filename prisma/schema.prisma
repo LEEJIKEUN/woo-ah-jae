@@ -58,6 +58,12 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum MaintenanceStatus {
+  IDLE
+  SCHEDULED
+  ACTIVE
+}
+
 enum ChatMessageType {
   TEXT
   FILE
@@ -179,6 +185,16 @@ model Announcement {
   author      User     @relation(fields: [createdBy], references: [id], onDelete: Restrict)
 
   @@index([pinned, createdAt])
+}
+
+model Maintenance {
+  id         String             @id @default("singleton")
+  status     MaintenanceStatus  @default(IDLE)
+  lockAt     DateTime?
+  messageKor String?
+  updatedBy  String?
+  updatedAt  DateTime           @updatedAt
+  createdAt  DateTime           @default(now())
 }
 
 model Project {

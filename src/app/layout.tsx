@@ -4,6 +4,7 @@ import { Noto_Sans_KR } from "next/font/google";
 import Header from "@/components/nav/Header";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import MaintenanceBanner from "@/components/system/MaintenanceBanner";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="ko">
       <body className={`${notoSansKr.variable} min-h-screen antialiased`}>
+        <MaintenanceBanner />
         <Header
           session={
             session

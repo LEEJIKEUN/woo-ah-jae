@@ -1,5 +1,7 @@
 import { jwtVerify } from "jose";
 import { NextRequest, NextResponse } from "next/server";
+import { MaintenanceStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIE = "wooahjae_session";
 
@@ -28,6 +30,23 @@ async function getRoleFromRequest(req: NextRequest) {
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
+  // allow-list paths even during maintenance
+  const maintenanceBypass = ["/login", "/api/admin/maintenance", "/api/maintenance/status", "/maintenance"];
+  if (maintenanceBypass.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
+  // Global maintenance gate for non-admins
+  const maintenance = await prisma.maintenance.findUnique({ where: { id: "singleton" } });
+  if (maintenance?.status === MaintenanceStatus.ACTIVE) {
+    const role = await getRoleFromRequest(req);
+    if (role !== "ADMIN") {
+      const maintenanceUrl = new URL("/maintenance", req.url);
+      maintenanceUrl.searchParams.set("from", pathname);
+      return NextResponse.redirect(maintenanceUrl);
+    }
+  }
+
   if (pathname.startsWith("/admin")) {
     const role = await getRoleFromRequest(req);
     if (role !== "ADMIN") {
@@ -42,5 +61,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/maintenance", "/((?!_next/static|_next/image|favicon.ico).*)"],
 };
