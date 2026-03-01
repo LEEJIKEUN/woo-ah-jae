@@ -7,11 +7,14 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends sqlite3 ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
+# npm 11로 업데이트 (npm ci 호환성 문제 방지)
+RUN npm install -g npm@11
+
 COPY package.json package-lock.json ./
 RUN set -e; \
     npm ci --verbose || { \
-      ls -al /root/.npm/_logs; \
-      find /root/.npm/_logs -maxdepth 1 -type f -print -exec cat {} \; ; \
+      ls -al /root/.npm/_logs || true; \
+      find /root/.npm/_logs -maxdepth 1 -type f -print -exec cat {} \; || true; \
       exit 1; \
     }
 
