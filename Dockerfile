@@ -8,7 +8,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm ci || (ls -al /root/.npm/_logs && cat /root/.npm/_logs/*debug*.log && false)
+RUN npm ci --verbose
 
 COPY . .
 RUN npm run db:generate && npm run build:render
