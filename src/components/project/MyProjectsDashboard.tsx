@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ProjectCreateForm from "./ProjectCreateForm";
 
 type Item = {
   id: string;
@@ -31,76 +32,10 @@ export default function MyProjectsDashboard({
   const [items, setItems] = useState(initialItems);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editSummary, setEditSummary] = useState("");
-  const [editCapacity, setEditCapacity] = useState(1);
-  const [editDescription, setEditDescription] = useState("");
-  const [editRequirements, setEditRequirements] = useState("");
-  const [editRolesNeeded, setEditRolesNeeded] = useState("");
+  // legacy edit state 제거, ProjectCreateForm 재사용
 
   async function openEditor(item: Item) {
-    setLoadingId(item.id);
-    try {
-      const res = await fetch(`/api/projects/${item.id}`, { cache: "no-store" });
-      if (!res.ok) throw new Error("프로젝트를 불러오지 못했습니다.");
-      const data = (await res.json()) as {
-        item: {
-          title: string;
-          summary: string;
-          description: string;
-          capacity: number;
-          requirements: string | null;
-          rolesNeeded: string | null;
-        };
-      };
-
-      setEditTitle(data.item.title);
-      setEditSummary(data.item.summary ?? "");
-      setEditDescription(data.item.description ?? "");
-      setEditCapacity(data.item.capacity);
-      setEditRequirements(data.item.requirements ?? "");
-      setEditRolesNeeded(data.item.rolesNeeded ?? "");
-      setEditingItem(item);
-    } finally {
-      setLoadingId(null);
-    }
-  }
-
-  async function saveEdit() {
-    if (!editingItem) return;
-    setLoadingId(editingItem.id);
-    try {
-      const res = await fetch(`/api/me/projects/${editingItem.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          summary: editSummary.trim(),
-          description: editDescription.trim(),
-          capacity: editCapacity,
-          requirements: editRequirements.trim(),
-          rolesNeeded: editRolesNeeded.trim(),
-        }),
-      });
-      if (!res.ok) throw new Error("프로젝트 수정 실패");
-
-      setItems((prev) =>
-        prev.map((entry) =>
-          entry.id === editingItem.id
-            ? {
-                ...entry,
-                title: editTitle.trim(),
-                summary: editSummary.trim(),
-                capacity: editCapacity,
-              }
-            : entry
-        )
-      );
-      setEditingItem(null);
-      router.refresh();
-    } finally {
-      setLoadingId(null);
-    }
+    setEditingItem(item);
   }
 
   async function removeProject(item: Item) {
@@ -256,67 +191,40 @@ export default function MyProjectsDashboard({
 
       {editingItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-2xl space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-4">
-            <h3 className="text-lg font-semibold text-slate-100">프로젝트 수정</h3>
-            <input
-              value={editTitle}
-              onChange={(event) => setEditTitle(event.target.value)}
-              placeholder="제목"
-              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-            />
-            <input
-              value={editSummary}
-              onChange={(event) => setEditSummary(event.target.value)}
-              placeholder="요약"
-              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-            />
-            <textarea
-              value={editDescription}
-              onChange={(event) => setEditDescription(event.target.value)}
-              placeholder="상세 설명"
-              rows={5}
-              className="w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-            />
-            <div className="grid gap-2 md:grid-cols-3">
-              <input
-                value={editRequirements}
-                onChange={(event) => setEditRequirements(event.target.value)}
-                placeholder="조건"
-                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-              />
-              <input
-                value={editRolesNeeded}
-                onChange={(event) => setEditRolesNeeded(event.target.value)}
-                placeholder="모집 역할"
-                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-              />
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={editCapacity}
-                onChange={(event) => setEditCapacity(Math.max(1, Number(event.target.value || 1)))}
-                placeholder="모집 인원"
-                className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-              />
+          <div className="w-full max-w-5xl space-y-4 rounded-xl border border-slate-700 bg-slate-900 p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-100">프로젝트 수정</h3>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-200"
+                >
+                  취소
+                </button>
+              </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingItem(null)}
-                className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-200"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={saveEdit}
-                disabled={loadingId === editingItem.id}
-                className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-900 disabled:opacity-60"
-              >
-                {loadingId === editingItem.id ? "저장 중..." : "저장"}
-              </button>
-            </div>
+
+            <ProjectCreateForm
+              mode="edit"
+              projectId={editingItem.id}
+              initialData={{
+                title: editingItem.title,
+                summary: editingItem.summary,
+                description: (editingItem as any).description ?? "",
+                tab: (editingItem as any).tab ?? "교과",
+                channel: (editingItem as any).channel ?? undefined,
+                capacity: (editingItem as any).capacity ?? 4,
+                requirements: (editingItem as any).requirements ?? "",
+                rolesNeeded: (editingItem as any).rolesNeeded ?? "",
+                question1: (editingItem as any).question1 ?? "",
+                question2: (editingItem as any).question2 ?? "",
+                question3: (editingItem as any).question3 ?? "",
+                deadline: (editingItem as any).deadline ?? null,
+                status: ((editingItem as any).status as any)?.toUpperCase?.() === "CLOSED" ? "CLOSED" : "OPEN",
+                thumbnailUrl: (editingItem as any).thumbnailUrl ?? null,
+              }}
+            />
           </div>
         </div>
       ) : null}
