@@ -46,3 +46,6 @@ next-env.d.ts
 dev.db
 prisma/dev.db
 prisma/build.db
+
+# local deploy approval lock
+.deploy-approval.json

@@ -21,7 +21,11 @@
     "db:prepare:beta": "node scripts/prepare-beta-content.mjs",
     "db:purge:sample-projects": "node scripts/purge-sample-projects.mjs",
     "ops:check": "node scripts/ops-check.mjs",
-    "ops:guard:prod-data": "node scripts/production-data-guard.mjs"
+    "ops:guard:prod-data": "node scripts/production-data-guard.mjs",
+    "release:allow": "node scripts/release-guard.mjs allow",
+    "release:status": "node scripts/release-guard.mjs status",
+    "release:clear": "node scripts/release-guard.mjs clear",
+    "release:hook:install": "node scripts/release-guard.mjs install-hook"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1000.0",
