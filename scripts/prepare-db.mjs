@@ -13,9 +13,7 @@ function run(cmd) {
 }
 
 const dbUrl = getDbUrl();
-if (!process.env.DATABASE_URL_UNPOOLED) {
-  process.env.DATABASE_URL_UNPOOLED = dbUrl;
-}
+const directUrl = process.env.DATABASE_URL_UNPOOLED;
 
 if (dbUrl.startsWith("file:")) {
   // Legacy/local SQLite path support
@@ -23,7 +21,13 @@ if (dbUrl.startsWith("file:")) {
   run("node scripts/sqlite-migrate.mjs");
 } else if (dbUrl.startsWith("postgres://") || dbUrl.startsWith("postgresql://")) {
   // Postgres (Neon/Supabase/Render Postgres)
-  run("npx prisma db push --skip-generate");
+  if (!directUrl) {
+    console.warn(
+      "[prepare-db] WARN: DATABASE_URL_UNPOOLED is not set; skipping prisma db push to avoid pooled-connection startup failures."
+    );
+  } else {
+    run("npx prisma db push --skip-generate");
+  }
 } else {
   throw new Error(`Unsupported DATABASE_URL scheme: ${dbUrl}`);
 }
