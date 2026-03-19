@@ -5,7 +5,7 @@ import TopTenRail from "@/components/home/TopTenRail";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { CategoryTab, PRIMARY_TABS } from "@/lib/categoryConfig";
-import { HomeProject } from "@/lib/mockProjects";
+import { HOME_PROJECTS, HomeProject } from "@/lib/mockProjects";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -36,41 +36,52 @@ export default async function Home() {
     }
   }
 
-  const topStudyPosts = await prisma.boardPost.findMany({
-    where: {
-      status: "ACTIVE",
-      boardChannel: { slug: "study-admission" },
-    },
-    orderBy: [{ likeCount: "desc" }, { commentCount: "desc" }, { createdAt: "desc" }],
-    take: 5,
-    select: {
-      id: true,
-      title: true,
-      likeCount: true,
-      commentCount: true,
-    },
-  });
+  let topStudyPosts: {
+    id: string;
+    title: string;
+    likeCount: number;
+    commentCount: number;
+  }[] = [];
+  let displayProjects: HomeProject[] = HOME_PROJECTS;
 
-  const dbProjects = await prisma.project.findMany({
-    orderBy: [{ popularityScore: "desc" }, { likeCount: "desc" }, { createdAt: "desc" }],
-    take: 30,
-  });
+  try {
+    topStudyPosts = await prisma.boardPost.findMany({
+      where: {
+        status: "ACTIVE",
+        boardChannel: { slug: "study-admission" },
+      },
+      orderBy: [{ likeCount: "desc" }, { commentCount: "desc" }, { createdAt: "desc" }],
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        likeCount: true,
+        commentCount: true,
+      },
+    });
 
-  const dbHomeProjects: HomeProject[] = dbProjects.map((item) => ({
-    id: item.id,
-    title: item.title,
-    summary: item.summary ?? item.description.slice(0, 120),
-    categoryTab: toCategoryTab(item.tab),
-    channel: item.channel ?? "전체",
-    posterUrl: item.thumbnailUrl ?? undefined,
-    popularityScore: item.popularityScore,
-    likeCount: item.likeCount,
-    commentCount: item.commentCount,
-    tags: [item.status === "OPEN" ? "모집중" : "마감"],
-    deadline: item.deadline?.toISOString().slice(0, 10),
-  }));
+    const dbProjects = await prisma.project.findMany({
+      orderBy: [{ popularityScore: "desc" }, { likeCount: "desc" }, { createdAt: "desc" }],
+      take: 30,
+    });
 
-  const displayProjects = dbHomeProjects;
+    displayProjects = dbProjects.map((item) => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary ?? item.description.slice(0, 120),
+      categoryTab: toCategoryTab(item.tab),
+      channel: item.channel ?? "전체",
+      posterUrl: item.thumbnailUrl ?? undefined,
+      popularityScore: item.popularityScore,
+      likeCount: item.likeCount,
+      commentCount: item.commentCount,
+      tags: [item.status === "OPEN" ? "모집중" : "마감"],
+      deadline: item.deadline?.toISOString().slice(0, 10),
+    }));
+  } catch (error) {
+    console.error("[home] falling back to mock content:", error);
+  }
+
   const topTen = [...displayProjects]
     .sort((a, b) => b.popularityScore - a.popularityScore)
     .slice(0, 10);
