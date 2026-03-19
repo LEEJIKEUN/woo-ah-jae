@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: starter
     autoDeploy: true
-    healthCheckPath: /login
+    healthCheckPath: /maintenance
     disk:
       name: woo-ah-jae-disk
       mountPath: /var/data
@@ -12,6 +12,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: SKIP_STARTUP_DB_TASKS
+        value: "true"
       - key: STORAGE_BACKEND
         value: local
       - key: DATABASE_URL
