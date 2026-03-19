@@ -24,26 +24,32 @@ function assertSafeDefaults() {
 
 function validateDatabase() {
   const pooled = required("DATABASE_URL");
-  const unpooled = required("DATABASE_URL_UNPOOLED");
   if (!/^postgres(ql)?:\/\//.test(pooled)) {
     throw new Error("DATABASE_URL must be a PostgreSQL URL");
   }
-  if (!/^postgres(ql)?:\/\//.test(unpooled)) {
+  const unpooled = process.env.DATABASE_URL_UNPOOLED;
+  if (unpooled && !/^postgres(ql)?:\/\//.test(unpooled)) {
     throw new Error("DATABASE_URL_UNPOOLED must be a PostgreSQL URL");
   }
 }
 
 function validateCore() {
   required("NODE_ENV");
-  required("APP_URL");
-  required("NEXT_PUBLIC_APP_URL");
+  const appUrl = process.env.APP_URL;
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl && !publicAppUrl) {
+    throw new Error("APP_URL or NEXT_PUBLIC_APP_URL must be set");
+  }
   required("JWT_SECRET");
   required("SUPER_ADMIN_EMAIL");
 }
 
 function validateMail() {
-  required("RESEND_API_KEY");
-  required("MAIL_FROM");
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.MAIL_FROM;
+  if ((apiKey && !from) || (!apiKey && from)) {
+    throw new Error("RESEND_API_KEY and MAIL_FROM must either both be set or both be empty");
+  }
 }
 
 function validateStorage() {
@@ -67,6 +73,12 @@ try {
   validateMail();
   validateStorage();
   assertSafeDefaults();
+  if (!process.env.DATABASE_URL_UNPOOLED) {
+    console.warn("[ops-check] WARN: DATABASE_URL_UNPOOLED is not set; startup will fall back to DATABASE_URL.");
+  }
+  if (!process.env.RESEND_API_KEY && !process.env.MAIL_FROM) {
+    console.warn("[ops-check] WARN: Mail env is not configured; forgot-password email sending will be unavailable.");
+  }
   console.log("[ops-check] OK: production configuration looks valid.");
 } catch (error) {
   console.error(`[ops-check] FAIL: ${error.message}`);

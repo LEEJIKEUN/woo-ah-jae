@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { execSync } from "node:child_process";
 
 function getDbUrl() {
@@ -12,6 +13,9 @@ function run(cmd) {
 }
 
 const dbUrl = getDbUrl();
+if (!process.env.DATABASE_URL_UNPOOLED) {
+  process.env.DATABASE_URL_UNPOOLED = dbUrl;
+}
 
 if (dbUrl.startsWith("file:")) {
   // Legacy/local SQLite path support
