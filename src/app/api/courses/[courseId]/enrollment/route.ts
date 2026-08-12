@@ -38,6 +38,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!s) {
     return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   }
+  if (s.role !== "STUDENT") {
+    return NextResponse.json({ error: "수강신청은 학생 계정만 가능합니다." }, { status: 403 });
+  }
   const capacity = capacityForCourse(courseId);
   const result = await enrollUser(courseId, s.userId, capacity);
   // 구독 중인 모든 SSE 스트림에 즉시 푸시

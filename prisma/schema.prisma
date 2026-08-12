@@ -129,8 +129,21 @@ model User {
   auditLogs               AuditLog[]
   entitlements            Entitlement[]
   lessonCompletions       LessonCompletion[]
+  enrollments             Enrollment[]
   parentLinksAsParent     ParentChildLink[]        @relation("ParentLinksAsParent")
   parentLinksAsChild      ParentChildLink[]        @relation("ParentLinksAsChild")
+}
+
+/** 수강신청 — 강좌별 학생 등록(파일이 아닌 DB에 보존). */
+model Enrollment {
+  courseId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, userId])
+  @@index([courseId])
 }
 
 /** 강의 활동(레슨) 완료 기록 — 학생별 서버 진도. 학부모가 자녀 진도를 조회하는 근거. */
