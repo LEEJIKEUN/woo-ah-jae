@@ -58,21 +58,40 @@ function fmtSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-async function postRoom(courseId: string, payload: object) {
+async function postRoom(courseId: string, studentId: string, payload: object) {
   await fetch(`/api/courses/${courseId}/mentoring`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, studentId }),
   });
 }
 
-export default function MentoringView({ courseId, role, isStaff = false, isParent = false, isStudent = false }: { courseId: string; role: "teacher" | "student"; isStaff?: boolean; isParent?: boolean; isStudent?: boolean }) {
+export default function MentoringView({
+  courseId,
+  role,
+  isStaff = false,
+  isParent = false,
+  isStudent = false,
+  students = [],
+  initialStudentId = "",
+}: {
+  courseId: string;
+  role: "teacher" | "student";
+  isStaff?: boolean;
+  isParent?: boolean;
+  isStudent?: boolean;
+  students?: { id: string; name: string }[];
+  initialStudentId?: string;
+}) {
   // 권한: 보고서·독서·파일 = 학생만 / 채팅 = 학생+스태프 / 학부모 = 열람 전용(파일 다운로드는 가능)
   const canEditReport = isStudent;
   const canEditBooks = isStudent;
   const canUploadFile = isStudent;
   const canChat = isStudent || isStaff;
+  const showSelector = (isStaff || isParent) && students.length > 0;
+  const noStudent = (isStaff || isParent) && !initialStudentId;
 
+  const [studentId, setStudentId] = useState(initialStudentId);
   const [report, setReport] = useState<Report>(blankReport());
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -83,25 +102,37 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   const [editBook, setEditBook] = useState<Book>(BLANK_BOOK);
   const [reportFile, setReportFile] = useState<ReportFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [guide, setGuide] = useState<string>(SEED_GUIDE);
+  const [editingGuide, setEditingGuide] = useState(false);
+  const [guideDraft, setGuideDraft] = useState("");
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
   const fileMetaRef = useRef<string>(""); // 현재 파일 메타(name,size) JSON — 변경 감지
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   // 보고서 파일(dataUrl)은 SSE 로 흘리지 않으므로 변경 시 GET 으로 다시 받는다.
   const refetchFile = useCallback(async () => {
+    if (!studentId) return;
     try {
-      const res = await fetch(`/api/courses/${courseId}/mentoring`, { cache: "no-store" });
+      const res = await fetch(`/api/courses/${courseId}/mentoring?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" });
       if (!res.ok) return;
       const data = (await res.json()) as { file?: ReportFile | null };
       setReportFile(data.file ?? null);
     } catch {
       /* 무시 */
     }
-  }, [courseId]);
+  }, [courseId, studentId]);
 
-  // 실시간 방 구독(SSE) — 보고서/채팅/독서 + 파일 메타 변경 감지
+  // 실시간 방 구독(SSE) — 선택 학생 방. 보고서/채팅/독서 + 파일 메타 변경 감지
   useEffect(() => {
-    const es = new EventSource(`/api/courses/${courseId}/mentoring/stream`);
+    if (!studentId) return;
+    // 학생 전환 시 이전 방 데이터 초기화
+    setReport(blankReport());
+    setChat([]);
+    setBooks([]);
+    setReportFile(null);
+    fileMetaRef.current = "";
+    dirtyRef.current = false;
+    const es = new EventSource(`/api/courses/${courseId}/mentoring/stream?studentId=${encodeURIComponent(studentId)}`);
     es.onmessage = (e) => {
       try {
         const room = JSON.parse(e.data) as Room;
@@ -119,13 +150,52 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
       }
     };
     return () => es.close();
-  }, [courseId, refetchFile]);
+  }, [courseId, studentId, refetchFile]);
 
   // 새 메시지 오면 스크롤 하단으로
   useEffect(() => {
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat]);
+
+  // 작성 가이드(강좌 공통) 로드
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/mentoring-guide`, { cache: "no-store" });
+        if (!res.ok || !alive) return;
+        const d = (await res.json()) as { body?: string };
+        if (alive && typeof d.body === "string") setGuide(d.body);
+      } catch {
+        /* 무시 */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [courseId]);
+
+  function startEditGuide() {
+    setGuideDraft(guide);
+    setEditingGuide(true);
+  }
+  async function saveGuide() {
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring-guide`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: guideDraft }),
+      });
+      if (res.ok) {
+        const d = (await res.json()) as { body?: string };
+        setGuide(typeof d.body === "string" ? d.body : guideDraft);
+        setEditingGuide(false);
+      }
+    } catch {
+      /* 무시 */
+    }
+  }
 
   const hasContent = useMemo(() => Object.values(report).some((v) => v.trim().length > 0), [report]);
 
@@ -139,7 +209,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   async function save() {
     if (!canEditReport) return;
     try {
-      await postRoom(courseId, { action: "report", report });
+      await postRoom(courseId, studentId, { action: "report", report });
       dirtyRef.current = false;
       setSavedFlash(true);
     } catch {
@@ -153,7 +223,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
     if (!t) return;
     setDraft("");
     try {
-      await postRoom(courseId, { action: "chat", text: t });
+      await postRoom(courseId, studentId, { action: "chat", text: t });
     } catch {
       /* 무시 */
     }
@@ -162,7 +232,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   async function persistBooks(next: Book[]) {
     setBooks(next);
     try {
-      await postRoom(courseId, { action: "books", books: next });
+      await postRoom(courseId, studentId, { action: "books", books: next });
     } catch {
       /* 무시 */
     }
@@ -220,7 +290,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
         const res = await fetch(`/api/courses/${courseId}/mentoring`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "file", file: rec }),
+          body: JSON.stringify({ action: "file", file: rec, studentId }),
         });
         if (!res.ok) {
           const d = (await res.json()) as { error?: string };
@@ -250,7 +320,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
     void fetch(`/api/courses/${courseId}/mentoring`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "file", file: null }),
+      body: JSON.stringify({ action: "file", file: null, studentId }),
     });
   }
 
@@ -266,11 +336,31 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
             </Link>
             <h1 className="text-[26px] font-normal" style={{ ...serif, color: INK }}>탐구활동 멘토링</h1>
           </div>
-          <span className="rounded-full px-3 py-1 text-[12px] font-semibold" style={{ background: PANEL, color: DEEP, border: `1px solid ${LINE}` }}>
-            {isParent ? "학부모 · 열람 전용" : role === "teacher" ? "교사(관리자) · 보고서 열람 + 채팅" : "학생으로 접속"} · 실시간 공유
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {showSelector ? (
+              <select
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                className="rounded-full border px-3 py-1.5 text-[12.5px] font-semibold outline-none focus:border-[#8C6E59]"
+                style={{ borderColor: LINE, color: INK, background: "#fff" }}
+                aria-label="학생 선택"
+              >
+                {students.map((st) => (
+                  <option key={st.id} value={st.id}>{st.name} 학생</option>
+                ))}
+              </select>
+            ) : null}
+            <span className="rounded-full px-3 py-1 text-[12px] font-semibold" style={{ background: PANEL, color: DEEP, border: `1px solid ${LINE}` }}>
+              {isParent ? "학부모 · 열람 전용" : role === "teacher" ? "교사(관리자) · 보고서 열람 + 채팅" : "학생으로 접속"} · 실시간 공유
+            </span>
+          </div>
         </div>
 
+        {noStudent ? (
+          <div className="rounded-[14px] border p-10 text-center text-[14px]" style={{ borderColor: CARD, color: SUB }}>
+            {isParent ? "연결된 자녀가 이 강좌를 수강하고 있지 않습니다." : "수강 중인 학생이 없습니다. 학생이 수강신청하면 학생을 선택해 멘토링을 진행할 수 있습니다."}
+          </div>
+        ) : (
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           {/* 중: 학생 탐구 보고서 */}
           <section className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
@@ -409,14 +499,27 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
 
             {/* 과목별 세부능력 특기사항 작성 가이드 */}
             <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
-              <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
-                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
-                  과목별 세부능력 특기사항 작성 가이드
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span>
-                </p>
+              <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
+                <p className="text-[14px] font-bold" style={{ color: INK }}>과목별 세부능력 특기사항 작성 가이드</p>
+                {isStaff ? (
+                  editingGuide ? (
+                    <span className="flex shrink-0 gap-1.5">
+                      <button type="button" onClick={saveGuide} className="rounded-[6px] px-2.5 py-1 text-[12px] font-bold text-white" style={{ background: BROWN }}>저장</button>
+                      <button type="button" onClick={() => setEditingGuide(false)} className="rounded-[6px] border px-2.5 py-1 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                    </span>
+                  ) : (
+                    <button type="button" onClick={startEditGuide} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] border px-2.5 py-1 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
+                  )
+                ) : (
+                  <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span>
+                )}
               </div>
               <div className="px-4 py-4">
-                <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{SEED_GUIDE}</p>
+                {editingGuide ? (
+                  <textarea value={guideDraft} onChange={(e) => setGuideDraft(e.target.value)} rows={7} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+                ) : (
+                  <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{guide}</p>
+                )}
               </div>
             </div>
 
@@ -473,6 +576,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
             </div>
           </aside>
         </div>
+        )}
       </main>
     </div>
   );

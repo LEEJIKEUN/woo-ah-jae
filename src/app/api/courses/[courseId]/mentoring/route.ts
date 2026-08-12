@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
-import { isStaffRole, isParentOfEnrolledChild } from "@/lib/course/access";
+import { isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { addChat, getRoom, saveBooks, saveFile, saveReport, type Book, type MentoringFile, type Report } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
+import { prisma } from "@/lib/prisma";
 
 const FIELD_KEYS = ["topic", "motive", "process", "result", "difficulty", "overcome", "learned", "standard", "references"] as const;
 const MAX_FIELD = 20000;
 const MAX_BOOK_FIELD = 2000;
-const MAX_FILE_DATAURL = 9 * 1024 * 1024; // ~6MB 파일의 base64 여유
+const MAX_FILE_DATAURL = 9 * 1024 * 1024;
 
 async function sessionFromReq(request: NextRequest) {
   try {
@@ -21,21 +22,29 @@ async function sessionFromReq(request: NextRequest) {
   }
 }
 
-/**
- * 강좌 존재 + 로그인 + (스태프 or 수강 학생 or 자녀수강 학부모) 게이트.
- * 작성 권한: 보고서·독서·파일 = 학생만 / 채팅 = 학생+스태프 / 학부모 = 열람 전용.
- */
-async function gate(request: NextRequest, courseId: string) {
+type Gate = { session: { userId: string; role: string }; staff: boolean; enrolledStudent: boolean; isParent: boolean };
+
+async function baseGate(request: NextRequest, courseId: string): Promise<Gate | { error: NextResponse }> {
   if (!getCourse(courseId)) return { error: NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 }) };
   const session = await sessionFromReq(request);
   if (!session) return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }) };
   const staff = isStaffRole(session.role);
   const enrolledStudent = !staff && session.role === "STUDENT" && (await isUserEnrolled(courseId, session.userId));
-  const parent = !staff && !enrolledStudent && session.role === "PARENT" && (await isParentOfEnrolledChild(courseId, session.userId));
-  if (!staff && !enrolledStudent && !parent) {
-    return { error: NextResponse.json({ error: "접근 권한이 없습니다." }, { status: 403 }) };
-  }
-  return { session, staff, enrolledStudent };
+  const isParent = !staff && !enrolledStudent && session.role === "PARENT";
+  if (!staff && !enrolledStudent && !isParent) return { error: NextResponse.json({ error: "접근 권한이 없습니다." }, { status: 403 }) };
+  return { session, staff, enrolledStudent, isParent };
+}
+
+/** 대상 학생(방 주인) 결정: 학생=본인 / 스태프=선택 학생 / 학부모=승인된 자녀. */
+async function resolveStudent(courseId: string, g: Gate, requested: unknown): Promise<{ studentId: string } | { error: NextResponse }> {
+  if (g.enrolledStudent) return { studentId: g.session.userId };
+  const sid = typeof requested === "string" ? requested : "";
+  if (!sid) return { error: NextResponse.json({ error: "학생을 선택해 주세요." }, { status: 400 }) };
+  if (!(await isUserEnrolled(courseId, sid))) return { error: NextResponse.json({ error: "수강생이 아닙니다." }, { status: 400 }) };
+  if (g.staff) return { studentId: sid };
+  const link = await prisma.parentChildLink.findFirst({ where: { parentUserId: g.session.userId, childUserId: sid, status: "APPROVED" }, select: { id: true } });
+  if (!link) return { error: NextResponse.json({ error: "권한이 없습니다." }, { status: 403 }) };
+  return { studentId: sid };
 }
 
 function nowLabel() {
@@ -71,47 +80,53 @@ function sanitizeFile(f: unknown): MentoringFile | null | "invalid" {
   };
 }
 
-// 방 조회 (파일 dataUrl 포함 — 다운로드용). role: 스태프=교사, 그 외=학생
+// 방 조회 (?studentId=). 파일 dataUrl 포함(다운로드용).
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const g = await gate(request, courseId);
+  const g = await baseGate(request, courseId);
   if ("error" in g) return g.error;
-  const room = await getRoom(courseId);
-  return NextResponse.json({ ...room, role: g.staff ? "teacher" : "student" });
+  const r = await resolveStudent(courseId, g, new URL(request.url).searchParams.get("studentId"));
+  if ("error" in r) return r.error;
+  const room = await getRoom(courseId, r.studentId);
+  return NextResponse.json({ ...room, role: g.staff ? "teacher" : "student", studentId: r.studentId });
 }
 
-// 저장/전송 (report | books | file = 학생만 / chat = 학생+스태프)
+// 저장/전송. report·books·file = 방 주인(학생 본인)만 / chat = 학생 본인 + 스태프
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const g = await gate(request, courseId);
+  const g = await baseGate(request, courseId);
   if ("error" in g) return g.error;
-  const { staff, enrolledStudent } = g;
 
-  const body = (await request.json()) as { action?: string; report?: unknown; text?: string; books?: unknown; file?: unknown };
+  const body = (await request.json()) as { action?: string; report?: unknown; text?: string; books?: unknown; file?: unknown; studentId?: unknown };
+  const r = await resolveStudent(courseId, g, body.studentId);
+  if ("error" in r) return r.error;
+  const studentId = r.studentId;
+  const isOwnerStudent = g.enrolledStudent; // 학생은 본인 방만 접근
+
   let room;
   if (body.action === "report") {
-    if (!enrolledStudent) return NextResponse.json({ error: "보고서는 학생만 작성할 수 있습니다." }, { status: 403 });
-    room = await saveReport(courseId, sanitizeReport(body.report));
+    if (!isOwnerStudent) return NextResponse.json({ error: "보고서는 학생 본인만 작성할 수 있습니다." }, { status: 403 });
+    room = await saveReport(courseId, studentId, sanitizeReport(body.report));
   } else if (body.action === "books") {
-    if (!enrolledStudent) return NextResponse.json({ error: "독서활동상황은 학생만 작성할 수 있습니다." }, { status: 403 });
-    room = await saveBooks(courseId, sanitizeBooks(body.books));
+    if (!isOwnerStudent) return NextResponse.json({ error: "독서활동상황은 학생 본인만 작성할 수 있습니다." }, { status: 403 });
+    room = await saveBooks(courseId, studentId, sanitizeBooks(body.books));
   } else if (body.action === "file") {
-    if (!enrolledStudent) return NextResponse.json({ error: "파일은 학생만 업로드할 수 있습니다." }, { status: 403 });
+    if (!isOwnerStudent) return NextResponse.json({ error: "파일은 학생 본인만 업로드할 수 있습니다." }, { status: 403 });
     if (body.file === null) {
-      room = await saveFile(courseId, null);
+      room = await saveFile(courseId, studentId, null);
     } else {
       const f = sanitizeFile(body.file);
       if (f === "invalid") return NextResponse.json({ error: "PDF 파일이 올바르지 않거나 용량이 너무 큽니다. (최대 6MB)" }, { status: 413 });
-      room = await saveFile(courseId, f);
+      room = await saveFile(courseId, studentId, f);
     }
   } else if (body.action === "chat" && typeof body.text === "string" && body.text.trim()) {
-    if (!staff && !enrolledStudent) return NextResponse.json({ error: "채팅 권한이 없습니다." }, { status: 403 });
-    const from = staff ? "teacher" : "student";
-    room = await addChat(courseId, { from, text: body.text.trim().slice(0, 2000), at: nowLabel() });
+    if (!g.staff && !isOwnerStudent) return NextResponse.json({ error: "채팅 권한이 없습니다." }, { status: 403 });
+    const from = g.staff ? "teacher" : "student";
+    room = await addChat(courseId, studentId, { from, text: body.text.trim().slice(0, 2000), at: nowLabel() });
   } else {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  publishMentoring(courseId, room);
+  publishMentoring(courseId, studentId, room);
   return NextResponse.json({ ok: true });
 }

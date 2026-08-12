@@ -175,6 +175,13 @@ model CoursePostComment {
   @@index([postId, createdAt])
 }
 
+/** 멘토링 '과목별 세부능력 특기사항 작성 가이드' — 강좌별 1개, 관리자·퍼실 편집. */
+model CourseGuide {
+  courseId  String   @id
+  body      String
+  updatedAt DateTime @updatedAt
+}
+
 /** 수강신청 — 강좌별 학생 등록(파일이 아닌 DB에 보존). */
 model Enrollment {
   courseId  String

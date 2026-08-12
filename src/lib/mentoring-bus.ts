@@ -10,16 +10,16 @@ const bus = globalRef.__wjMentoringBus ?? new EventEmitter();
 bus.setMaxListeners(0);
 globalRef.__wjMentoringBus = bus;
 
-function channel(courseId: string) {
-  return `mentoring:${courseId}`;
+function channel(courseId: string, studentId: string) {
+  return `mentoring:${courseId}:${studentId}`;
 }
 
-export function publishMentoring(courseId: string, room: MentoringRoom) {
-  bus.emit(channel(courseId), room);
+export function publishMentoring(courseId: string, studentId: string, room: MentoringRoom) {
+  bus.emit(channel(courseId, studentId), room);
 }
 
-export function subscribeMentoring(courseId: string, listener: (room: MentoringRoom) => void) {
-  const event = channel(courseId);
+export function subscribeMentoring(courseId: string, studentId: string, listener: (room: MentoringRoom) => void) {
+  const event = channel(courseId, studentId);
   bus.on(event, listener);
   return () => {
     bus.off(event, listener);

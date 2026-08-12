@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
-import { isStaffRole, isParentOfEnrolledChild } from "@/lib/course/access";
+import { isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { getRoom } from "@/lib/mentoring-store";
 import { subscribeMentoring } from "@/lib/mentoring-bus";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const s = await sessionFromReq(request);
   if (!s) return new Response("Unauthorized", { status: 401 });
   const staff = isStaffRole(s.role);
-  const enrolled = !staff && (await isUserEnrolled(courseId, s.userId));
-  const parent = !staff && !enrolled && s.role === "PARENT" && (await isParentOfEnrolledChild(courseId, s.userId));
-  if (!staff && !enrolled && !parent) return new Response("Forbidden", { status: 403 });
+  const enrolled = !staff && s.role === "STUDENT" && (await isUserEnrolled(courseId, s.userId));
+  const isParent = !staff && !enrolled && s.role === "PARENT";
+  if (!staff && !enrolled && !isParent) return new Response("Forbidden", { status: 403 });
+
+  // 대상 학생(방 주인): 학생=본인 / 스태프=선택 학생 / 학부모=승인된 자녀
+  let studentId = "";
+  if (enrolled) {
+    studentId = s.userId;
+  } else {
+    const requested = new URL(request.url).searchParams.get("studentId") ?? "";
+    if (!requested || !(await isUserEnrolled(courseId, requested))) return new Response("Bad request", { status: 400 });
+    if (staff) {
+      studentId = requested;
+    } else {
+      const link = await prisma.parentChildLink.findFirst({ where: { parentUserId: s.userId, childUserId: requested, status: "APPROVED" }, select: { id: true } });
+      if (!link) return new Response("Forbidden", { status: 403 });
+      studentId = requested;
+    }
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -48,9 +65,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
 
       // 최초 방 전송
-      send(sanitize(await getRoom(courseId)));
+      send(sanitize(await getRoom(courseId, studentId)));
 
-      const unsubscribe = subscribeMentoring(courseId, (room) => send(sanitize(room)));
+      const unsubscribe = subscribeMentoring(courseId, studentId, (room) => send(sanitize(room)));
 
       const heartbeat = setInterval(() => {
         if (closed) return;

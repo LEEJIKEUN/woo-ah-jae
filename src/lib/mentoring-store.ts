@@ -69,61 +69,60 @@ function normalize(r: MentoringRoom | undefined): MentoringRoom {
   };
 }
 
-export async function getRoom(courseId: string): Promise<MentoringRoom> {
+/** 방 키 = 강좌 + 학생. 학생별로 독립된 멘토링 방을 갖는다(관리자가 학생을 선택해 작업). */
+function roomKey(courseId: string, studentId: string): string {
+  return `${courseId}::${studentId}`;
+}
+
+export async function getRoom(courseId: string, studentId: string): Promise<MentoringRoom> {
   const all = await readAll();
-  return normalize(all[courseId]);
+  return normalize(all[roomKey(courseId, studentId)]);
 }
 
-export async function saveReport(courseId: string, report: Report): Promise<MentoringRoom> {
+export async function saveReport(courseId: string, studentId: string, report: Report): Promise<MentoringRoom> {
   return withLock(async () => {
     const all = await readAll();
-    const room = normalize(all[courseId]);
+    const k = roomKey(courseId, studentId);
+    const room = normalize(all[k]);
     room.report = { ...blankReport(), ...report };
-    all[courseId] = room;
+    all[k] = room;
     await writeAll(all);
     return room;
   });
 }
 
-export async function addChat(courseId: string, msg: ChatMsg): Promise<MentoringRoom> {
+export async function addChat(courseId: string, studentId: string, msg: ChatMsg): Promise<MentoringRoom> {
   return withLock(async () => {
     const all = await readAll();
-    const room = normalize(all[courseId]);
+    const k = roomKey(courseId, studentId);
+    const room = normalize(all[k]);
     room.chat = [...room.chat, msg].slice(-500);
-    all[courseId] = room;
+    all[k] = room;
     await writeAll(all);
     return room;
   });
 }
 
-export async function saveBooks(courseId: string, books: Book[]): Promise<MentoringRoom> {
+export async function saveBooks(courseId: string, studentId: string, books: Book[]): Promise<MentoringRoom> {
   return withLock(async () => {
     const all = await readAll();
-    const room = normalize(all[courseId]);
+    const k = roomKey(courseId, studentId);
+    const room = normalize(all[k]);
     room.books = books.slice(0, 5);
-    all[courseId] = room;
+    all[k] = room;
     await writeAll(all);
     return room;
   });
 }
 
-export async function saveFile(courseId: string, file: MentoringFile | null): Promise<MentoringRoom> {
+export async function saveFile(courseId: string, studentId: string, file: MentoringFile | null): Promise<MentoringRoom> {
   return withLock(async () => {
     const all = await readAll();
-    const room = normalize(all[courseId]);
+    const k = roomKey(courseId, studentId);
+    const room = normalize(all[k]);
     room.file = file;
-    all[courseId] = room;
+    all[k] = room;
     await writeAll(all);
     return room;
-  });
-}
-
-export async function clearRoom(courseId: string): Promise<void> {
-  return withLock(async () => {
-    const all = await readAll();
-    if (courseId in all) {
-      delete all[courseId];
-      await writeAll(all);
-    }
   });
 }
