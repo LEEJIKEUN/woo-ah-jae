@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getCourse, findActivity } from "@/lib/course/content";
 
 /**
  * 레슨(강의)별 관리자 편집 콘텐츠 블록. 강좌마다 강의 화면을 노션처럼 직접 구성.
@@ -52,10 +53,39 @@ async function writeAll(all: Store) {
   await fs.writeFile(resolvedStorePath, JSON.stringify(all), "utf8");
 }
 
+/**
+ * 저장된 편집 콘텐츠가 없을 때 보여줄 기본 블록을 시드(강의노트 본문·강의자료)에서 만든다.
+ * 관리자가 편집기에서 이 내용을 그대로 보고 수정·저장하면 그 이후로는 저장본이 우선한다.
+ */
+function seedDefaultBlocks(courseId: string, activityId: string): Block[] {
+  const course = getCourse(courseId);
+  if (!course) return [];
+  const found = findActivity(course, activityId);
+  if (!found) return [];
+  const a = found.activity;
+  const out: Block[] = [];
+  for (const [i, p] of (a.body ?? []).entries()) {
+    if (p && p.trim()) out.push({ id: `seed-t-${i}`, type: "text", text: p });
+  }
+  const mats = a.materials ?? [];
+  const online = a.onlineResources ?? [];
+  if (mats.length > 0 || online.length > 0) {
+    out.push({ id: "seed-h-mat", type: "heading", text: "강의자료" });
+    for (const [i, m] of mats.entries()) {
+      out.push({ id: `seed-m-${i}`, type: "link", title: m.name, url: m.href ?? "#", desc: m.sizeLabel ?? "" });
+    }
+    for (const [i, r] of online.entries()) {
+      out.push({ id: `seed-o-${i}`, type: "link", title: r.label, url: r.href, desc: "" });
+    }
+  }
+  return out;
+}
+
 export async function getBlocks(courseId: string, activityId: string): Promise<Block[]> {
   const all = await readAll();
   const b = all[courseId]?.[activityId];
-  return Array.isArray(b) ? b : [];
+  if (Array.isArray(b)) return b; // 저장본(빈 배열 포함) 우선
+  return seedDefaultBlocks(courseId, activityId); // 미저장 → 시드 기본 블록
 }
 
 export async function setBlocks(courseId: string, activityId: string, blocks: Block[]): Promise<Block[]> {

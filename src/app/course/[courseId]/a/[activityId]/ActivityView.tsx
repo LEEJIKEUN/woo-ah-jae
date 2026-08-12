@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FileText, Folder, Download, ChevronDown, ChevronLeft, ChevronRight, Clock, PlayCircle, MessageSquare } from "lucide-react";
+import { FileText, Folder, Download, ChevronDown, ChevronLeft, ChevronRight, Clock, MessageSquare } from "lucide-react";
 import type { Activity, Course, Module } from "@/lib/course/content";
 import { BC, IB } from "@/lib/course/theme";
 import { useCompletion } from "@/components/course/completion";
@@ -45,100 +45,10 @@ export default function ActivityView({
         ) : null}
       </div>
 
-      {activity.kind === "resource" || activity.kind === "page" ? (
-        <ResourceBody activity={activity} course={course} module={module} />
-      ) : null}
+      {/* 페이지/자료(page·resource)의 본문·강의자료는 아래 ‘학습 콘텐츠’(LessonBlocks)에서 관리·표시한다. */}
       {activity.kind === "folder" ? <FolderBody activity={activity} /> : null}
       {activity.kind === "assignment" ? <AssignmentBody activity={activity} /> : null}
       {activity.kind === "forum" ? <ForumBody activity={activity} /> : null}
-    </div>
-  );
-}
-
-// ── 자료/페이지 ─────────────────────────────────────────
-function ResourceBody({ activity, course, module }: { activity: Activity; course: Course; module: Module }) {
-  const materials = activity.materials ?? [];
-  const online = activity.onlineResources ?? [];
-  return (
-    <div>
-      {activity.body?.map((p, i) => (
-        <p key={i} className="mb-4 text-[15px] leading-7" style={{ color: BC.sub }}>
-          {p}
-        </p>
-      ))}
-
-      {/* 강의자료(다운로드) + 온라인 자료 */}
-      {materials.length > 0 || online.length > 0 ? (
-        <div className="mt-6 rounded-[6px] border" style={{ borderColor: BC.borderCard }}>
-          <p className="border-b px-4 py-2.5 text-[13px] font-bold" style={{ borderColor: BC.borderCard, color: BC.ink, background: "#FAF7EF" }}>
-            강의자료
-          </p>
-          <ul className="divide-y" style={{ borderColor: BC.borderCard }}>
-            {materials.map((f) => (
-              <li key={f.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                <FileText size={16} style={{ color: "#B84A4A" }} />
-                <a href={f.href ?? "#"} target="_blank" rel="noopener noreferrer" download className="flex-1 truncate text-[14px] hover:underline" style={{ color: BC.accentInk }}>
-                  {f.name}
-                </a>
-                {f.sizeLabel ? <span className="text-[12px]" style={{ color: BC.meta }}>{f.sizeLabel}</span> : null}
-                <Download size={15} style={{ color: BC.meta }} />
-              </li>
-            ))}
-            {online.map((r, i) => (
-              <li key={`o-${i}`} className="flex items-center gap-2.5 px-4 py-2.5">
-                <PlayCircle size={16} style={{ color: BC.accentInk }} />
-                <a href={r.href} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-[14px] hover:underline" style={{ color: BC.accentInk }}>
-                  {r.label}
-                </a>
-                <span className="text-[12px]" style={{ color: BC.meta }}>바로가기</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {activity.cards && activity.cards.length > 0 ? (
-        <div className="mt-6 overflow-hidden rounded-lg" style={{ background: "#2C2823" }}>
-          <div className="px-5 py-4 text-white">
-            <p className="text-[12px] uppercase tracking-wide text-white/60">{course.title}</p>
-            <p className="text-[18px] font-semibold">{module.label}</p>
-          </div>
-          <div className="grid gap-4 p-5 pt-0 sm:grid-cols-2">
-            {activity.cards.map((card, i) => (
-              <div key={i} className="overflow-hidden rounded-md bg-white">
-                <div
-                  className="h-24"
-                  style={{
-                    background:
-                      card.accent === "navy"
-                        ? `linear-gradient(135deg, ${BC.accentInk}, #5F4A3A)`
-                        : `linear-gradient(135deg, #A98B6E, #6B5342)`,
-                  }}
-                />
-                <div className="p-4">
-                  <h4 className="text-[15px] font-semibold" style={{ color: BC.accentInk }}>
-                    {card.title}
-                  </h4>
-                  <p className="mt-1 text-[13px] leading-5" style={{ color: BC.meta }}>
-                    {card.desc}
-                  </p>
-                  <p className="mt-3 flex items-center gap-1.5 text-[12px]" style={{ color: BC.meta }}>
-                    <Clock size={12} /> 소요 {card.durationMin}분
-                  </p>
-                  <div className="mt-2 h-1.5 w-full rounded-full" style={{ background: "#E4DBC7" }} />
-                  <button
-                    type="button"
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-[4px] px-3 py-1.5 text-[13px] font-semibold text-white"
-                    style={{ background: BC.accentInk }}
-                  >
-                    <PlayCircle size={14} /> 학습하기
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
