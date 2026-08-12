@@ -31,6 +31,15 @@ const parentSchema = z.object({
   childEmail: z.string().email(),
 });
 
+// 퍼실리테이터(강의 담당자) 가입 — 간소 폼(이름·이메일·비밀번호 + 초대코드).
+const facilitatorSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).max(72),
+  passwordConfirm: z.string().min(8).max(72),
+  realName: z.string().min(1).max(80),
+  facilitatorCode: z.string().min(1).max(100),
+});
+
 /**
  * 같은 이메일의 계정이 소프트삭제(DELETED) 상태면 하드삭제해 이메일을 회수한다.
  * 회원탈퇴·관리자 삭제 후 같은 이메일로 재가입할 수 있게 하기 위함.
@@ -61,6 +70,10 @@ export async function POST(request: NextRequest) {
     // 학부모 가입은 별도 경로(자녀 연결 요청 생성)
     if (form.get("accountType") === "parent") {
       return await handleParentSignup(form);
+    }
+    // 퍼실리테이터 가입은 별도 경로(간소 폼 + 초대코드)
+    if (form.get("accountType") === "facilitator") {
+      return await handleFacilitatorSignup(form);
     }
 
     const parsed = signupSchema.parse({
@@ -259,6 +272,47 @@ async function handleParentSignup(form: FormData): Promise<NextResponse> {
 
   return NextResponse.json(
     { id: result.id, email: result.email, status: "ACTIVE", role: "PARENT", pendingChild: childEmail, fallback: false },
+    { status: 201 }
+  );
+}
+
+async function handleFacilitatorSignup(form: FormData): Promise<NextResponse> {
+  const parsed = facilitatorSchema.parse({
+    email: form.get("email"),
+    password: form.get("password"),
+    passwordConfirm: form.get("passwordConfirm"),
+    realName: form.get("realName"),
+    facilitatorCode: form.get("facilitatorCode"),
+  });
+
+  if (parsed.password !== parsed.passwordConfirm) {
+    return NextResponse.json({ error: "비밀번호 확인이 일치하지 않습니다." }, { status: 400 });
+  }
+  const expected = (process.env.FACILITATOR_SIGNUP_CODE ?? "").trim();
+  if (!expected || parsed.facilitatorCode.trim() !== expected) {
+    return NextResponse.json({ error: "퍼실리테이터 초대코드가 올바르지 않습니다." }, { status: 403 });
+  }
+  if (!(await isEmailVerified(parsed.email))) {
+    return NextResponse.json({ error: "이메일 인증을 완료해 주세요." }, { status: 400 });
+  }
+
+  const email = parsed.email.trim().toLowerCase();
+  const reclaim = await reclaimDeletedUser(email);
+  if (reclaim === "active") {
+    return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
+  }
+
+  const passwordHash = await hashPassword(parsed.password);
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({ data: { email, passwordHash, role: UserRole.FACILITATOR } });
+    // 이름 표시용 최소 프로필(학생 전용 항목은 비움 → nullable)
+    await tx.studentProfile.create({ data: { userId: user.id, realName: parsed.realName.trim() } });
+    return user;
+  });
+
+  await clearEmailCode(parsed.email);
+  return NextResponse.json(
+    { id: result.id, email: result.email, status: "ACTIVE", role: "FACILITATOR", fallback: false },
     { status: 201 }
   );
 }
