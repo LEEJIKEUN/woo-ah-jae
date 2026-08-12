@@ -8,5 +8,13 @@ export async function generateMetadata() {
 export default async function BoardPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/board`);
-  return <BoardView courseId={courseId} isStaff={isStaffRole(session.role)} />;
+  return (
+    <BoardView
+      courseId={courseId}
+      isStaff={isStaffRole(session.role)}
+      isParent={session.role === "PARENT"}
+      role={session.role}
+      currentUserId={session.userId}
+    />
+  );
 }

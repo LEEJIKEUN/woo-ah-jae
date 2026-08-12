@@ -149,7 +149,7 @@ export default function LessonBlocks({ courseId, activityId, isAdmin }: { course
   const list = editing ? draft : blocks;
 
   return (
-    <div className="mt-10 border-t pt-8" style={{ borderColor: CARD }}>
+    <div className="mt-8">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-[20px] font-bold" style={{ ...serif, color: INK }}>학습 콘텐츠</h2>
         {isAdmin ? (

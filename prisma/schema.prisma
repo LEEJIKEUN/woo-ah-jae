@@ -21,6 +21,11 @@ enum ParentLinkStatus {
   REJECTED
 }
 
+enum CoursePostKind {
+  NOTICE
+  DISCUSSION
+}
+
 enum UserLifecycleStatus {
   ACTIVE
   DELETED
@@ -130,8 +135,44 @@ model User {
   entitlements            Entitlement[]
   lessonCompletions       LessonCompletion[]
   enrollments             Enrollment[]
+  coursePosts             CoursePost[]
+  coursePostComments      CoursePostComment[]
   parentLinksAsParent     ParentChildLink[]        @relation("ParentLinksAsParent")
   parentLinksAsChild      ParentChildLink[]        @relation("ParentLinksAsChild")
+}
+
+/** 강의실 게시글 — 공지사항(NOTICE)·수강생 토론(DISCUSSION). 강좌 스코프. */
+model CoursePost {
+  id        String         @id @default(cuid())
+  courseId  String
+  kind      CoursePostKind
+  authorId  String
+  title     String
+  body      String
+  pinned    Boolean        @default(false)
+  createdAt DateTime       @default(now())
+
+  author    User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments  CoursePostComment[]
+
+  @@index([courseId, kind, createdAt])
+}
+
+/** 게시글 댓글(+대댓글: parentCommentId 로 무한 중첩). */
+model CoursePostComment {
+  id              String    @id @default(cuid())
+  postId          String
+  authorId        String
+  body            String
+  parentCommentId String?
+  createdAt       DateTime  @default(now())
+
+  post            CoursePost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent          CoursePostComment?  @relation("CourseCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         CoursePostComment[] @relation("CourseCommentReplies")
+
+  @@index([postId, createdAt])
 }
 
 /** 수강신청 — 강좌별 학생 등록(파일이 아닌 DB에 보존). */
