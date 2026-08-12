@@ -1,87 +1,50 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { Home, ChevronRight, Search, ChevronDown, Plus } from "lucide-react";
 import { COURSES } from "@/lib/course/content";
-import { BC } from "@/lib/course/theme";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
-import CourseCard from "@/components/course/CourseCard";
-import CustomCourseCards from "./CustomCourseCards";
 
-export const metadata = { title: "내 강의 · 우아재" };
+export const metadata = { title: "서재 · 우아재" };
 
-export default async function CourseDashboardPage() {
-  let isAdmin = false;
-  try {
-    const token = (await cookies()).get(SESSION_COOKIE)?.value;
-    if (token) {
-      const session = await verifySessionToken(token);
-      isAdmin = session?.role === "ADMIN";
-    }
-  } catch {
-    isAdmin = false;
-  }
+const BROWN = "#8C6E59";
+const INK = "#2C2823";
+const NUM = "#B58F72";
+const SUB = "#8A8479";
+const LINE = "#E4DBC7";
+const serif = { fontFamily: "var(--font-serif)" } as const;
 
+/** 우아재 서재 — 강좌 목록(서재 톤). '강좌 관리(/my-courses)'와 같은 깔끔한 리스트. */
+export default function CourseCatalogPage() {
   return (
-    <div className="w-full">
-      {/* 라이트 헤더 */}
-      <div className="w-full border-b" style={{ background: "#ECF1EC", borderColor: "#DAE4DB" }}>
-        <div className="mx-auto max-w-5xl px-4 py-9 md:px-6">
-          <h1 className="text-[26px] font-extrabold" style={{ color: BC.ink }}>내 강의</h1>
-          <nav className="mt-2 flex items-center gap-1.5 text-[13.5px]" style={{ color: BC.meta }}>
-            <Home size={14} />
-            <ChevronRight size={13} style={{ color: "#b9c0c6" }} />
-            <span>우아재</span>
-            <ChevronRight size={13} style={{ color: "#b9c0c6" }} />
-            <span style={{ color: BC.sub }}>내 강의</span>
-          </nav>
-        </div>
-      </div>
+    <main className="mx-auto w-full max-w-3xl px-5 py-12 md:px-6">
+      <p className="text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>WOO AH JAE · 서재</p>
+      <h1 className="mt-3 font-normal" style={{ ...serif, color: INK, fontSize: "clamp(26px, 3.4vw, 34px)", letterSpacing: "-0.02em" }}>강좌</h1>
+      <p className="mt-2 text-[14px] leading-6" style={{ color: SUB }}>
+        우아재 서재의 강좌입니다. 강좌를 열어 소개와 커리큘럼을 확인하고 수강신청하세요.
+      </p>
 
-      {/* 코스 개요 패널 */}
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-6">
-        <section className="rounded-[6px] border p-5 md:p-6" style={{ borderColor: BC.borderCard }}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-[19px] font-bold" style={{ color: BC.ink }}>코스 개요</h2>
-            {isAdmin ? (
-              <Link href="/course/new" className="inline-flex items-center gap-1.5 rounded-[8px] px-4 py-2 text-[14px] font-bold text-white" style={{ background: "#8C6E59" }}>
-                <Plus size={15} /> 강좌 개설
+      <div className="mt-4 h-px w-full" style={{ background: LINE }} />
+
+      {COURSES.length === 0 ? (
+        <p className="py-16 text-center text-[15px]" style={{ color: SUB }}>준비 중인 강좌가 없습니다.</p>
+      ) : (
+        <ul className="mt-6 space-y-3">
+          {COURSES.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border p-4 transition hover:border-[#8C6E59]" style={{ borderColor: LINE }}>
+              <div className="min-w-0">
+                <span className="inline-block rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: "#F1EADF", color: BROWN }}>{c.category ?? c.programme}</span>
+                <p className="mt-1.5 truncate text-[17px] font-semibold" style={{ ...serif, color: INK }}>{c.title}</p>
+                <p className="truncate text-[13px]" style={{ color: SUB }}>{c.subtitle}</p>
+                {c.classDays ? <p className="mt-0.5 truncate text-[12px]" style={{ color: BROWN }}>{c.classDays}</p> : null}
+              </div>
+              <Link
+                href={`/course/${c.id}`}
+                className="inline-flex shrink-0 items-center rounded-[8px] px-5 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90"
+                style={{ background: BROWN, ...serif }}
+              >
+                강좌 보기
               </Link>
-            ) : null}
-          </div>
-          <div className="mt-1 h-0.5 w-14 rounded" style={{ background: BC.accent }} />
-
-          {/* 필터 바 */}
-          <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            <FilterButton label="전체" />
-            <div className="flex items-center gap-2 rounded-[4px] border px-3 py-1.5" style={{ borderColor: "#e0e2e6" }}>
-              <Search size={15} style={{ color: BC.meta }} />
-              <input placeholder="검색" className="w-40 bg-transparent text-[14px] outline-none" style={{ color: BC.ink }} disabled />
-            </div>
-            <FilterButton label="이름순 정렬" />
-            <FilterButton label="카드 보기" />
-          </div>
-
-          {/* 카드 그리드 */}
-          <div className="mt-6 flex flex-wrap gap-6">
-            {COURSES.map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-            <CustomCourseCards />
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function FilterButton({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-[14px] transition hover:border-[#8C6E59]"
-      style={{ borderColor: "#e0e2e6", color: BC.sub }}
-    >
-      {label} <ChevronDown size={14} />
-    </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
   );
 }
