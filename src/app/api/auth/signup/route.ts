@@ -29,6 +29,29 @@ const parentSchema = z.object({
   childEmail: z.string().email(),
 });
 
+/**
+ * 같은 이메일의 계정이 소프트삭제(DELETED) 상태면 하드삭제해 이메일을 회수한다.
+ * 회원탈퇴·관리자 삭제 후 같은 이메일로 재가입할 수 있게 하기 위함.
+ * 반환: "active"=사용 중(재가입 불가) · "reclaimed"=회수함 · "none"=없음
+ */
+async function reclaimDeletedUser(email: string): Promise<"active" | "reclaimed" | "none"> {
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, lifecycleStatus: true },
+  });
+  if (!existing) return "none";
+  if (existing.lifecycleStatus !== UserLifecycleStatus.DELETED) return "active";
+  await prisma.$transaction(async (tx) => {
+    await tx.comment.deleteMany({ where: { createdBy: existing.id } });
+    await tx.post.deleteMany({ where: { createdBy: existing.id } });
+    await tx.announcement.deleteMany({ where: { createdBy: existing.id } });
+    await tx.auditLog.deleteMany({ where: { actorUserId: existing.id } });
+    await tx.project.deleteMany({ where: { ownerId: existing.id } });
+    await tx.user.delete({ where: { id: existing.id } });
+  });
+  return "reclaimed";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const form = await request.formData();
@@ -82,8 +105,8 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(parsed.password);
 
     try {
-      const exists = await prisma.user.findUnique({ where: { email: parsed.email } });
-      if (exists) {
+      const reclaim = await reclaimDeletedUser(parsed.email);
+      if (reclaim === "active") {
         return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
       }
 
@@ -193,8 +216,8 @@ async function handleParentSignup(form: FormData): Promise<NextResponse> {
     return NextResponse.json({ error: "해당 이메일의 학생 계정을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) {
+  const reclaim = await reclaimDeletedUser(email);
+  if (reclaim === "active") {
     return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
   }
 

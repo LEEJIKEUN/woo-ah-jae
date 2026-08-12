@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Lock, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, type Course } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
@@ -94,7 +94,7 @@ function SidebarInner({ room }: { room: Classroom }) {
         <div className="mt-5 space-y-2">
           <SideBox label="공지사항" href={`/course/${room.id}/notices`} />
           <SideBox label="수강생 토론 게시판" href={`/course/${room.id}/board`} />
-          <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} icon={<Sparkles size={15} style={{ color: BROWN }} />} />
+          <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} />
         </div>
 
         <div className="my-4 border-t" style={{ borderColor: LINE }} />
