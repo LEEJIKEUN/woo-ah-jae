@@ -87,9 +87,17 @@ export default function Header({ session, accountLabel }: Props) {
                 <div className="absolute right-0 top-11 z-50 w-44 rounded-[4px] border bg-white p-1.5 shadow-lg" style={{ borderColor: LINE }}>
                   <Link href="/account" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>내정보</Link>
                   {session.role === "ADMIN" ? (
-                    <Link href="/admin/members" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>회원 관리</Link>
+                    <>
+                      <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>강좌 관리</Link>
+                      <Link href="/admin/members" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>회원 관리</Link>
+                    </>
+                  ) : session.role === "PARENT" ? (
+                    <>
+                      <Link href="/me/children" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>자녀 학습 현황</Link>
+                      <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>내 강의실</Link>
+                    </>
                   ) : (
-                    <Link href="/me/projects" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>내 프로젝트 관리</Link>
+                    <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>내 강의실</Link>
                   )}
                   <button type="button" disabled={loading} onClick={logout} className="mt-0.5 block w-full rounded-[2px] px-3 py-2 text-left text-[14px] hover:bg-[#f6f3ef] disabled:opacity-60" style={{ color: "#a6402c" }}>
                     {loading ? "나가는 중..." : "나가기"}
