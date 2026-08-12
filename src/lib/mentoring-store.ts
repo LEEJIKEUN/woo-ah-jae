@@ -12,13 +12,14 @@ export type FieldKey =
 export type Report = Record<FieldKey, string>;
 export type ChatMsg = { from: "teacher" | "student"; text: string; at: string };
 export type Book = { book: string; author: string; motive: string; review: string; influence: string };
-export type MentoringRoom = { report: Report; chat: ChatMsg[]; books: Book[] };
+export type MentoringFile = { name: string; size: number; dataUrl: string };
+export type MentoringRoom = { report: Report; chat: ChatMsg[]; books: Book[]; file: MentoringFile | null };
 
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
 }
 export function emptyRoom(): MentoringRoom {
-  return { report: blankReport(), chat: [], books: [] };
+  return { report: blankReport(), chat: [], books: [], file: null };
 }
 
 const persistentStoreDir =
@@ -64,6 +65,7 @@ function normalize(r: MentoringRoom | undefined): MentoringRoom {
     report: { ...blankReport(), ...(r.report ?? {}) },
     chat: Array.isArray(r.chat) ? r.chat : [],
     books: Array.isArray(r.books) ? r.books : [],
+    file: r.file && typeof r.file === "object" && typeof r.file.dataUrl === "string" ? r.file : null,
   };
 }
 
@@ -99,6 +101,17 @@ export async function saveBooks(courseId: string, books: Book[]): Promise<Mentor
     const all = await readAll();
     const room = normalize(all[courseId]);
     room.books = books.slice(0, 5);
+    all[courseId] = room;
+    await writeAll(all);
+    return room;
+  });
+}
+
+export async function saveFile(courseId: string, file: MentoringFile | null): Promise<MentoringRoom> {
+  return withLock(async () => {
+    const all = await readAll();
+    const room = normalize(all[courseId]);
+    room.file = file;
     all[courseId] = room;
     await writeAll(all);
     return room;

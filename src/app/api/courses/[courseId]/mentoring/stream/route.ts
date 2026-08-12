@@ -41,11 +41,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           /* 닫힘 */
         }
       };
+      // 파일 dataUrl(수 MB)은 SSE 로 흘리지 않고 메타만 전송 → 다운로드는 GET 으로.
+      const sanitize = (room: Awaited<ReturnType<typeof getRoom>>) => ({
+        ...room,
+        file: room.file ? { name: room.file.name, size: room.file.size } : null,
+      });
 
       // 최초 방 전송
-      send(await getRoom(courseId));
+      send(sanitize(await getRoom(courseId)));
 
-      const unsubscribe = subscribeMentoring(courseId, (room) => send(room));
+      const unsubscribe = subscribeMentoring(courseId, (room) => send(sanitize(room)));
 
       const heartbeat = setInterval(() => {
         if (closed) return;

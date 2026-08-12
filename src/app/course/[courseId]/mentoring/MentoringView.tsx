@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download, Pencil } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
@@ -33,7 +33,7 @@ const FIELDS: { key: FieldKey; label: string; rows: number }[] = [
 type Report = Record<FieldKey, string>;
 type ChatMsg = { from: "teacher" | "student"; text: string; at: string };
 type Book = { book: string; author: string; motive: string; review: string; influence: string };
-type Room = { report: Report; chat: ChatMsg[]; books: Book[] };
+type Room = { report: Report; chat: ChatMsg[]; books: Book[]; file: { name: string; size: number } | null };
 type ReportFile = { name: string; size: number; dataUrl: string };
 const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
 function blankReport(): Report {
@@ -66,8 +66,13 @@ async function postRoom(courseId: string, payload: object) {
   });
 }
 
-export default function MentoringView({ courseId, role, isStaff = false, isParent = false }: { courseId: string; role: "teacher" | "student"; isStaff?: boolean; isParent?: boolean }) {
-  const readOnly = isParent; // 학부모는 공유방을 덮어쓰지 않도록 열람 전용
+export default function MentoringView({ courseId, role, isStaff = false, isParent = false, isStudent = false }: { courseId: string; role: "teacher" | "student"; isStaff?: boolean; isParent?: boolean; isStudent?: boolean }) {
+  // 권한: 보고서·독서·파일 = 학생만 / 채팅 = 학생+스태프 / 학부모 = 열람 전용(파일 다운로드는 가능)
+  const canEditReport = isStudent;
+  const canEditBooks = isStudent;
+  const canUploadFile = isStudent;
+  const canChat = isStudent || isStaff;
+
   const [report, setReport] = useState<Report>(blankReport());
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -79,19 +84,22 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   const [reportFile, setReportFile] = useState<ReportFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
+  const fileMetaRef = useRef<string>(""); // 현재 파일 메타(name,size) JSON — 변경 감지
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // 보고서 첨부파일(PDF)은 브라우저 로컬 저장(용량 문제로 실시간 동기화 대상 아님)
-  useEffect(() => {
+  // 보고서 파일(dataUrl)은 SSE 로 흘리지 않으므로 변경 시 GET 으로 다시 받는다.
+  const refetchFile = useCallback(async () => {
     try {
-      const rawF = window.localStorage.getItem(`wj_mtr_${courseId}_file`);
-      if (rawF) setReportFile(JSON.parse(rawF) as ReportFile);
+      const res = await fetch(`/api/courses/${courseId}/mentoring`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { file?: ReportFile | null };
+      setReportFile(data.file ?? null);
     } catch {
       /* 무시 */
     }
   }, [courseId]);
 
-  // 실시간 방 구독(SSE) — 관리자·학생이 같은 방을 공유
+  // 실시간 방 구독(SSE) — 보고서/채팅/독서 + 파일 메타 변경 감지
   useEffect(() => {
     const es = new EventSource(`/api/courses/${courseId}/mentoring/stream`);
     es.onmessage = (e) => {
@@ -100,12 +108,18 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
         setChat(Array.isArray(room.chat) ? room.chat : []);
         setBooks(Array.isArray(room.books) ? room.books : []);
         if (!dirtyRef.current) setReport({ ...blankReport(), ...(room.report ?? {}) });
+        const meta = room.file ? JSON.stringify({ name: room.file.name, size: room.file.size }) : "";
+        if (meta !== fileMetaRef.current) {
+          fileMetaRef.current = meta;
+          if (!room.file) setReportFile(null);
+          else void refetchFile();
+        }
       } catch {
         /* 무시 */
       }
     };
     return () => es.close();
-  }, [courseId]);
+  }, [courseId, refetchFile]);
 
   // 새 메시지 오면 스크롤 하단으로
   useEffect(() => {
@@ -116,14 +130,14 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   const hasContent = useMemo(() => Object.values(report).some((v) => v.trim().length > 0), [report]);
 
   function setField(key: FieldKey, value: string) {
-    if (readOnly) return;
+    if (!canEditReport) return;
     dirtyRef.current = true;
     setReport((prev) => ({ ...prev, [key]: value }));
     setSavedFlash(false);
   }
 
   async function save() {
-    if (readOnly) return;
+    if (!canEditReport) return;
     try {
       await postRoom(courseId, { action: "report", report });
       dirtyRef.current = false;
@@ -134,7 +148,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   }
 
   async function send() {
-    if (readOnly) return;
+    if (!canChat) return;
     const t = draft.trim();
     if (!t) return;
     setDraft("");
@@ -154,19 +168,19 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
     }
   }
   function addBook() {
-    if (readOnly) return;
+    if (!canEditBooks) return;
     if (books.length >= MAX_BOOKS) return;
     if (!bookDraft.book.trim() && !bookDraft.author.trim()) return;
     void persistBooks([...books, bookDraft]);
     setBookDraft(BLANK_BOOK);
   }
   function removeBook(idx: number) {
-    if (readOnly) return;
+    if (!canEditBooks) return;
     if (editBookIdx === idx) cancelEditBook();
     void persistBooks(books.filter((_, i) => i !== idx));
   }
   function startEditBook(i: number) {
-    if (readOnly) return;
+    if (!canEditBooks) return;
     setEditBookIdx(i);
     setEditBook({ ...books[i] });
   }
@@ -175,15 +189,15 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
     setEditBook(BLANK_BOOK);
   }
   function saveEditBook() {
-    if (readOnly || editBookIdx === null) return;
+    if (!canEditBooks || editBookIdx === null) return;
     const next = books.map((b, i) => (i === editBookIdx ? editBook : b));
     void persistBooks(next);
     cancelEditBook();
   }
 
-  // PDF 업로드 (로컬)
+  // PDF 업로드 → 방(서버)에 공유 저장 (관리자·학부모도 다운로드 가능)
   function onUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
-    if (readOnly) return;
+    if (!canUploadFile) return;
     setFileError(null);
     const f = e.target.files?.[0];
     e.target.value = "";
@@ -198,13 +212,22 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const rec: ReportFile = { name: f.name, size: f.size, dataUrl: String(reader.result) };
       setReportFile(rec);
+      fileMetaRef.current = JSON.stringify({ name: rec.name, size: rec.size });
       try {
-        window.localStorage.setItem(`wj_mtr_${courseId}_file`, JSON.stringify(rec));
+        const res = await fetch(`/api/courses/${courseId}/mentoring`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "file", file: rec }),
+        });
+        if (!res.ok) {
+          const d = (await res.json()) as { error?: string };
+          setFileError(d.error ?? "업로드에 실패했습니다.");
+        }
       } catch {
-        setFileError("용량이 커서 저장은 되지 않았지만, 이번 세션에서는 다운로드할 수 있습니다.");
+        setFileError("업로드 중 오류가 발생했습니다.");
       }
     };
     reader.onerror = () => setFileError("파일을 읽지 못했습니다.");
@@ -220,13 +243,15 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
     a.remove();
   }
   function removeFile() {
+    if (!canUploadFile) return;
     setReportFile(null);
     setFileError(null);
-    try {
-      window.localStorage.removeItem(`wj_mtr_${courseId}_file`);
-    } catch {
-      /* 무시 */
-    }
+    fileMetaRef.current = "";
+    void fetch(`/api/courses/${courseId}/mentoring`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "file", file: null }),
+    });
   }
 
   return (
@@ -242,7 +267,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
             <h1 className="text-[26px] font-normal" style={{ ...serif, color: INK }}>탐구활동 멘토링</h1>
           </div>
           <span className="rounded-full px-3 py-1 text-[12px] font-semibold" style={{ background: PANEL, color: DEEP, border: `1px solid ${LINE}` }}>
-            {readOnly ? "학부모 · 열람 전용" : role === "teacher" ? "교사(관리자)로 접속" : "학생으로 접속"} · 실시간 공유
+            {isParent ? "학부모 · 열람 전용" : role === "teacher" ? "교사(관리자) · 보고서 열람 + 채팅" : "학생으로 접속"} · 실시간 공유
           </span>
         </div>
 
@@ -271,8 +296,8 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                     value={report[f.key]}
                     onChange={(e) => setField(f.key, e.target.value)}
                     rows={f.rows}
-                    readOnly={readOnly}
-                    placeholder={readOnly ? "" : `${f.label}을(를) 입력하세요.`}
+                    readOnly={!canEditReport}
+                    placeholder={!canEditReport ? "" : `${f.label}을(를) 입력하세요.`}
                     className="w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]"
                     style={{ borderColor: "#E7E2D6", color: BODY, background: "#fff" }}
                   />
@@ -293,22 +318,22 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
                       <button type="button" onClick={downloadFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={16} /></button>
-                      <button type="button" onClick={removeFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><X size={16} /></button>
+                      {canUploadFile ? <button type="button" onClick={removeFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><X size={16} /></button> : null}
                     </div>
                   </div>
-                ) : readOnly ? (
-                  <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>첨부된 보고서 파일이 없습니다.</p>
-                ) : (
+                ) : canUploadFile ? (
                   <label className="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-4 text-[13.5px] transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: SUB }}>
                     <Upload size={16} /> PDF 파일 업로드 (최대 6MB)
                     <input type="file" accept="application/pdf,.pdf" onChange={onUploadFile} className="hidden" />
                   </label>
+                ) : (
+                  <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>첨부된 보고서 파일이 없습니다.</p>
                 )}
                 {fileError ? <p className="mt-1.5 text-[12px]" style={{ color: "#a6402c" }}>{fileError}</p> : null}
               </div>
             </div>
 
-            {!readOnly ? (
+            {canEditReport ? (
             <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: CARD }}>
               {savedFlash ? <span className="text-[13px]" style={{ color: "#3E7E5B" }}>저장됨 · 상대에게 실시간 반영</span> : null}
               <button type="button" onClick={save} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>
@@ -349,7 +374,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                           {b.book || "(제목 없음)"}
                           {b.author ? <span className="font-normal" style={{ color: SUB }}>({b.author})</span> : null}
                         </p>
-                        {!readOnly ? (
+                        {canEditBooks ? (
                           <div className="flex shrink-0 items-center gap-1.5">
                             <button type="button" onClick={() => startEditBook(i)} aria-label="수정" style={{ color: MUTED }}><Pencil size={13} /></button>
                             <button type="button" onClick={() => removeBook(i)} aria-label="삭제" style={{ color: MUTED }}><X size={15} /></button>
@@ -363,7 +388,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                   )
                 )}
 
-                {!readOnly && books.length < MAX_BOOKS ? (
+                {canEditBooks && books.length < MAX_BOOKS ? (
                   <div className="space-y-2 rounded-[10px] p-3" style={{ border: `1px dashed ${LINE}` }}>
                     <div className="grid grid-cols-2 gap-2">
                       <BookInput label="책" value={bookDraft.book} onChange={(v) => setBookDraft((p) => ({ ...p, book: v }))} />
@@ -376,7 +401,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                       <Plus size={15} /> 추가
                     </button>
                   </div>
-                ) : !readOnly ? (
+                ) : canEditBooks ? (
                   <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>최대 {MAX_BOOKS}개까지 추가할 수 있습니다.</p>
                 ) : null}
               </div>
@@ -423,7 +448,7 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                   })
                 )}
               </div>
-              {!readOnly ? (
+              {canChat ? (
               <div className="flex items-center gap-2 border-t px-3 py-3" style={{ borderColor: CARD }}>
                 <input
                   value={draft}
