@@ -91,15 +91,17 @@ function Sidebar({ room, isStaff = false }: { room: Classroom; isStaff?: boolean
   return (
     <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
       {/* 헤더 밴드 + 진도 도넛(관리자는 출석 체크) */}
-      <div className="flex items-center gap-3 px-5 py-6 text-white" style={{ background: heroGrad }}>
-        <h1 className="min-w-0 flex-1 break-keep text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
-        {isStaff ? (
-          <Link href={`/course/${room.id}/attendance`} className="flex shrink-0 items-center gap-1.5 rounded-[8px] bg-white/20 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-white/30">
-            <ClipboardCheck size={14} /> 출석 체크
-          </Link>
-        ) : (
-          <Donut percent={pct} />
-        )}
+      <div className="px-5 py-6 text-white" style={{ background: heroGrad }}>
+        <h1 className="whitespace-nowrap text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
+        <div className="mt-3 flex justify-end">
+          {isStaff ? (
+            <Link href={`/course/${room.id}/attendance`} className="flex items-center gap-1.5 rounded-[8px] bg-white/20 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-white/30">
+              <ClipboardCheck size={14} /> 출석 체크
+            </Link>
+          ) : (
+            <Donut percent={pct} />
+          )}
+        </div>
       </div>
 
       <div className="px-5 py-5">
