@@ -1,20 +1,26 @@
 @import "tailwindcss";
 
+/* ── 우아재 · 서재(齋) 테마 (한지·먹·청자 한옥 무드) ──────────── */
 :root {
-  --header-h: 132px;
-  --background: #1b1f27;
-  --foreground: #eef2f7;
-  --surface: #232a35;
-  --surface-elevated: #2a3340;
-  --border: #3a4658;
-  --muted: #a7b0bf;
-  --primary: #f8fafc;
+  --header-h: 68px;
+  --background: #f5efe2;      /* 한지(hanji) 크림 */
+  --foreground: #2c2823;      /* 먹빛 잉크 */
+  --surface: #fbf7ee;         /* 따뜻한 서피스 */
+  --surface-elevated: #f0e8d7;
+  --border: #e4dbc7;          /* 한지 라인 */
+  --muted: #6f665a;           /* 보조 먹 */
+  --primary: #6e8a76;         /* 청자(celadon) */
+  --accent: #a6402c;          /* 주칠(朱漆) 낙관 레드 */
+  --wood: #8a6a46;            /* 목재 */
+  --gold: #a98b57;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-app), "Noto Sans KR", "Segoe UI", sans-serif;
+  --color-accent: var(--accent);
+  --font-sans: var(--font-app), "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-serif: var(--font-serif-app), "Nanum Myeongjo", "AppleMyungjo", "Batang", serif;
   --font-mono: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -26,7 +32,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-app), "Noto Sans KR", "Segoe UI", sans-serif;
+  font-family: var(--font-app), "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
 
 a {
@@ -37,6 +43,12 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #cbd5e1;
+  outline: 2px solid #8c6e59;
   outline-offset: 2px;
+}
+
+/* 광고판 슬로건 페이드 */
+@keyframes wjfade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -35,3 +35,14 @@ export const OVERSEAS_KOREAN_SCHOOLS = [
 ] as const;
 
 export const GRADE_OPTIONS = ["G9", "G10", "G11", "G12", "G13"] as const;
+
+/**
+ * 졸업 예정 연도 목록.
+ * 졸업연도는 학생별로 고정된 절대값(예: 올해 고1 → 2029)이라 매년 갱신할 필요가 없어
+ * 고정 상수로 둔다. 현재 중1(가장 어린 학년)~고3(가장 임박)까지 커버.
+ */
+const GRADUATION_BASE_YEAR = 2027;
+export const GRADUATION_TERMS = Array.from(
+  { length: 7 },
+  (_, i) => `${GRADUATION_BASE_YEAR + i}년 1(2)월`
+) as readonly string[];

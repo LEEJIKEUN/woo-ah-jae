@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const INPUT_CLASS =
-  "w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-slate-400";
+  "w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400";
 
 export default function ApplyForm({
   projectId,
@@ -60,12 +60,12 @@ export default function ApplyForm({
       }}
     >
       <label className="block space-y-1">
-        <span className="text-sm text-slate-300">자기소개</span>
+        <span className="text-sm text-slate-600">자기소개</span>
         <textarea name="applicantIntro" rows={4} className={INPUT_CLASS} required maxLength={2000} />
       </label>
 
       <label className="block space-y-1">
-        <span className="text-sm text-slate-300">연락 가능한 수단</span>
+        <span className="text-sm text-slate-600">연락 가능한 수단</span>
         <input name="contact" className={INPUT_CLASS} required maxLength={300} placeholder="예: 카카오톡 ID, 이메일" />
       </label>
 
@@ -74,14 +74,14 @@ export default function ApplyForm({
 
         return (
           <label key={`q-${index}`} className="block space-y-1">
-            <span className="text-sm text-slate-300">질문 {index + 1}. {question}</span>
+            <span className="text-sm text-slate-600">질문 {index + 1}. {question}</span>
             <textarea name={`answer${index + 1}`} rows={3} className={INPUT_CLASS} maxLength={2000} required />
           </label>
         );
       })}
 
-      {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+      {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
       <button
         disabled={loading}

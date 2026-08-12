@@ -39,12 +39,12 @@ export default function PosterCard({ item, rank }: Props) {
       aria-label={`${item.title} 상세 보기`}
     >
       {rank ? (
-        <span className="pointer-events-none absolute -left-2 -top-2 z-10 rounded-md bg-black/75 px-2 py-0.5 text-xs font-bold text-white/90 sm:-left-3 sm:-top-3">
+        <span className="pointer-events-none absolute -left-2 -top-2 z-10 rounded-md bg-white/75 px-2 py-0.5 text-xs font-bold text-white/90 sm:-left-3 sm:-top-3">
           {rank}
         </span>
       ) : null}
 
-      <div className="relative h-[282px] overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-950 transition duration-300 group-hover:-translate-y-1 group-hover:border-slate-500 sm:h-[330px]">
+      <div className="relative h-[282px] overflow-hidden rounded-2xl border border-slate-200/80 bg-white transition duration-300 group-hover:-translate-y-1 group-hover:border-slate-300 sm:h-[330px]">
         <div className="relative h-full w-full">
           {item.posterUrl ? (
             <Image
@@ -60,7 +60,7 @@ export default function PosterCard({ item, rank }: Props) {
 
               <div className="relative flex h-full flex-col justify-between p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="rounded-md border border-white/30 bg-black/30 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-white/95">
+                  <span className="rounded-md border border-white/30 bg-white/30 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-white/95">
                     {item.categoryTab}
                   </span>
                 </div>
@@ -85,8 +85,8 @@ export default function PosterCard({ item, rank }: Props) {
       </div>
 
       <div className="mt-3 space-y-1.5 px-0.5">
-        <p className="line-clamp-2 text-[15px] font-semibold leading-6 text-slate-100">{item.title}</p>
-        <p className="text-[12px] leading-5 text-slate-400">
+        <p className="line-clamp-2 text-[15px] font-semibold leading-6 text-slate-900">{item.title}</p>
+        <p className="text-[12px] leading-5 text-slate-500">
           {item.categoryTab} · {item.channel}
         </p>
         <p className="text-[12px] leading-5 text-slate-500">

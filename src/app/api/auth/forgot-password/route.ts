@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { email: body.email } });
     if (!user) {
-      return NextResponse.json({ error: "등록되지 않은 이메일입니다." }, { status: 404 });
+      // 이메일 가입 여부를 노출하지 않도록, 미등록이어도 동일한 성공 응답을 반환한다.
+      return NextResponse.json({ message: SUCCESS_MESSAGE });
     }
 
     let devWarning: string | undefined;

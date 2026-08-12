@@ -111,23 +111,23 @@ export default function MyProjectsDashboard({
   }
 
   if (!items.length) {
-    return <p className="text-sm text-slate-400">{emptyText ?? "아직 만든 프로젝트가 없습니다. 상단의 내 프로젝트 만들기 버튼으로 시작하세요."}</p>;
+    return <p className="text-sm text-slate-500">{emptyText ?? "아직 만든 프로젝트가 없습니다. 상단의 내 프로젝트 만들기 버튼으로 시작하세요."}</p>;
   }
 
   return (
     <div className="space-y-4">
       {items.map((item) => (
-        <article key={item.id} className="rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-4">
+        <article key={item.id} className="rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-slate-100">{item.title}</h2>
-              <p className="text-sm text-slate-300">{item.summary}</p>
+              <h2 className="text-lg font-semibold text-slate-900">{item.title}</h2>
+              <p className="text-sm text-slate-600">{item.summary}</p>
               {isAdmin ? (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500">
                   소유자: {item.ownerName ?? "-"} ({item.ownerEmail ?? "-"})
                 </p>
               ) : null}
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 상태: {item.achievedAt ? "Achieved" : item.status === "open" ? "모집중" : "마감"} · 모집 {item.capacity}명 · 지원 {item.applicationCount}건 · 확정 {item.memberCount}명
               </p>
             </div>
@@ -136,7 +136,7 @@ export default function MyProjectsDashboard({
                 type="button"
                 disabled={loadingId === item.id}
                 onClick={() => toggleAchieved(item)}
-                className="rounded-md border border-emerald-500/70 px-3 py-1.5 text-xs text-emerald-200 hover:border-emerald-300 disabled:opacity-60"
+                className="rounded-md border border-emerald-500/70 px-3 py-1.5 text-xs text-emerald-700 hover:border-emerald-300 disabled:opacity-60"
               >
                 {loadingId === item.id ? "변경 중..." : item.achievedAt ? "Achieved 해제" : "Achieved 이동"}
               </button>
@@ -145,7 +145,7 @@ export default function MyProjectsDashboard({
                   type="button"
                   disabled={loadingId === item.id}
                   onClick={() => toggleStatus(item)}
-                  className="rounded-md border border-slate-500 px-3 py-1.5 text-xs text-slate-100 hover:border-slate-300 disabled:opacity-60"
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-900 hover:border-slate-300 disabled:opacity-60"
                 >
                   {loadingId === item.id ? "변경 중..." : item.status === "open" ? "모집 마감" : "모집 재개"}
                 </button>
@@ -154,7 +154,7 @@ export default function MyProjectsDashboard({
                 type="button"
                 onClick={() => openEditor(item)}
                 disabled={loadingId === item.id}
-                className="rounded-md border border-slate-500 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300 disabled:opacity-60"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:border-slate-300 disabled:opacity-60"
               >
                 수정
               </button>
@@ -166,13 +166,13 @@ export default function MyProjectsDashboard({
               </Link>
               <Link
                 href={`/projects/${item.id}`}
-                className="rounded-md border border-slate-500 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:border-slate-300"
               >
                 상세 열람
               </Link>
               <Link
                 href={`/workspace/${item.id}`}
-                className="rounded-md border border-slate-500 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:border-slate-300"
               >
                 프로젝트 공간
               </Link>
@@ -190,15 +190,15 @@ export default function MyProjectsDashboard({
       ))}
 
       {editingItem ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-5xl space-y-4 rounded-xl border border-slate-700 bg-slate-900 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 px-4">
+          <div className="w-full max-w-5xl space-y-4 rounded-xl border border-slate-200 bg-white p-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-100">프로젝트 수정</h3>
+              <h3 className="text-lg font-semibold text-slate-900">프로젝트 수정</h3>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingItem(null)}
-                  className="rounded-md border border-slate-600 px-3 py-1.5 text-sm text-slate-200"
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-800"
                 >
                   취소
                 </button>

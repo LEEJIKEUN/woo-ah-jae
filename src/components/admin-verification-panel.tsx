@@ -97,36 +97,36 @@ export default function AdminVerificationPanel() {
   return (
     <section id="verification" className="mt-8 space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-slate-100">가입 신청 승인 큐</h2>
-        <p className="mt-1 text-sm text-slate-400">신청자의 인증 상태를 확인하고 승인/거절할 수 있습니다.</p>
+        <h2 className="text-2xl font-bold text-slate-900">가입 신청 승인 큐</h2>
+        <p className="mt-1 text-sm text-slate-500">신청자의 인증 상태를 확인하고 승인/거절할 수 있습니다.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이메일/학교명 검색" className="h-9 min-w-[220px] flex-1 rounded-md border border-slate-600 bg-[color:var(--surface)] px-3 text-sm" />
-        <select value={status} onChange={(e) => setStatus(e.target.value as (typeof STATUS_OPTIONS)[number]["value"])} className="h-9 rounded-md border border-slate-600 bg-[color:var(--surface)] px-3 text-sm">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이메일/학교명 검색" className="h-9 min-w-[220px] flex-1 rounded-md border border-slate-200 bg-[color:var(--surface)] px-3 text-sm" />
+        <select value={status} onChange={(e) => setStatus(e.target.value as (typeof STATUS_OPTIONS)[number]["value"])} className="h-9 rounded-md border border-slate-200 bg-[color:var(--surface)] px-3 text-sm">
           {STATUS_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
-        <button onClick={() => void load()} className="h-9 rounded-md border border-slate-500 px-3 text-sm text-slate-200">새로고침</button>
+        <button onClick={() => void load()} className="h-9 rounded-md border border-slate-300 px-3 text-sm text-slate-800">새로고침</button>
       </div>
 
-      {loading ? <p className="text-sm text-slate-400">불러오는 중...</p> : null}
-      {error ? <p className="rounded-md bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
+      {loading ? <p className="text-sm text-slate-500">불러오는 중...</p> : null}
+      {error ? <p className="rounded-md bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p> : null}
 
       <div className="grid gap-3">
         {items.length === 0 ? (
-          <div className="py-8 text-center text-sm text-slate-400">신청 내역이 없습니다.</div>
+          <div className="py-8 text-center text-sm text-slate-500">신청 내역이 없습니다.</div>
         ) : (
           items.map((item) => (
             <Card key={item.id} className="p-4">
               <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-100">{item.user.email}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-medium text-slate-900">{item.user.email}</p>
+                  <p className="text-xs text-slate-500">
                     실명: {item.user.studentProfile?.realName ?? "-"} · {item.user.studentProfile?.schoolName ?? "-"} ·{" "}
                     {item.user.studentProfile?.grade ?? "-"} · {item.user.studentProfile?.residenceCountry ?? "-"}
                   </p>
-                  <p className="text-xs text-slate-400">상태: {item.status} · 제출일: {formatKstDate(item.submittedAt)}</p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-500">상태: {item.status} · 제출일: {formatKstDate(item.submittedAt)}</p>
+                  <p className="text-[11px] text-slate-500">
                     제출 문서: {item.docType === "ENROLLMENT_CERTIFICATE" ? "재학증명서" : "학생증"} · {item.originalFilename ?? "파일"}
                   </p>
 
@@ -136,7 +136,7 @@ export default function AdminVerificationPanel() {
                   </div>
                 </div>
 
-                <div className="space-y-2 rounded-md border border-slate-700/70 bg-slate-900/40 p-2">
+                <div className="space-y-2 rounded-md border border-slate-200/70 bg-white/40 p-2">
                   {item.mimeType?.startsWith("image/") && !brokenPreviewIds[item.id] ? (
                     <button
                       type="button"
@@ -147,7 +147,7 @@ export default function AdminVerificationPanel() {
                       <img
                         src={`/api/admin/verifications/${item.id}/file`}
                         alt="신원확인 문서 미리보기"
-                        className="h-44 w-full rounded-md border border-slate-700 object-cover transition group-hover:opacity-90"
+                        className="h-44 w-full rounded-md border border-slate-200 object-cover transition group-hover:opacity-90"
                         onError={() =>
                           setBrokenPreviewIds((prev) => ({
                             ...prev,
@@ -157,7 +157,7 @@ export default function AdminVerificationPanel() {
                       />
                     </button>
                   ) : (
-                    <div className="flex h-44 items-center justify-center rounded-md border border-dashed border-slate-700 text-xs text-slate-500">
+                    <div className="flex h-44 items-center justify-center rounded-md border border-dashed border-slate-200 text-xs text-slate-500">
                       미리보기 없음
                     </div>
                   )}
@@ -166,7 +166,7 @@ export default function AdminVerificationPanel() {
                       href={`/api/admin/verifications/${item.id}/file`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-800 hover:bg-slate-100"
                     >
                       문서 열기
                     </a>
@@ -174,7 +174,7 @@ export default function AdminVerificationPanel() {
                       <button
                         type="button"
                         onClick={() => setPreviewItem(item)}
-                        className="inline-flex rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-800 hover:bg-slate-100"
                       >
                         크게 보기
                       </button>
@@ -189,7 +189,7 @@ export default function AdminVerificationPanel() {
 
       {previewItem ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 p-4"
           role="dialog"
           aria-modal="true"
           aria-label="신원확인 이미지 확대 보기"
@@ -197,11 +197,11 @@ export default function AdminVerificationPanel() {
         >
           <div className="max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
-              <p className="max-w-[70vw] truncate text-xs text-slate-200">{previewItem.originalFilename ?? "문서 이미지"}</p>
+              <p className="max-w-[70vw] truncate text-xs text-slate-800">{previewItem.originalFilename ?? "문서 이미지"}</p>
               <button
                 type="button"
                 onClick={() => setPreviewItem(null)}
-                className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-800 hover:bg-slate-100"
               >
                 닫기
               </button>
@@ -209,7 +209,7 @@ export default function AdminVerificationPanel() {
             <img
               src={`/api/admin/verifications/${previewItem.id}/file`}
               alt="신원확인 문서 확대"
-              className="max-h-[82vh] max-w-[90vw] rounded-md border border-slate-700 object-contain"
+              className="max-h-[82vh] max-w-[90vw] rounded-md border border-slate-200 object-contain"
             />
           </div>
         </div>

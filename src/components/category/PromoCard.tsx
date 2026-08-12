@@ -21,7 +21,7 @@ export default function PromoCard({ item }: Props) {
           style={item.thumbnailUrl ? { backgroundImage: `url(${item.thumbnailUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
           aria-label={`${item.title} 썸네일`}
         />
-        <span className="absolute left-3 top-3 rounded-full bg-slate-900/85 px-2.5 py-1 text-[11px] font-semibold text-white">
+        <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-semibold text-white">
           {badge}
         </span>
       </div>

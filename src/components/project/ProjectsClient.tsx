@@ -138,17 +138,17 @@ export default function ProjectsClient(props: Props) {
         />
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-100">인기 프로젝트</h2>
+          <h2 className="text-xl font-semibold text-slate-900">인기 프로젝트</h2>
           <ProjectGrid projects={sort === "latest" ? latestItems : popularItems} />
         </section>
 
         <section className="space-y-4 pt-8 md:pt-10">
-          <h2 className="text-xl font-semibold text-slate-100">최신</h2>
+          <h2 className="text-xl font-semibold text-slate-900">최신</h2>
           <ProjectGrid projects={latestItems} />
         </section>
 
         <section className="space-y-4 pt-8 md:pt-10">
-          <h2 className="text-xl font-semibold text-slate-100">모집중</h2>
+          <h2 className="text-xl font-semibold text-slate-900">모집중</h2>
           <ProjectGrid projects={openItems} />
         </section>
       </section>

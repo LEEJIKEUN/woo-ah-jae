@@ -164,25 +164,25 @@ export default function ProjectEngagementPanel({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
+    <section className="space-y-4 rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-100">좋아요 · 댓글</h2>
+        <h2 className="text-lg font-semibold text-slate-900">좋아요 · 댓글</h2>
         <div className="flex items-center gap-2 text-sm">
           {currentUserId ? (
             <button
               type="button"
               onClick={handleLike}
               disabled={pendingLike}
-              className="rounded-md border border-slate-500/80 px-3 py-1.5 text-slate-100 hover:border-slate-300 disabled:opacity-60"
+              className="rounded-md border border-slate-300/80 px-3 py-1.5 text-slate-900 hover:border-slate-300 disabled:opacity-60"
             >
               {liked ? "♥" : "♡"} 좋아요 {likeCount}
             </button>
           ) : (
-            <Link href={`/login?next=/projects/${projectId}`} className="rounded-md border border-slate-500/80 px-3 py-1.5 text-slate-100 hover:border-slate-300">
+            <Link href={`/login?next=/projects/${projectId}`} className="rounded-md border border-slate-300/80 px-3 py-1.5 text-slate-900 hover:border-slate-300">
               로그인 후 좋아요
             </Link>
           )}
-          <span className="text-slate-300">댓글 {commentCount}</span>
+          <span className="text-slate-600">댓글 {commentCount}</span>
         </div>
       </div>
 
@@ -193,9 +193,9 @@ export default function ProjectEngagementPanel({
             onChange={(e) => setContent(e.target.value)}
             placeholder="댓글을 입력하세요"
             maxLength={2000}
-            className="h-24 w-full rounded-md border border-slate-600/80 bg-slate-900/40 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-slate-400"
+            className="h-24 w-full rounded-md border border-slate-200/80 bg-white/40 px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-slate-400"
           />
-          <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>{content.length}/2000</span>
             <button
               type="submit"
@@ -207,23 +207,23 @@ export default function ProjectEngagementPanel({
           </div>
         </form>
       ) : (
-        <p className="text-sm text-slate-400">댓글 작성은 로그인 후 가능합니다.</p>
+        <p className="text-sm text-slate-500">댓글 작성은 로그인 후 가능합니다.</p>
       )}
 
-      {error ? <p className="rounded-md bg-rose-500/15 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
+      {error ? <p className="rounded-md bg-rose-500/15 px-3 py-2 text-sm text-rose-600">{error}</p> : null}
 
       <div className="space-y-3">
-        {loading ? <p className="text-sm text-slate-400">댓글을 불러오는 중입니다...</p> : null}
-        {!loading && comments.length === 0 ? <p className="text-sm text-slate-400">아직 댓글이 없습니다.</p> : null}
+        {loading ? <p className="text-sm text-slate-500">댓글을 불러오는 중입니다...</p> : null}
+        {!loading && comments.length === 0 ? <p className="text-sm text-slate-500">아직 댓글이 없습니다.</p> : null}
 
         {comments.map((item) => {
           const canEdit = Boolean(currentUserId && (currentUserId === item.authorId || isAdmin));
           const isEditing = editingId === item.id;
 
           return (
-            <article key={item.id} className="rounded-md border border-slate-700/70 bg-slate-900/30 p-3">
+            <article key={item.id} className="rounded-md border border-slate-200/70 bg-white/30 p-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-slate-400">{item.author.school} · {item.author.grade} · {item.author.name}</p>
+                <p className="text-xs text-slate-500">{item.author.school} · {item.author.grade} · {item.author.name}</p>
                 <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString("ko-KR", { hour12: false })}</p>
               </div>
 
@@ -233,7 +233,7 @@ export default function ProjectEngagementPanel({
                     value={editingText}
                     onChange={(e) => setEditingText(e.target.value)}
                     maxLength={2000}
-                    className="h-20 w-full rounded-md border border-slate-600/80 bg-slate-900/50 px-3 py-2 text-sm text-slate-100 outline-none focus:border-slate-400"
+                    className="h-20 w-full rounded-md border border-slate-200/80 bg-white/50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
                   />
                   <div className="flex justify-end gap-2">
                     <button
@@ -242,7 +242,7 @@ export default function ProjectEngagementPanel({
                         setEditingId(null);
                         setEditingText("");
                       }}
-                      className="rounded-md border border-slate-500/80 px-2 py-1 text-xs text-slate-200"
+                      className="rounded-md border border-slate-300/80 px-2 py-1 text-xs text-slate-800"
                     >
                       취소
                     </button>
@@ -256,7 +256,7 @@ export default function ProjectEngagementPanel({
                   </div>
                 </div>
               ) : (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-slate-100">{item.content}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-slate-900">{item.content}</p>
               )}
 
               {canEdit && !isEditing ? (
@@ -267,11 +267,11 @@ export default function ProjectEngagementPanel({
                       setEditingId(item.id);
                       setEditingText(item.content);
                     }}
-                    className="text-slate-300 hover:text-white"
+                    className="text-slate-600 hover:text-slate-900"
                   >
                     수정
                   </button>
-                  <button type="button" onClick={() => void handleDelete(item.id)} className="text-rose-300 hover:text-rose-200">
+                  <button type="button" onClick={() => void handleDelete(item.id)} className="text-rose-600 hover:text-rose-700">
                     삭제
                   </button>
                 </div>

@@ -85,14 +85,14 @@ export default function ApplicationsManager({ projectId, questions, initialItems
   }
 
   if (!items.length) {
-    return <p className="text-sm text-slate-400">아직 접수된 지원서가 없습니다.</p>;
+    return <p className="text-sm text-slate-500">아직 접수된 지원서가 없습니다.</p>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-xl border border-slate-700/70">
+      <div className="overflow-x-auto rounded-xl border border-slate-200/70">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-900/70 text-slate-300">
+          <thead className="bg-white/70 text-slate-600">
             <tr>
               <th className="px-3 py-2">지원자</th>
               <th className="px-3 py-2">제출일</th>
@@ -103,20 +103,20 @@ export default function ApplicationsManager({ projectId, questions, initialItems
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className="border-t border-slate-800/80 text-slate-200">
+              <tr key={item.id} className="border-t border-slate-200/80 text-slate-800">
                 <td className="px-3 py-2">
                   <p>{item.applicant.name}</p>
-                  <p className="text-xs text-slate-400">{item.applicant.school} · {item.applicant.grade}</p>
+                  <p className="text-xs text-slate-500">{item.applicant.school} · {item.applicant.grade}</p>
                 </td>
-                <td className="px-3 py-2 text-xs text-slate-400">{formatKstDateTime(item.createdAt)}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">{formatKstDateTime(item.createdAt)}</td>
                 <td className="px-3 py-2">{statusLabel(item.status)}</td>
-                <td className="px-3 py-2 text-xs text-slate-400">{(item.answer1 || item.answer2 || item.answer3 || item.applicantIntro).slice(0, 40)}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">{(item.answer1 || item.answer2 || item.answer3 || item.applicantIntro).slice(0, 40)}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setActiveId(item.id)}
-                      className="rounded-md border border-slate-600 px-2 py-1 text-xs hover:border-slate-400"
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs hover:border-slate-400"
                     >
                       상세보기
                     </button>
@@ -137,13 +137,13 @@ export default function ApplicationsManager({ projectId, questions, initialItems
                       거절
                     </button>
                     {item.status !== "PENDING" ? (
-                      <span className="text-[11px] text-slate-400">처리 완료</span>
+                      <span className="text-[11px] text-slate-500">처리 완료</span>
                     ) : null}
                     <button
                       type="button"
                       disabled={loadingId === item.id}
                       onClick={() => removeApplicant(item.id)}
-                      className="rounded-md border border-rose-400/70 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-md border border-rose-400/70 px-2 py-1 text-xs text-rose-600 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       탈퇴
                     </button>
@@ -156,22 +156,22 @@ export default function ApplicationsManager({ projectId, questions, initialItems
       </div>
 
       {active ? (
-        <div className="rounded-xl border border-slate-700/80 bg-[color:var(--surface)] p-4">
+        <div className="rounded-xl border border-slate-200/80 bg-[color:var(--surface)] p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-lg font-semibold">지원서 상세 - {active.applicant.name}</h2>
-            <button type="button" onClick={() => setActiveId(null)} className="text-xs text-slate-400 hover:text-slate-200">닫기</button>
+            <button type="button" onClick={() => setActiveId(null)} className="text-xs text-slate-500 hover:text-slate-800">닫기</button>
           </div>
-          <div className="space-y-3 text-sm text-slate-200">
-            <p><span className="text-slate-400">자기소개:</span> {active.applicantIntro}</p>
-            <p><span className="text-slate-400">연락수단:</span> {active.contact}</p>
+          <div className="space-y-3 text-sm text-slate-800">
+            <p><span className="text-slate-500">자기소개:</span> {active.applicantIntro}</p>
+            <p><span className="text-slate-500">연락수단:</span> {active.contact}</p>
             {questions.map((question, index) => {
               if (!question) return null;
               const answer = index === 0 ? active.answer1 : index === 1 ? active.answer2 : active.answer3;
               return (
-                <div key={`${active.id}-${index}`} className="rounded-md border border-slate-700/80 p-3">
-                  <p className="text-xs text-slate-400">질문 {index + 1}</p>
+                <div key={`${active.id}-${index}`} className="rounded-md border border-slate-200/80 p-3">
+                  <p className="text-xs text-slate-500">질문 {index + 1}</p>
                   <p className="font-medium">{question}</p>
-                  <p className="mt-1 text-slate-200">{answer || "(미입력)"}</p>
+                  <p className="mt-1 text-slate-800">{answer || "(미입력)"}</p>
                 </div>
               );
             })}

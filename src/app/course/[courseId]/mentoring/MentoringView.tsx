@@ -1,0 +1,415 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download } from "lucide-react";
+import ClassroomSidebar from "@/components/course/ClassroomSidebar";
+
+/* 우아재 서재 톤 */
+const BROWN = "#8C6E59";
+const DEEP = "#6B5342";
+const INK = "#2C2823";
+const BODY = "#334155";
+const SUB = "#8A8479";
+const MUTED = "#94a3b8";
+const LINE = "#E4DBC7";
+const CARD = "#EFEBE1";
+const PANEL = "#FBF8F2";
+const serif = { fontFamily: "var(--font-serif)" } as const;
+
+type FieldKey = "topic" | "motive" | "process" | "result" | "difficulty" | "overcome" | "learned" | "standard" | "references";
+const FIELDS: { key: FieldKey; label: string; rows: number }[] = [
+  { key: "topic", label: "주제", rows: 2 },
+  { key: "motive", label: "동기", rows: 6 },
+  { key: "process", label: "과정", rows: 6 },
+  { key: "result", label: "결과", rows: 5 },
+  { key: "difficulty", label: "어려움", rows: 3 },
+  { key: "overcome", label: "극복", rows: 3 },
+  { key: "learned", label: "배운 점", rows: 3 },
+  { key: "standard", label: "성취기준", rows: 2 },
+  { key: "references", label: "참고문헌", rows: 2 },
+];
+
+type Report = Record<FieldKey, string>;
+type ChatMsg = { from: "teacher" | "student"; text: string; at: string };
+type Book = { book: string; author: string; motive: string; review: string; influence: string };
+type Room = { report: Report; chat: ChatMsg[]; books: Book[] };
+type ReportFile = { name: string; size: number; dataUrl: string };
+const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
+function blankReport(): Report {
+  return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
+}
+
+const SEED_GUIDE =
+  "탐구의 동기 → 과정 → 결과를 인과적으로 연결하고, 사용한 개념·이론과 그것을 적용한 방법을 구체적으로 서술하세요. 수치·데이터로 성과를 제시하고, 배운 점과 진로·후속 탐구로의 확장을 담으면 좋습니다.";
+
+const MAX_BOOKS = 5;
+const MAX_FILE_BYTES = 6 * 1024 * 1024;
+
+function byteLen(s: string) {
+  try {
+    return new TextEncoder().encode(s).length;
+  } catch {
+    return s.length;
+  }
+}
+function fmtSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+async function postRoom(courseId: string, payload: object) {
+  await fetch(`/api/courses/${courseId}/mentoring`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export default function MentoringView({ courseId, role }: { courseId: string; role: "teacher" | "student" }) {
+  const [report, setReport] = useState<Report>(blankReport());
+  const [chat, setChat] = useState<ChatMsg[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [draft, setDraft] = useState("");
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [bookDraft, setBookDraft] = useState<Book>(BLANK_BOOK);
+  const [reportFile, setReportFile] = useState<ReportFile | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // 보고서 첨부파일(PDF)은 브라우저 로컬 저장(용량 문제로 실시간 동기화 대상 아님)
+  useEffect(() => {
+    try {
+      const rawF = window.localStorage.getItem(`wj_mtr_${courseId}_file`);
+      if (rawF) setReportFile(JSON.parse(rawF) as ReportFile);
+    } catch {
+      /* 무시 */
+    }
+  }, [courseId]);
+
+  // 실시간 방 구독(SSE) — 관리자·학생이 같은 방을 공유
+  useEffect(() => {
+    const es = new EventSource(`/api/courses/${courseId}/mentoring/stream`);
+    es.onmessage = (e) => {
+      try {
+        const room = JSON.parse(e.data) as Room;
+        setChat(Array.isArray(room.chat) ? room.chat : []);
+        setBooks(Array.isArray(room.books) ? room.books : []);
+        if (!dirtyRef.current) setReport({ ...blankReport(), ...(room.report ?? {}) });
+      } catch {
+        /* 무시 */
+      }
+    };
+    return () => es.close();
+  }, [courseId]);
+
+  // 새 메시지 오면 스크롤 하단으로
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chat]);
+
+  const hasContent = useMemo(() => Object.values(report).some((v) => v.trim().length > 0), [report]);
+
+  function setField(key: FieldKey, value: string) {
+    dirtyRef.current = true;
+    setReport((prev) => ({ ...prev, [key]: value }));
+    setSavedFlash(false);
+  }
+
+  async function save() {
+    try {
+      await postRoom(courseId, { action: "report", report });
+      dirtyRef.current = false;
+      setSavedFlash(true);
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  async function send() {
+    const t = draft.trim();
+    if (!t) return;
+    setDraft("");
+    try {
+      await postRoom(courseId, { action: "chat", text: t });
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  async function persistBooks(next: Book[]) {
+    setBooks(next);
+    try {
+      await postRoom(courseId, { action: "books", books: next });
+    } catch {
+      /* 무시 */
+    }
+  }
+  function addBook() {
+    if (books.length >= MAX_BOOKS) return;
+    if (!bookDraft.book.trim() && !bookDraft.author.trim()) return;
+    void persistBooks([...books, bookDraft]);
+    setBookDraft(BLANK_BOOK);
+  }
+  function removeBook(idx: number) {
+    void persistBooks(books.filter((_, i) => i !== idx));
+  }
+
+  // PDF 업로드 (로컬)
+  function onUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setFileError(null);
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      setFileError("PDF 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    if (f.size > MAX_FILE_BYTES) {
+      setFileError(`파일이 너무 큽니다. (최대 ${fmtSize(MAX_FILE_BYTES)})`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const rec: ReportFile = { name: f.name, size: f.size, dataUrl: String(reader.result) };
+      setReportFile(rec);
+      try {
+        window.localStorage.setItem(`wj_mtr_${courseId}_file`, JSON.stringify(rec));
+      } catch {
+        setFileError("용량이 커서 저장은 되지 않았지만, 이번 세션에서는 다운로드할 수 있습니다.");
+      }
+    };
+    reader.onerror = () => setFileError("파일을 읽지 못했습니다.");
+    reader.readAsDataURL(f);
+  }
+  function downloadFile() {
+    if (!reportFile) return;
+    const a = document.createElement("a");
+    a.href = reportFile.dataUrl;
+    a.download = reportFile.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  function removeFile() {
+    setReportFile(null);
+    setFileError(null);
+    try {
+      window.localStorage.removeItem(`wj_mtr_${courseId}_file`);
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  return (
+    <div className="flex w-full items-start" style={{ background: "#fff" }}>
+      <ClassroomSidebar courseId={courseId} />
+
+      <main className="min-w-0 flex-1 px-6 py-8 lg:px-8">
+        <div className="mb-6 flex items-end justify-between gap-3">
+          <div>
+            <Link href={`/course/${courseId}/learn`} className="mb-1 inline-flex items-center gap-1 text-[13px]" style={{ color: BROWN }}>
+              <ChevronLeft size={14} /> 강의실
+            </Link>
+            <h1 className="text-[26px] font-normal" style={{ ...serif, color: INK }}>탐구활동 멘토링</h1>
+          </div>
+          <span className="rounded-full px-3 py-1 text-[12px] font-semibold" style={{ background: PANEL, color: DEEP, border: `1px solid ${LINE}` }}>
+            {role === "teacher" ? "교사(관리자)로 접속" : "학생으로 접속"} · 실시간 공유
+          </span>
+        </div>
+
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+          {/* 중: 학생 탐구 보고서 */}
+          <section className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-4" style={{ borderColor: CARD }}>
+              <h2 className="text-[18px] font-bold" style={{ color: INK }}>학생 탐구 보고서</h2>
+              <div className="flex items-center gap-3">
+                {hasContent ? (
+                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: "#E7F1EA", color: "#3E7E5B" }}>작성됨</span>
+                ) : (
+                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: PANEL, color: SUB }}>미작성</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-5 px-6 py-5">
+              {FIELDS.map((f) => (
+                <div key={f.key}>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="text-[13.5px] font-bold" style={{ color: INK }}>{f.label}</label>
+                    <span className="text-[11px]" style={{ color: MUTED }}>{byteLen(report[f.key])} byte</span>
+                  </div>
+                  <textarea
+                    value={report[f.key]}
+                    onChange={(e) => setField(f.key, e.target.value)}
+                    rows={f.rows}
+                    placeholder={`${f.label}을(를) 입력하세요.`}
+                    className="w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]"
+                    style={{ borderColor: "#E7E2D6", color: BODY, background: "#fff" }}
+                  />
+                </div>
+              ))}
+
+              {/* 보고서 파일 (PDF) 업로드 */}
+              <div>
+                <label className="mb-1.5 block text-[13.5px] font-bold" style={{ color: INK }}>보고서 파일 (PDF)</label>
+                {reportFile ? (
+                  <div className="flex items-center justify-between gap-2 rounded-[10px] border px-3.5 py-3" style={{ borderColor: "#E7E2D6", background: PANEL }}>
+                    <button type="button" onClick={downloadFile} className="flex min-w-0 items-center gap-2.5 text-left" title="클릭하면 다운로드됩니다">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }}><FileText size={16} /></span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13.5px] font-semibold hover:underline" style={{ color: DEEP }}>{reportFile.name}</span>
+                        <span className="text-[11px]" style={{ color: MUTED }}>{fmtSize(reportFile.size)} · 클릭하여 다운로드</span>
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button type="button" onClick={downloadFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={16} /></button>
+                      <button type="button" onClick={removeFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><X size={16} /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-4 text-[13.5px] transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: SUB }}>
+                    <Upload size={16} /> PDF 파일 업로드 (최대 6MB)
+                    <input type="file" accept="application/pdf,.pdf" onChange={onUploadFile} className="hidden" />
+                  </label>
+                )}
+                {fileError ? <p className="mt-1.5 text-[12px]" style={{ color: "#a6402c" }}>{fileError}</p> : null}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: CARD }}>
+              {savedFlash ? <span className="text-[13px]" style={{ color: "#3E7E5B" }}>저장됨 · 상대에게 실시간 반영</span> : null}
+              <button type="button" onClick={save} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>
+                저장하기
+              </button>
+            </div>
+          </section>
+
+          {/* 우: 독서활동상황 → 작성 가이드 → 1:1 멘토링 */}
+          <aside className="space-y-4">
+            {/* 독서활동상황 */}
+            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+              <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
+                <p className="text-[14px] font-bold" style={{ color: INK }}>독서활동상황</p>
+                <span className="text-[12px]" style={{ color: MUTED }}>{books.length} / {MAX_BOOKS}</span>
+              </div>
+              <div className="space-y-3 px-4 py-4">
+                {books.map((b, i) => (
+                  <div key={i} className="rounded-[10px] p-3" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[13.5px] font-bold" style={{ color: INK }}>
+                        {b.book || "(제목 없음)"} {b.author ? <span className="font-normal" style={{ color: SUB }}>· {b.author}</span> : null}
+                      </p>
+                      <button type="button" onClick={() => removeBook(i)} aria-label="삭제" style={{ color: MUTED }}><X size={15} /></button>
+                    </div>
+                    {b.motive ? <p className="mt-1.5 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>동기</b> {b.motive}</p> : null}
+                    {b.review ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>평가</b> {b.review}</p> : null}
+                    {b.influence ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>영향</b> {b.influence}</p> : null}
+                  </div>
+                ))}
+
+                {books.length < MAX_BOOKS ? (
+                  <div className="space-y-2 rounded-[10px] p-3" style={{ border: `1px dashed ${LINE}` }}>
+                    <div className="grid grid-cols-2 gap-2">
+                      <BookInput label="책" value={bookDraft.book} onChange={(v) => setBookDraft((p) => ({ ...p, book: v }))} />
+                      <BookInput label="저자" value={bookDraft.author} onChange={(v) => setBookDraft((p) => ({ ...p, author: v }))} />
+                    </div>
+                    <BookArea label="읽게 된 동기" value={bookDraft.motive} onChange={(v) => setBookDraft((p) => ({ ...p, motive: v }))} />
+                    <BookArea label="책에 대한 평가" value={bookDraft.review} onChange={(v) => setBookDraft((p) => ({ ...p, review: v }))} />
+                    <BookArea label="자신에게 준 영향" value={bookDraft.influence} onChange={(v) => setBookDraft((p) => ({ ...p, influence: v }))} />
+                    <button type="button" onClick={addBook} className="flex w-full items-center justify-center gap-1.5 rounded-[8px] py-2.5 text-[13.5px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>
+                      <Plus size={15} /> 추가
+                    </button>
+                  </div>
+                ) : (
+                  <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>최대 {MAX_BOOKS}개까지 추가할 수 있습니다.</p>
+                )}
+              </div>
+            </div>
+
+            {/* 과목별 세부능력 특기사항 작성 가이드 */}
+            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+              <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
+                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
+                  과목별 세부능력 특기사항 작성 가이드
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span>
+                </p>
+              </div>
+              <div className="px-4 py-4">
+                <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{SEED_GUIDE}</p>
+              </div>
+            </div>
+
+            {/* 1:1 멘토링 (실시간) */}
+            <div className="flex flex-col rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+              <div className="border-b px-4 py-3" style={{ borderColor: CARD }}>
+                <p className="text-[14px] font-bold" style={{ color: INK }}>1:1 멘토링</p>
+              </div>
+              <div ref={chatScrollRef} className="flex max-h-[320px] min-h-[200px] flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
+                {chat.length === 0 ? (
+                  <p className="my-auto text-center text-[13px]" style={{ color: MUTED }}>메시지를 입력해 실시간 상담을 시작하세요.</p>
+                ) : (
+                  chat.map((m, i) => {
+                    const mine = m.from === role;
+                    return (
+                      <div key={i} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                        <div className="max-w-[80%]">
+                          {!mine ? <p className="mb-0.5 text-[10px]" style={{ color: MUTED }}>{m.from === "teacher" ? "교사" : "학생"}</p> : null}
+                          <div
+                            className="rounded-[12px] px-3.5 py-2 text-[13px] leading-5"
+                            style={mine ? { background: BROWN, color: "#fff" } : { background: PANEL, color: BODY, border: `1px solid ${LINE}` }}
+                          >
+                            {m.text}
+                          </div>
+                          <p className={`mt-0.5 text-[10px] ${mine ? "text-right" : "text-left"}`} style={{ color: MUTED }}>{m.at}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <div className="flex items-center gap-2 border-t px-3 py-3" style={{ borderColor: CARD }}>
+                <input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      void send();
+                    }
+                  }}
+                  placeholder="메시지 입력 후 Enter"
+                  className="h-10 flex-1 rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
+                  style={{ borderColor: "#E7E2D6", color: BODY }}
+                />
+                <button type="button" onClick={() => void send()} className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] text-white transition hover:opacity-90" style={{ background: BROWN }} aria-label="전송">
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function BookInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[12px] font-bold" style={{ color: INK }}>{label}</span>
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-full rounded-[8px] border px-2.5 text-[13px] outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+    </label>
+  );
+}
+function BookArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[12px] font-bold" style={{ color: INK }}>{label}</span>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} className="w-full resize-y rounded-[8px] border px-2.5 py-2 text-[13px] leading-6 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+    </label>
+  );
+}

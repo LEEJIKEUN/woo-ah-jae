@@ -29,7 +29,7 @@ export default function LikeButton({ projectId, initialCount, className, onLike 
         e.stopPropagation();
         toggleLike();
       }}
-      className={className ?? "inline-flex items-center gap-1 text-xs text-slate-300 hover:text-slate-100"}
+      className={className ?? "inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900"}
     >
       <span aria-hidden>{liked ? "♥" : "♡"}</span>
       <span>{count}</span>

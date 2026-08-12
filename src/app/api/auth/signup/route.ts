@@ -1,11 +1,10 @@
-import { UserRole, VerificationDocType, VerificationStatus } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
+import { clearEmailCode, isEmailVerified } from "@/lib/email-code-store";
 import { createLocalSignup, isDbConnectionError, listLocalSignups } from "@/lib/local-signup-store";
 import { prisma } from "@/lib/prisma";
-import { GRADE_OPTIONS, OVERSEAS_KOREAN_SCHOOLS } from "@/lib/signup-options";
-import { savePrivateFile, validateUpload } from "@/lib/upload";
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -13,13 +12,11 @@ const signupSchema = z.object({
   passwordConfirm: z.string().min(8).max(72),
   realName: z.string().min(1).max(80),
   residenceCountry: z.string().min(1).max(80),
-  schoolName: z.string().min(1),
-  schoolNameCustom: z.string().optional(),
+  schoolName: z.string().min(1).max(120),
   birthDate: z.string().date(),
-  grade: z.enum(GRADE_OPTIONS),
+  // 졸업 예정 연도 (예: "2028년 1(2)월") — grade 컬럼(String)에 저장
+  grade: z.string().min(1).max(40),
 });
-
-const allowedSchoolSet = new Set([...OVERSEAS_KOREAN_SCHOOLS, "OTHER"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +29,6 @@ export async function POST(request: NextRequest) {
       realName: form.get("realName"),
       residenceCountry: form.get("residenceCountry"),
       schoolName: form.get("schoolName"),
-      schoolNameCustom: form.get("schoolNameCustom"),
       birthDate: form.get("birthDate"),
       grade: form.get("grade"),
     });
@@ -41,26 +37,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "비밀번호 확인이 일치하지 않습니다." }, { status: 400 });
     }
 
-    if (!allowedSchoolSet.has(parsed.schoolName)) {
-      return NextResponse.json({ error: "학교 선택값이 올바르지 않습니다." }, { status: 400 });
+    if (!(await isEmailVerified(parsed.email))) {
+      return NextResponse.json({ error: "이메일 인증을 완료해 주세요." }, { status: 400 });
     }
 
-    const finalSchoolName =
-      parsed.schoolName === "OTHER"
-        ? parsed.schoolNameCustom?.trim() ?? ""
-        : parsed.schoolName;
-
+    const finalSchoolName = parsed.schoolName.trim();
     if (!finalSchoolName) {
       return NextResponse.json({ error: "학교명을 입력해주세요." }, { status: 400 });
     }
-
-    const file = form.get("verificationFile");
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "인증 사진 파일이 필요합니다." }, { status: 400 });
-    }
-
-    validateUpload(file);
-    const fileKey = await savePrivateFile(file);
 
     const localDup = (await listLocalSignups()).some((x) => x.email === parsed.email);
     if (localDup) {
@@ -97,26 +81,16 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await tx.verificationSubmission.create({
-          data: {
-            userId: user.id,
-            status: VerificationStatus.PENDING_REVIEW,
-            docType: VerificationDocType.STUDENT_ID,
-            fileKey,
-            originalFilename: file.name,
-            mimeType: file.type,
-            sizeBytes: file.size,
-          },
-        });
-
         return user;
       });
+
+      await clearEmailCode(parsed.email);
 
       return NextResponse.json(
         {
           id: result.id,
           email: result.email,
-          status: "PENDING_REVIEW",
+          status: "ACTIVE",
           fallback: false,
         },
         { status: 201 }
@@ -131,11 +105,13 @@ export async function POST(request: NextRequest) {
         grade: parsed.grade,
         residenceCountry: parsed.residenceCountry,
         birthDate: parsed.birthDate,
-        fileKey,
-        originalFilename: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
+        fileKey: "",
+        originalFilename: "",
+        mimeType: "",
+        sizeBytes: 0,
       });
+
+      await clearEmailCode(parsed.email);
 
       return NextResponse.json(
         {
@@ -153,11 +129,6 @@ export async function POST(request: NextRequest) {
         { error: error.issues[0]?.message ?? "입력값이 올바르지 않습니다." },
         { status: 400 }
       );
-    }
-    if (error instanceof Error) {
-      if (error.message === "Unsupported file type" || error.message === "File too large") {
-        return NextResponse.json({ error: error.message }, { status: 400 });
-      }
     }
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

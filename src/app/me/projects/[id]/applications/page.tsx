@@ -43,7 +43,7 @@ export default async function MyProjectApplicationsPage({ params }: { params: Pr
     return (
       <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
         <section className="mx-auto max-w-4xl px-4 py-12 md:px-6">
-          <p className="text-rose-300">권한이 없습니다.</p>
+          <p className="text-rose-600">권한이 없습니다.</p>
         </section>
       </main>
     );
@@ -73,11 +73,11 @@ export default async function MyProjectApplicationsPage({ params }: { params: Pr
       <section className="mx-auto max-w-6xl space-y-6 px-4 py-8 md:px-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold">지원자 관리</h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             {project.title} · 모집 {project.capacity}명 · 지원 {project._count.applications}건 · 확정 {project._count.members}명
           </p>
           {user.role === "ADMIN" && project.ownerId !== user.id ? (
-            <p className="text-xs text-amber-300">관리자 권한으로 다른 학생의 프로젝트를 관리 중입니다.</p>
+            <p className="text-xs text-amber-600">관리자 권한으로 다른 학생의 프로젝트를 관리 중입니다.</p>
           ) : null}
         </div>
 

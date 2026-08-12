@@ -9,7 +9,7 @@ export default function MaintenancePage() {
       <p className="text-lg text-gray-300">일시적으로 서비스 이용이 중단됩니다. 잠시 후 다시 이용해 주세요.</p>
       <Link
         href="/login"
-        className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
+        className="rounded-md bg-[#4E6B5A] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
       >
         관리자 로그인
       </Link>

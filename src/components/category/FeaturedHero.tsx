@@ -34,7 +34,7 @@ export default function FeaturedHero({ item }: Props) {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.22),transparent_42%),linear-gradient(to_top,rgba(0,0,0,0.7),rgba(0,0,0,0.25)_45%,rgba(0,0,0,0.15))]" />
 
       <div className="relative flex h-full min-h-[52vh] flex-col justify-end gap-5 md:min-h-[58vh]">
-        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-black/30 px-3 py-1 text-xs text-slate-200">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-white/30 px-3 py-1 text-xs text-slate-800">
           <span className="font-semibold">Top 1</span>
           <span>{item.tab}</span>
           <span>·</span>
@@ -43,10 +43,10 @@ export default function FeaturedHero({ item }: Props) {
 
         <div className="max-w-3xl space-y-3">
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white md:text-5xl">{item.title}</h1>
-          <p className="text-sm leading-7 text-slate-200 md:text-base">{item.summary}</p>
+          <p className="text-sm leading-7 text-slate-800 md:text-base">{item.summary}</p>
         </div>
 
-        <div className="grid max-w-3xl gap-2 text-sm text-slate-200 md:grid-cols-2">
+        <div className="grid max-w-3xl gap-2 text-sm text-slate-800 md:grid-cols-2">
           <p>모집 대상/역할: {item.targetRoles}</p>
           <p>모집 인원: {item.capacity}명</p>
           <p>조건: {item.requirements}</p>
@@ -57,7 +57,7 @@ export default function FeaturedHero({ item }: Props) {
           <LikeButton
             projectId={item.id}
             initialCount={item.likeCount}
-            className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-sm text-white"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/35 px-3 py-1.5 text-sm text-white"
           />
           <span className="text-sm font-semibold text-white/95">좋아요 {item.likeCount}+</span>
           <Link href={`/projects/${item.id}`} className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100">

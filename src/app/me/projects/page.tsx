@@ -92,7 +92,7 @@ export default async function MyProjectsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">{isAdmin ? "전체 프로젝트 관리" : "내 프로젝트 관리"}</h1>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500">
               {isAdmin ? "관리자 권한으로 모든 학생 프로젝트를 관리합니다." : "내가 만든 프로젝트와 지원 현황을 관리합니다."}
             </p>
           </div>
@@ -102,7 +102,7 @@ export default async function MyProjectsPage() {
         </div>
 
         <section className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-100">{isAdmin ? "운영중 프로젝트" : "내 프로젝트"}</h2>
+          <h2 className="text-xl font-semibold text-slate-900">{isAdmin ? "운영중 프로젝트" : "내 프로젝트"}</h2>
           <MyProjectsDashboard
             initialItems={activeItems}
             isAdmin={isAdmin}
@@ -112,15 +112,15 @@ export default async function MyProjectsPage() {
 
         {isAdmin ? (
           <section className="space-y-2">
-            <h2 className="text-xl font-semibold text-slate-100">Achieved 프로젝트 (관리자 전용)</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Achieved 프로젝트 (관리자 전용)</h2>
             <MyProjectsDashboard initialItems={achievedItems} isAdmin emptyText="Achieved로 이동된 프로젝트가 없습니다." />
           </section>
         ) : null}
 
         <section id="applied-projects" className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-100">내가 지원한 프로젝트 현황</h2>
+          <h2 className="text-xl font-semibold text-slate-900">내가 지원한 프로젝트 현황</h2>
           {appliedProjects.length === 0 ? (
-            <p className="text-sm text-slate-400">아직 지원한 프로젝트가 없습니다.</p>
+            <p className="text-sm text-slate-500">아직 지원한 프로젝트가 없습니다.</p>
           ) : (
             <div className="space-y-3">
               {appliedProjects.map((item) => {
@@ -129,21 +129,21 @@ export default async function MyProjectsPage() {
                 const ownerGrade = item.project.owner.studentProfile?.grade ?? "학년미입력";
 
                 return (
-                  <article key={item.id} className="rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-4">
+                  <article key={item.id} className="rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <h3 className="text-base font-semibold text-slate-100">{item.project.title}</h3>
-                        <p className="text-sm text-slate-300">{item.project.summary ?? "-"}</p>
-                        <p className="text-xs text-slate-400">
+                        <h3 className="text-base font-semibold text-slate-900">{item.project.title}</h3>
+                        <p className="text-sm text-slate-600">{item.project.summary ?? "-"}</p>
+                        <p className="text-xs text-slate-500">
                           프로젝트 대표: {ownerSchool} · {ownerGrade} · {ownerName}
                         </p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-500">
                           지원 상태: {appStatusLabel(item.status)} · 제출일: {formatKstDateTime(item.createdAt)}
                         </p>
                       </div>
                       <Link
                         href={`/projects/${item.project.id}`}
-                        className="rounded-md border border-slate-500/70 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300"
+                        className="rounded-md border border-slate-300/70 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:border-slate-300"
                       >
                         상세보기
                       </Link>
@@ -164,27 +164,27 @@ export default async function MyProjectsPage() {
         </section>
 
         <section id="joined-projects" className="space-y-3">
-          <h2 className="text-xl font-semibold text-slate-100">참여중인 프로젝트</h2>
+          <h2 className="text-xl font-semibold text-slate-900">참여중인 프로젝트</h2>
           {joinedProjects.length === 0 ? (
-            <p className="text-sm text-slate-400">현재 참여 확정된 프로젝트가 없습니다.</p>
+            <p className="text-sm text-slate-500">현재 참여 확정된 프로젝트가 없습니다.</p>
           ) : (
             <div className="space-y-3">
               {joinedProjects.map((item) => {
                 const ownerName = item.project.owner.studentProfile?.realName ?? item.project.owner.email.split("@")[0];
                 return (
-                  <article key={item.id} className="rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-4">
+                  <article key={item.id} className="rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <h3 className="text-base font-semibold text-slate-100">{item.project.title}</h3>
-                        <p className="text-sm text-slate-300">{item.project.summary ?? "-"}</p>
-                        <p className="text-xs text-slate-400">
+                        <h3 className="text-base font-semibold text-slate-900">{item.project.title}</h3>
+                        <p className="text-sm text-slate-600">{item.project.summary ?? "-"}</p>
+                        <p className="text-xs text-slate-500">
                           팀 참여일: {formatKstDateTime(item.joinedAt)} · 프로젝트 상태: {item.project.status === "OPEN" ? "모집중" : "마감"}
                         </p>
-                        <p className="text-xs text-slate-400">프로젝트 대표: {ownerName}</p>
+                        <p className="text-xs text-slate-500">프로젝트 대표: {ownerName}</p>
                       </div>
                       <Link
                         href={`/projects/${item.project.id}`}
-                        className="rounded-md border border-slate-500/70 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-300"
+                        className="rounded-md border border-slate-300/70 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:border-slate-300"
                       >
                         상세보기
                       </Link>

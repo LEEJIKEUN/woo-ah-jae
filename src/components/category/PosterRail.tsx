@@ -16,7 +16,7 @@ function ArrowButton({ direction, onClick }: { direction: "left" | "right"; onCl
     <button
       type="button"
       onClick={onClick}
-      className="hidden h-8 w-8 items-center justify-center rounded-full bg-black/40 text-slate-300 transition hover:bg-black/60 hover:text-slate-100 md:inline-flex"
+      className="hidden h-8 w-8 items-center justify-center rounded-full bg-white/40 text-slate-600 transition hover:bg-white/60 hover:text-slate-900 md:inline-flex"
       aria-label={direction === "left" ? "이전" : "다음"}
     >
       {direction === "left" ? "‹" : "›"}
@@ -33,7 +33,7 @@ export default function PosterRail({ title, items, rankingStart }: Props) {
   return (
     <section className="group/rail space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-100">{title}</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <div className="flex items-center gap-2 opacity-0 transition group-hover/rail:opacity-100">
           <ArrowButton direction="left" onClick={scrollPrev} />
           <ArrowButton direction="right" onClick={scrollNext} />

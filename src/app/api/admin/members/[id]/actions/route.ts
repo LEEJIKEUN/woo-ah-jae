@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { UserLifecycleStatus } from "@prisma/client";
-import { deleteLocalSignup, isDbConnectionError } from "@/lib/local-signup-store";
+import { deleteLocalSignup, findLocalSignupByEmail, isDbConnectionError } from "@/lib/local-signup-store";
 import { HttpError, jsonError, requireSuperAdmin } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
 
@@ -35,24 +35,54 @@ export async function POST(
     }
 
     try {
-      const user = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+      const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
       if (!user) {
         return NextResponse.json({ error: "Member not found" }, { status: 404 });
       }
 
+      // ── 완전 삭제(하드 삭제) ─────────────────────────────
+      if (normalizedAction === "MOVE_DELETED") {
+        await prisma.$transaction(async (tx) => {
+          // 삭제를 막는 Restrict FK 대상(작성 콘텐츠·감사로그·소유 프로젝트)을 먼저 정리
+          await tx.comment.deleteMany({ where: { createdBy: id } });
+          await tx.post.deleteMany({ where: { createdBy: id } });
+          await tx.announcement.deleteMany({ where: { createdBy: id } });
+          await tx.auditLog.deleteMany({ where: { actorUserId: id } });
+          await tx.project.deleteMany({ where: { ownerId: id } });
+
+          // 계정 삭제 — 나머지 연관(프로필·인증·토큰·게시판·멤버십 등)은 Cascade 로 함께 삭제
+          await tx.user.delete({ where: { id } });
+
+          await tx.auditLog.create({
+            data: {
+              actorUserId: admin.userId,
+              actionType: "MEMBER_HARD_DELETED",
+              targetType: "User",
+              targetId: id,
+              metadataJson: { action: normalizedAction, hardDelete: true, email: user.email },
+            },
+          });
+        });
+
+        // 로컬 가입 캐시(DB 다운 폴백)에 같은 이메일이 남아 있으면 제거 → 이메일 즉시 재사용 가능
+        const localDup = await findLocalSignupByEmail(user.email);
+        if (localDup) await deleteLocalSignup(localDup.id);
+
+        return NextResponse.json({ ok: true, source: "db", hardDeleted: true });
+      }
+
+      // ── 상태 변경(성취/복구) ─────────────────────────────
       await prisma.$transaction(async (tx) => {
         const nextStatus =
-          normalizedAction === "MOVE_DELETED"
-            ? UserLifecycleStatus.DELETED
-            : normalizedAction === "MOVE_ACHIEVED"
-              ? UserLifecycleStatus.ACHIEVED
-              : UserLifecycleStatus.ACTIVE;
+          normalizedAction === "MOVE_ACHIEVED"
+            ? UserLifecycleStatus.ACHIEVED
+            : UserLifecycleStatus.ACTIVE;
 
         await tx.user.update({
           where: { id },
           data: {
             lifecycleStatus: nextStatus,
-            deletedAt: nextStatus === UserLifecycleStatus.DELETED ? new Date() : null,
+            deletedAt: null,
             achievedAt: nextStatus === UserLifecycleStatus.ACHIEVED ? new Date() : null,
           },
         });
@@ -61,11 +91,7 @@ export async function POST(
           data: {
             actorUserId: admin.userId,
             actionType:
-              normalizedAction === "MOVE_DELETED"
-                ? "MEMBER_MOVED_DELETED"
-                : normalizedAction === "MOVE_ACHIEVED"
-                  ? "MEMBER_MOVED_ACHIEVED"
-                  : "MEMBER_RESTORED_ACTIVE",
+              normalizedAction === "MOVE_ACHIEVED" ? "MEMBER_MOVED_ACHIEVED" : "MEMBER_RESTORED_ACTIVE",
             targetType: "UserLifecycle",
             targetId: id,
             metadataJson: { action: normalizedAction },

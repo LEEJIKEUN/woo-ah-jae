@@ -7,7 +7,7 @@ type Props = {
 
 export default function ProjectGrid({ projects }: Props) {
   if (!projects.length) {
-    return <div className="py-10 text-center text-sm text-slate-400">조건에 맞는 프로젝트가 없습니다.</div>;
+    return <div className="py-10 text-center text-sm text-slate-500">조건에 맞는 프로젝트가 없습니다.</div>;
   }
 
   return (

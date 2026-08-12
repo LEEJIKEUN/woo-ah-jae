@@ -25,7 +25,7 @@ export default async function WorkspaceFilesPage({ params }: { params: Promise<{
       <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
         <section className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
           <h1 className="text-2xl font-bold">접근 권한이 없습니다</h1>
-          <p className="mt-2 text-sm text-slate-400">프로젝트 대표 또는 수락된 팀원만 접근할 수 있습니다.</p>
+          <p className="mt-2 text-sm text-slate-500">프로젝트 대표 또는 수락된 팀원만 접근할 수 있습니다.</p>
         </section>
       </main>
     );
@@ -50,7 +50,7 @@ export default async function WorkspaceFilesPage({ params }: { params: Promise<{
       <section className="mx-auto max-w-5xl space-y-4 px-4 py-8 md:px-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">워크스페이스 자료실</h1>
-          <Link href={`/workspace/${projectId}`} className="text-sm text-slate-300 hover:text-white">워크스페이스 홈</Link>
+          <Link href={`/workspace/${projectId}`} className="text-sm text-slate-600 hover:text-slate-900">워크스페이스 홈</Link>
         </div>
 
         <WorkspaceFilesClient

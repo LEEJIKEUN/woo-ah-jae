@@ -19,8 +19,8 @@ export default function SubChannelTextNav({ channels, activeChannel, onChangeCha
               onClick={() => onChangeChannel(channel)}
               className={`transition ${
                 channel === activeChannel
-                  ? "font-semibold text-slate-100"
-                  : "font-normal text-slate-400 hover:text-slate-200"
+                  ? "font-semibold text-slate-900"
+                  : "font-normal text-slate-500 hover:text-slate-800"
               }`}
             >
               {channel}

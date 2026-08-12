@@ -48,12 +48,12 @@ export default async function ProjectApplyPage({ params }: { params: Promise<{ i
       <section className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:px-6">
         <div>
           <h1 className="text-3xl font-bold">지원서 작성</h1>
-          <p className="text-sm text-slate-400">{project.title}</p>
+          <p className="text-sm text-slate-500">{project.title}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-4 text-sm text-slate-300">
+        <div className="rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-4 text-sm text-slate-600">
           <p>지원자: {user.studentProfile?.schoolName ?? "학교미입력"} · {user.studentProfile?.grade ?? "학년미입력"} · {user.studentProfile?.realName ?? user.email.split("@")[0]}</p>
-          <p className="mt-1 text-xs text-slate-400">기본 정보는 프로필에서 자동 표시됩니다.</p>
+          <p className="mt-1 text-xs text-slate-500">기본 정보는 프로필에서 자동 표시됩니다.</p>
         </div>
 
         <ApplyForm
@@ -61,7 +61,7 @@ export default async function ProjectApplyPage({ params }: { params: Promise<{ i
           questions={[project.question1, project.question2, project.question3]}
         />
 
-        <Link href={`/projects/${project.id}`} className="inline-block text-sm text-slate-300 hover:text-white">프로젝트로 돌아가기</Link>
+        <Link href={`/projects/${project.id}`} className="inline-block text-sm text-slate-600 hover:text-slate-900">프로젝트로 돌아가기</Link>
       </section>
     </main>
   );

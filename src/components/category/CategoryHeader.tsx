@@ -31,8 +31,8 @@ export default function CategoryHeader({ activeTab, onChangeTab }: Props) {
               onClick={() => onChangeTab(tab)}
               className={`-mb-px border-b-2 px-0 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/70 ${
                 active
-                  ? "border-slate-100 font-semibold text-slate-100"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
+                  ? "border-slate-100 font-semibold text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
               {tab}

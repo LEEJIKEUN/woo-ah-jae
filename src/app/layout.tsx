@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Noto_Sans_KR } from "next/font/google";
+import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import Header from "@/components/nav/Header";
+import Footer from "@/components/nav/Footer";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import MaintenanceBanner from "@/components/system/MaintenanceBanner";
@@ -14,9 +15,16 @@ const notoSansKr = Noto_Sans_KR({
   display: "swap",
 });
 
+const notoSerifKr = Noto_Serif_KR({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-serif-app",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Woo Ah Jae",
-  description: "우리만 아는 재외국민특별전형 학생 프로젝트 커뮤니티",
+  title: "우아재 — 배움이 머무는 곳",
+  description: "才 재능을 발견하고, 齋 배움의 공간에서 성장한다. 온라인에 세운 새로운 서재, 우아재.",
 };
 
 async function getSession() {
@@ -62,7 +70,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang="ko">
-      <body className={`${notoSansKr.variable} min-h-screen antialiased`}>
+      <body id="top" className={`${notoSansKr.variable} ${notoSerifKr.variable} min-h-screen antialiased`}>
         <MaintenanceBanner />
         <Header
           session={
@@ -77,6 +85,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           accountLabel={accountLabel}
         />
         {children}
+        <Footer />
       </body>
     </html>
   );

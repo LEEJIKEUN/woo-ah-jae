@@ -85,21 +85,21 @@ export default function ProjectCard({ project }: Props) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-slate-400">{project.tab} · {project.channel}</p>
-          <h3 className="line-clamp-1 text-base font-semibold text-slate-100">{project.title}</h3>
-          <p className="line-clamp-2 text-xs leading-5 text-slate-300">{project.summary}</p>
+          <p className="text-[11px] text-slate-500">{project.tab} · {project.channel}</p>
+          <h3 className="line-clamp-1 text-base font-semibold text-slate-900">{project.title}</h3>
+          <p className="line-clamp-2 text-xs leading-5 text-slate-600">{project.summary}</p>
         </div>
       </div>
 
-      <div className="grid gap-1 text-[11px] text-slate-400">
+      <div className="grid gap-1 text-[11px] text-slate-500">
         <p>모집 상태: {project.status === "open" ? "모집중" : "마감"} · 인원 {project.capacity}명</p>
         <p className="line-clamp-1">역할: {project.targetRoles}</p>
         <p className="line-clamp-1">조건: {project.requirements}</p>
       </div>
 
       <div className="mt-auto flex items-center justify-between pt-1">
-        <LikeButton projectId={project.id} initialCount={project.likeCount} className="inline-flex items-center gap-1 text-xs text-slate-300 hover:text-slate-100" />
-        <Link href={`/projects/${project.id}`} className="text-xs font-medium text-slate-200 transition hover:text-white">상세 보기</Link>
+        <LikeButton projectId={project.id} initialCount={project.likeCount} className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900" />
+        <Link href={`/projects/${project.id}`} className="text-xs font-medium text-slate-800 transition hover:text-slate-900">상세 보기</Link>
       </div>
     </Card>
   );

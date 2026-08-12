@@ -20,7 +20,7 @@ type Props = {
 };
 
 const INPUT_CLASS =
-  "h-10 rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100 outline-none transition focus:border-slate-400";
+  "h-10 rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900 outline-none transition focus:border-slate-400";
 
 export type { FilterState };
 
@@ -45,8 +45,8 @@ export default function SearchFilterBar({
                   onClick={() => onChannelClick?.(channel)}
                   className={`whitespace-nowrap px-4 transition ${
                     activeChannel === channel
-                      ? "font-semibold text-slate-100"
-                      : "text-slate-300 hover:text-slate-100"
+                      ? "font-semibold text-slate-900"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                   aria-label={`${channel} 채널`}
                 >
@@ -60,7 +60,7 @@ export default function SearchFilterBar({
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
         <label className="relative min-w-0 sm:col-span-2 xl:col-span-2">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             value={filters.query}
             onChange={(e) => onFilterChange("query", e.target.value)}

@@ -138,78 +138,78 @@ export default async function BoardChannelPage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold">{channel.name}</h1>
-            <p className="text-sm text-slate-400">{channel.description ?? "커뮤니티 게시판 채널"}</p>
+            <p className="text-sm text-slate-500">{channel.description ?? "커뮤니티 게시판 채널"}</p>
           </div>
           {user ? (
             <Link href={`/boards/${slug}/new`} className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white">
               글쓰기
             </Link>
           ) : (
-            <Link href={`/login?next=/boards/${slug}`} className="rounded-md border border-slate-500 px-4 py-2 text-sm text-slate-200">
+            <Link href={`/login?next=/boards/${slug}`} className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-800">
               로그인 후 글쓰기
             </Link>
           )}
         </div>
 
-        <section className="space-y-2 rounded-lg border border-slate-700/70 bg-[color:var(--surface)] p-3">
-          <p className="text-sm font-semibold text-slate-100">공지사항</p>
+        <section className="space-y-2 rounded-lg border border-slate-200/70 bg-[color:var(--surface)] p-3">
+          <p className="text-sm font-semibold text-slate-900">공지사항</p>
           {notices.length ? (
             <div className="space-y-1">
               {notices.map((item) => (
-                <Link key={item.id} href={`/boards/posts/${item.id}`} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-800/40">
-                  <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[11px] text-amber-200">
+                <Link key={item.id} href={`/boards/posts/${item.id}`} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-100/40">
+                  <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[11px] text-amber-700">
                     {item.isPinned ? "고정" : "공지"}
                   </span>
-                  <span className="line-clamp-1 flex-1 text-slate-100">{item.title}</span>
-                  <span className="text-xs text-slate-400">{item.author.studentProfile?.realName ?? item.author.email.split("@")[0]}</span>
+                  <span className="line-clamp-1 flex-1 text-slate-900">{item.title}</span>
+                  <span className="text-xs text-slate-500">{item.author.studentProfile?.realName ?? item.author.email.split("@")[0]}</span>
                   <span className="text-xs text-slate-500">{formatKstDateTime(item.createdAt)}</span>
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="rounded px-2 py-2 text-sm text-slate-400">등록된 공지사항이 없습니다.</p>
+            <p className="rounded px-2 py-2 text-sm text-slate-500">등록된 공지사항이 없습니다.</p>
           )}
         </section>
 
-        <section className="overflow-hidden rounded-lg border border-slate-700/70 bg-[color:var(--surface)]">
+        <section className="overflow-hidden rounded-lg border border-slate-200/70 bg-[color:var(--surface)]">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-900/50 text-slate-300">
+            <thead className="bg-white/50 text-slate-600">
               <tr>
-                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-400">말머리</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-400">제목</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-400">작성자</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-400">작성일</th>
-                <th className="px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-400">조회</th>
-                <th className="px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-400">추천</th>
-                <th className="px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-400">댓글</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-500">말머리</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-500">제목</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-500">작성자</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-slate-500">작성일</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-500">조회</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-500">추천</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-500">댓글</th>
               </tr>
             </thead>
             <tbody>
               {posts.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-8 text-center text-slate-400" colSpan={7}>
+                  <td className="px-3 py-8 text-center text-slate-500" colSpan={7}>
                     게시글이 없습니다.
                   </td>
                 </tr>
               ) : (
                 posts.map((item) => (
-                  <tr key={item.id} className="border-t border-slate-800/80 transition-colors hover:bg-slate-800/30">
-                    <td className="px-3 py-3 text-xs text-slate-400">{item.categoryTag ?? "-"}</td>
+                  <tr key={item.id} className="border-t border-slate-200/80 transition-colors hover:bg-slate-100/30">
+                    <td className="px-3 py-3 text-xs text-slate-500">{item.categoryTag ?? "-"}</td>
                     <td className="px-3 py-3">
-                      <Link href={`/boards/posts/${item.id}`} className="line-clamp-1 text-[15px] font-medium text-slate-100 hover:text-white">
+                      <Link href={`/boards/posts/${item.id}`} className="line-clamp-1 text-[15px] font-medium text-slate-900 hover:text-slate-900">
                         {item.title}
                       </Link>
                       {item.commentCount > 0 ? (
-                        <span className="ml-2 inline-flex rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300">
+                        <span className="ml-2 inline-flex rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-rose-600">
                           {item.commentCount}
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3 text-xs text-slate-400">{item.author.studentProfile?.realName ?? item.author.email.split("@")[0]}</td>
+                    <td className="px-3 py-3 text-xs text-slate-500">{item.author.studentProfile?.realName ?? item.author.email.split("@")[0]}</td>
                     <td className="px-3 py-3 text-xs text-slate-500">{formatKstDateTime(item.createdAt)}</td>
-                    <td className="px-3 py-3 text-right text-xs text-slate-400">{item.viewCount}</td>
-                    <td className="px-3 py-3 text-right text-xs text-slate-400">{item.likeCount}</td>
-                    <td className="px-3 py-3 text-right text-xs text-slate-400">{item.commentCount}</td>
+                    <td className="px-3 py-3 text-right text-xs text-slate-500">{item.viewCount}</td>
+                    <td className="px-3 py-3 text-right text-xs text-slate-500">{item.likeCount}</td>
+                    <td className="px-3 py-3 text-right text-xs text-slate-500">{item.commentCount}</td>
                   </tr>
                 ))
               )}
@@ -231,7 +231,7 @@ export default async function BoardChannelPage({
                 key={p}
                 href={`/boards/${slug}${params.toString() ? `?${params.toString()}` : ""}`}
                 className={`min-w-9 rounded-md border px-3 py-1.5 text-center text-sm ${
-                  p === page ? "border-slate-100 bg-slate-100 text-slate-900" : "border-slate-600 text-slate-300 hover:border-slate-400"
+                  p === page ? "border-slate-100 bg-slate-100 text-slate-900" : "border-slate-200 text-slate-600 hover:border-slate-400"
                 }`}
               >
                 {p}
@@ -240,17 +240,17 @@ export default async function BoardChannelPage({
           })}
         </div>
 
-        <form className="flex flex-nowrap items-center gap-3 overflow-x-auto rounded-lg border border-slate-700/70 bg-[color:var(--surface)] p-3">
+        <form className="flex flex-nowrap items-center gap-3 overflow-x-auto rounded-lg border border-slate-200/70 bg-[color:var(--surface)] p-3">
           <select
             defaultValue="all"
-            className="h-11 w-40 shrink-0 rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+            className="h-11 w-40 shrink-0 rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900"
           >
             <option value="all">전체기간</option>
           </select>
           <select
             name="sort"
             defaultValue={sort}
-            className="h-11 w-32 shrink-0 rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+            className="h-11 w-32 shrink-0 rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900"
           >
             {BOARD_SORTS.map((x) => (
               <option key={x.value} value={x.value}>
@@ -261,17 +261,17 @@ export default async function BoardChannelPage({
           <select
             name="mode"
             defaultValue={mode}
-            className="h-11 w-36 shrink-0 rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+            className="h-11 w-36 shrink-0 rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900"
           >
             <option value="title-content">제목+내용</option>
             <option value="author">작성자</option>
           </select>
-          <div className="flex min-w-[320px] flex-1 items-center overflow-hidden rounded-md border border-slate-600/80">
+          <div className="flex min-w-[320px] flex-1 items-center overflow-hidden rounded-md border border-slate-200/80">
             <input
               name="keyword"
               defaultValue={keyword}
               placeholder="검색어를 입력해주세요"
-              className="h-11 w-full bg-transparent px-3 text-sm text-slate-100 placeholder:text-slate-400 focus:outline-none"
+              className="h-11 w-full bg-transparent px-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none"
             />
             <button className="h-11 w-24 shrink-0 bg-emerald-500 px-4 text-sm font-semibold text-white hover:bg-emerald-400">
               검색

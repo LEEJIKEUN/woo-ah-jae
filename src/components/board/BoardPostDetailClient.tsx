@@ -199,26 +199,26 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
 
   return (
     <section className="space-y-4">
-      <article className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
-        <p className="text-xs text-slate-400">
+      <article className="space-y-4 rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
+        <p className="text-xs text-slate-500">
           {post.channel.name}
           {post.categoryTag ? ` · ${post.categoryTag}` : ""}
           {post.isPinned ? " · [고정]" : ""}
           {post.isNotice ? " · [공지]" : ""}
         </p>
-        <h1 className="text-2xl font-bold text-slate-100">{post.title}</h1>
-        <p className="text-xs text-slate-400">
+        <h1 className="text-2xl font-bold text-slate-900">{post.title}</h1>
+        <p className="text-xs text-slate-500">
           {post.author.school} · {post.author.grade} · {post.author.name} · {formatKstDateTime(post.createdAt)}
         </p>
-        <div className="whitespace-pre-wrap text-sm leading-7 text-slate-200">{post.content}</div>
+        <div className="whitespace-pre-wrap text-sm leading-7 text-slate-800">{post.content}</div>
 
         {post.attachments.length ? (
           <div className="space-y-2">
-            <p className="text-sm font-semibold text-slate-200">첨부파일</p>
+            <p className="text-sm font-semibold text-slate-800">첨부파일</p>
             <ul className="space-y-1 text-sm">
               {post.attachments.map((a) => (
                 <li key={a.url}>
-                  <a href={a.url} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200">
+                  <a href={a.url} target="_blank" rel="noreferrer" className="text-cyan-600 hover:text-cyan-200">
                     {a.name}
                   </a>
                 </li>
@@ -227,7 +227,7 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
           <span>조회 {post.viewCount}</span>
           <span>추천 {likeCount}</span>
           <span>댓글 {comments.length}</span>
@@ -240,22 +240,22 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
             disabled={loading}
             aria-label="추천"
             className={`rounded-md border px-3 py-1.5 text-sm font-semibold ${
-              liked ? "border-rose-400/70 text-rose-300" : "border-slate-500 text-slate-200"
+              liked ? "border-rose-400/70 text-rose-600" : "border-slate-300 text-slate-800"
             }`}
           >
             {liked ? "추천 취소" : "추천"} ({likeCount})
           </button>
-          <button type="button" onClick={() => reportTarget("POST", post.id)} className="rounded-md border border-slate-500 px-3 py-1.5 text-sm text-slate-200">
+          <button type="button" onClick={() => reportTarget("POST", post.id)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800">
             신고
           </button>
           {canEditPost ? (
             <>
-              <Link href={`/boards/posts/${post.id}/edit`} className="rounded-md border border-slate-500 px-3 py-1.5 text-sm text-slate-200">
+              <Link href={`/boards/posts/${post.id}/edit`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800">
                 수정
               </Link>
               <button
                 type="button"
-                className="rounded-md border border-rose-400/70 px-3 py-1.5 text-sm text-rose-300"
+                className="rounded-md border border-rose-400/70 px-3 py-1.5 text-sm text-rose-600"
                 onClick={async () => {
                   const ok = window.confirm("게시글을 삭제할까요?");
                   if (!ok) return;
@@ -267,17 +267,17 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
               </button>
             </>
           ) : null}
-          <Link href={`/boards/${post.channel.slug}`} className="rounded-md border border-slate-500 px-3 py-1.5 text-sm text-slate-200">
+          <Link href={`/boards/${post.channel.slug}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-800">
             목록
           </Link>
         </div>
       </article>
 
-      <section className="space-y-3 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
-        <h2 className="text-lg font-semibold text-slate-100">댓글 {comments.length}</h2>
+      <section className="space-y-3 rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
+        <h2 className="text-lg font-semibold text-slate-900">댓글 {comments.length}</h2>
         {replyTo ? (
-          <p className="text-xs text-slate-400">
-            답글 작성 중 · <button className="text-slate-200 underline" onClick={() => setReplyTo(null)}>취소</button>
+          <p className="text-xs text-slate-500">
+            답글 작성 중 · <button className="text-slate-800 underline" onClick={() => setReplyTo(null)}>취소</button>
           </p>
         ) : null}
         <textarea
@@ -285,7 +285,7 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
           onChange={(e) => setCommentInput(e.target.value)}
           rows={4}
           placeholder="댓글을 입력하세요."
-          className="w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-100"
+          className="w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-900"
         />
         <div className="flex items-center gap-2">
           <button type="button" onClick={submitComment} disabled={loading || !commentInput.trim()} className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-900 disabled:opacity-50">
@@ -293,34 +293,34 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
           </button>
         </div>
 
-        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
         <div className="space-y-2">
           {parentComments.map((item) => {
             const canEdit = !!user && (user.role === "ADMIN" || user.id === item.author.id);
             const replies = childrenMap.get(item.id) ?? [];
             return (
-              <article key={item.id} className="space-y-2 rounded-md border border-slate-700/80 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+              <article key={item.id} className="space-y-2 rounded-md border border-slate-200/80 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                   <p>
                     {item.author.school} · {item.author.grade} · {item.author.name}
                   </p>
                   <p>{formatKstDateTime(item.createdAt)}</p>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-slate-100">{item.content}</p>
+                <p className="whitespace-pre-wrap text-sm text-slate-900">{item.content}</p>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <button className="text-slate-300 hover:text-white" onClick={() => setReplyTo(item.id)}>
+                  <button className="text-slate-600 hover:text-slate-900" onClick={() => setReplyTo(item.id)}>
                     답글
                   </button>
-                  <button className="text-slate-300 hover:text-white" onClick={() => reportTarget("COMMENT", item.id)}>
+                  <button className="text-slate-600 hover:text-slate-900" onClick={() => reportTarget("COMMENT", item.id)}>
                     신고
                   </button>
                   {canEdit ? (
                     <>
-                      <button className="text-slate-300 hover:text-white" onClick={() => editComment(item.id, item.content)}>
+                      <button className="text-slate-600 hover:text-slate-900" onClick={() => editComment(item.id, item.content)}>
                         수정
                       </button>
-                      <button className="text-rose-300 hover:text-rose-200" onClick={() => removeComment(item.id)}>
+                      <button className="text-rose-600 hover:text-rose-700" onClick={() => removeComment(item.id)}>
                         삭제
                       </button>
                     </>
@@ -332,24 +332,24 @@ export default function BoardPostDetailClient({ post, initialComments, user }: P
                     {replies.map((reply) => {
                       const canEditReply = !!user && (user.role === "ADMIN" || user.id === reply.author.id);
                       return (
-                        <div key={reply.id} className="rounded-md border border-slate-800/80 bg-slate-900/40 p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                        <div key={reply.id} className="rounded-md border border-slate-200/80 bg-white/40 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                             <p>
                               {reply.author.school} · {reply.author.grade} · {reply.author.name}
                             </p>
                             <p>{formatKstDateTime(reply.createdAt)}</p>
                           </div>
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-100">{reply.content}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{reply.content}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            <button className="text-slate-300 hover:text-white" onClick={() => reportTarget("COMMENT", reply.id)}>
+                            <button className="text-slate-600 hover:text-slate-900" onClick={() => reportTarget("COMMENT", reply.id)}>
                               신고
                             </button>
                             {canEditReply ? (
                               <>
-                                <button className="text-slate-300 hover:text-white" onClick={() => editComment(reply.id, reply.content)}>
+                                <button className="text-slate-600 hover:text-slate-900" onClick={() => editComment(reply.id, reply.content)}>
                                   수정
                                 </button>
-                                <button className="text-rose-300 hover:text-rose-200" onClick={() => removeComment(reply.id)}>
+                                <button className="text-rose-600 hover:text-rose-700" onClick={() => removeComment(reply.id)}>
                                   삭제
                                 </button>
                               </>

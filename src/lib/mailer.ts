@@ -18,6 +18,38 @@ function getMailerConfig() {
   return { apiKey, from, appUrl };
 }
 
+async function postResend(params: {
+  apiKey: string;
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}) {
+  const response = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: params.from,
+      to: [params.to],
+      subject: params.subject,
+      text: params.text,
+      html: params.html,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend send failed: ${response.status} ${body}`);
+  }
+
+  const payload = (await response.json()) as { id?: string };
+  return payload.id ?? null;
+}
+
 export async function sendPasswordResetEmail(params: {
   to: string;
   resetUrl: string;
@@ -49,26 +81,37 @@ export async function sendPasswordResetEmail(params: {
     </div>
   `;
 
-  const response = await fetch(RESEND_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [params.to],
-      subject,
-      text,
-      html,
-    }),
-  });
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Resend send failed: ${response.status} ${body}`);
-  }
+export async function sendEmailVerificationCode(params: {
+  to: string;
+  code: string;
+  expiresMinutes: number;
+}) {
+  const { apiKey, from } = getMailerConfig();
 
-  const payload = (await response.json()) as { id?: string };
-  return payload.id ?? null;
+  const subject = "[우아재] 이메일 인증 코드";
+  const text = [
+    "우아재 회원가입 이메일 인증 코드입니다.",
+    "",
+    `인증 코드: ${params.code}`,
+    "",
+    `이 코드는 ${params.expiresMinutes}분간 유효합니다.`,
+    "본인이 요청하지 않았다면 이 메일을 무시해 주세요.",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.6; color:#2c2823; max-width:480px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">우아재 이메일 인증</h2>
+      <p>회원가입을 위한 이메일 인증 코드입니다. 아래 6자리 코드를 입력해 주세요.</p>
+      <div style="margin:22px 0; padding:18px 0; text-align:center; background:#FBF8F2; border:1px solid #E4DBC7; border-radius:12px;">
+        <span style="font-size:32px; font-weight:700; letter-spacing:10px; color:#6B5342;">${params.code}</span>
+      </div>
+      <p style="color:#8A8479;">이 코드는 <strong>${params.expiresMinutes}분</strong>간 유효합니다.</p>
+      <p style="margin-top:18px; color:#8A8479;">본인이 요청하지 않았다면 이 메일을 무시해 주세요.</p>
+    </div>
+  `;
+
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
 }

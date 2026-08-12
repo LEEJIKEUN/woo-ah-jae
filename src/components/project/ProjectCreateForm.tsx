@@ -7,9 +7,9 @@ import { CHANNELS_BY_TAB, PRIMARY_TABS } from "@/lib/categoryConfig";
 type Tab = (typeof PRIMARY_TABS)[number];
 
 const INPUT_CLASS =
-  "h-11 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100 outline-none transition focus:border-slate-400";
+  "h-11 w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900 outline-none transition focus:border-slate-400";
 const TEXTAREA_CLASS =
-  "w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-slate-400";
+  "w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400";
 
 type ProjectFormInitial = {
   title?: string;
@@ -141,23 +141,23 @@ export default function ProjectCreateForm({
     >
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">프로젝트 제목</span>
+          <span className="text-sm text-slate-600">프로젝트 제목</span>
           <input name="title" required className={INPUT_CLASS} maxLength={120} defaultValue={initialData?.title ?? ""} />
         </label>
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">짧은 소개</span>
+          <span className="text-sm text-slate-600">짧은 소개</span>
           <input name="summary" required className={INPUT_CLASS} maxLength={240} defaultValue={initialData?.summary ?? ""} />
         </label>
       </div>
 
       <label className="space-y-1 block">
-        <span className="text-sm text-slate-300">상세 설명</span>
+        <span className="text-sm text-slate-600">상세 설명</span>
         <textarea name="description" required rows={5} className={TEXTAREA_CLASS} maxLength={8000} defaultValue={initialData?.description ?? ""} />
       </label>
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">카테고리</span>
+          <span className="text-sm text-slate-600">카테고리</span>
           <select
             className={INPUT_CLASS}
             value={tab}
@@ -176,7 +176,7 @@ export default function ProjectCreateForm({
         </label>
 
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">하위 채널</span>
+          <span className="text-sm text-slate-600">하위 채널</span>
           <select className={INPUT_CLASS} value={channel} onChange={(event) => setChannel(event.target.value)}>
             {channels.map((item) => (
               <option key={item} value={item}>
@@ -187,29 +187,29 @@ export default function ProjectCreateForm({
         </label>
 
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">모집 인원</span>
+          <span className="text-sm text-slate-600">모집 인원</span>
           <input name="capacity" required type="number" min={1} max={100} defaultValue={initialData?.capacity ?? 4} className={INPUT_CLASS} />
         </label>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-300">조건</span>
+          <span className="text-sm text-slate-600">조건</span>
           <textarea name="requirements" rows={3} className={TEXTAREA_CLASS} maxLength={2000} placeholder="예: 주 2회 온라인 참여 가능" defaultValue={initialData?.requirements ?? ""} />
         </label>
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-300">모집 역할</span>
+          <span className="text-sm text-slate-600">모집 역할</span>
           <textarea name="rolesNeeded" rows={3} className={TEXTAREA_CLASS} maxLength={2000} placeholder="예: 리서치 1명, 발표 1명" defaultValue={initialData?.rolesNeeded ?? ""} />
         </label>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">마감일(선택)</span>
+          <span className="text-sm text-slate-600">마감일(선택)</span>
           <input name="deadline" type="date" className={INPUT_CLASS} defaultValue={toDateInputValue(initialData?.deadline)} />
         </label>
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-300">썸네일 업로드</span>
+          <span className="text-sm text-slate-600">썸네일 업로드</span>
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -219,7 +219,7 @@ export default function ProjectCreateForm({
               if (file) onUpload(file);
             }}
           />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             {thumbnailUploading
               ? "업로드 중..."
               : thumbnailUrl
@@ -227,7 +227,7 @@ export default function ProjectCreateForm({
                 : "png/jpg/webp, 최대 10MB"}
           </p>
           {thumbnailUrl ? (
-            <div className="overflow-hidden rounded-md border border-slate-700/70 bg-slate-900/40">
+            <div className="overflow-hidden rounded-md border border-slate-200/70 bg-white/40">
               <img src={thumbnailUrl} alt="썸네일 미리보기" className="h-40 w-full object-cover" />
             </div>
           ) : null}
@@ -235,7 +235,7 @@ export default function ProjectCreateForm({
       </div>
 
       <label className="space-y-1 block md:max-w-sm">
-        <span className="text-sm text-slate-300">모집 상태</span>
+        <span className="text-sm text-slate-600">모집 상태</span>
         <select name="status" className={INPUT_CLASS} defaultValue={initialData?.status ?? "OPEN"}>
           <option value="OPEN">모집중</option>
           <option value="CLOSED">모집 마감</option>
@@ -244,20 +244,20 @@ export default function ProjectCreateForm({
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-300">질문 1</span>
+          <span className="text-sm text-slate-600">질문 1</span>
           <textarea name="question1" rows={3} className={TEXTAREA_CLASS} maxLength={300} placeholder="지원자의 동기를 물어보세요" defaultValue={initialData?.question1 ?? ""} />
         </label>
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-300">질문 2</span>
+          <span className="text-sm text-slate-600">질문 2</span>
           <textarea name="question2" rows={3} className={TEXTAREA_CLASS} maxLength={300} placeholder="역할 경험을 물어보세요" defaultValue={initialData?.question2 ?? ""} />
         </label>
         <label className="space-y-1 block">
-          <span className="text-sm text-slate-300">질문 3</span>
+          <span className="text-sm text-slate-600">질문 3</span>
           <textarea name="question3" rows={3} className={TEXTAREA_CLASS} maxLength={300} placeholder="시간 가능 여부를 물어보세요" defaultValue={initialData?.question3 ?? ""} />
         </label>
       </div>
 
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
       <button
         disabled={loading || thumbnailUploading}

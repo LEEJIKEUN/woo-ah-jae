@@ -29,18 +29,18 @@ export default function BrandIntro({ topPosts }: Props) {
           전 세계 한국학교와 국제학교, 로컬학교 학생들이 팀을 만들어 함께 즐겁게 연구할 수 있는 실명 기반의 안전한 협업공간을 제공합니다.
         </p>
         <div className="space-y-2 pt-1">
-          <p className="text-sm font-semibold tracking-wide text-slate-200">TOP5 인기글</p>
+          <p className="text-sm font-semibold tracking-wide text-slate-800">TOP5 인기글</p>
           <ul className="space-y-1.5">
             {topPosts.map((post, idx) => (
               <li key={post.id}>
                 <Link
                   href={`/boards/posts/${post.id}`}
-                  className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-slate-200 transition hover:bg-white/5 hover:text-white"
+                  className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-slate-800 transition hover:bg-white/5 hover:text-slate-900"
                 >
                   <span className="line-clamp-1">
                     {idx + 1}. {post.title}
                   </span>
-                  <span className="shrink-0 text-xs text-slate-400">♥ {post.likeCount} · 댓글 {post.commentCount}</span>
+                  <span className="shrink-0 text-xs text-slate-500">♥ {post.likeCount} · 댓글 {post.commentCount}</span>
                 </Link>
               </li>
             ))}

@@ -8,7 +8,7 @@ type Props = {
 export default function CategoryList({ items }: Props) {
   if (items.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-slate-600 bg-[color:var(--surface)] px-4 py-10 text-center text-sm text-[color:var(--muted)]">
+      <div className="rounded-md border border-dashed border-slate-200 bg-[color:var(--surface)] px-4 py-10 text-center text-sm text-[color:var(--muted)]">
         조건에 맞는 공지가 없습니다.
       </div>
     );

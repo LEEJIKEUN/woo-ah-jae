@@ -137,7 +137,7 @@ export default function CategoryPageClient(props: Props) {
           onFilterChange={(key, value) => replaceQuery({ [key]: value } as Partial<FilterState>)}
         />
 
-        <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="flex items-center justify-between text-xs text-slate-500">
           <p>총 {filteredItems.length}개</p>
           <p>
             {activeTab} / {activeChannel}
@@ -145,17 +145,17 @@ export default function CategoryPageClient(props: Props) {
         </div>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-100">인기 프로젝트</h2>
+          <h2 className="text-xl font-semibold text-slate-900">인기 프로젝트</h2>
           <ProjectGrid projects={popularItems} />
         </section>
 
         <section className="space-y-4 pt-8 md:pt-10">
-          <h2 className="text-xl font-semibold text-slate-100">최신</h2>
+          <h2 className="text-xl font-semibold text-slate-900">최신</h2>
           <ProjectGrid projects={latestItems} />
         </section>
 
         <section className="space-y-4 pt-8 md:pt-10">
-          <h2 className="text-xl font-semibold text-slate-100">모집중</h2>
+          <h2 className="text-xl font-semibold text-slate-900">모집중</h2>
           <ProjectGrid projects={openItems} />
         </section>
       </section>

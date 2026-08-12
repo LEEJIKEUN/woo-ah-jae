@@ -1,0 +1,73 @@
+import { NextRequest } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { getRoom } from "@/lib/mentoring-store";
+import { subscribeMentoring } from "@/lib/mentoring-bus";
+
+export const dynamic = "force-dynamic";
+
+async function sessionFromReq(request: NextRequest) {
+  try {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    if (!token) return null;
+    return await verifySessionToken(token);
+  } catch {
+    return null;
+  }
+}
+
+/** 멘토링 방 SSE 스트림: 접속 시 현재 방 + 변경마다 즉시 푸시 */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
+  const { courseId } = await params;
+  const s = await sessionFromReq(request);
+  if (!s) return new Response("Unauthorized", { status: 401 });
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      let closed = false;
+      const send = (payload: unknown) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+        } catch {
+          /* 닫힘 */
+        }
+      };
+
+      // 최초 방 전송
+      send(await getRoom(courseId));
+
+      const unsubscribe = subscribeMentoring(courseId, (room) => send(room));
+
+      const heartbeat = setInterval(() => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`: ping\n\n`));
+        } catch {
+          /* 무시 */
+        }
+      }, 25000);
+
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(heartbeat);
+        unsubscribe();
+        try {
+          controller.close();
+        } catch {
+          /* 무시 */
+        }
+      };
+      request.signal.addEventListener("abort", close);
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
+}

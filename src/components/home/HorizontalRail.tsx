@@ -15,7 +15,7 @@ function ArrowButton({ direction, onClick }: { direction: "left" | "right"; onCl
     <button
       type="button"
       onClick={onClick}
-      className="hidden h-9 w-9 items-center justify-center rounded-full border border-slate-600 bg-slate-900 text-slate-200 transition hover:bg-slate-800 md:inline-flex"
+      className="hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-800 transition hover:bg-slate-100 md:inline-flex"
       aria-label={direction === "left" ? "이전" : "다음"}
     >
       {direction === "left" ? "‹" : "›"}

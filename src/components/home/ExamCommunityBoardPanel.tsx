@@ -61,10 +61,10 @@ export default async function ExamCommunityBoardPanel() {
   if (!tabData.length) return null;
 
   return (
-    <section className="space-y-3 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-4 md:p-5">
+    <section className="space-y-3 rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-4 md:p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-100">공인시험 커뮤니티</h2>
-        <Link href={`/boards/${tabData[0].slug}`} className="text-sm text-slate-300 hover:text-white">
+        <h2 className="text-xl font-semibold text-slate-900">공인시험 커뮤니티</h2>
+        <Link href={`/boards/${tabData[0].slug}`} className="text-sm text-slate-600 hover:text-slate-900">
           게시판 전체보기
         </Link>
       </div>

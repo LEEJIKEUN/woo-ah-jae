@@ -77,12 +77,12 @@ export default function AdmissionsSidebar({ activeBoard, noticeBoard, groups, qu
 
   function itemClass(selected: boolean) {
     return selected
-      ? "relative block rounded-md bg-slate-100/10 px-3 py-1.5 text-sm font-semibold text-slate-100 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-sky-300"
-      : "relative block rounded-md px-3 py-1.5 text-sm text-slate-300 hover:text-white";
+      ? "relative block rounded-md bg-slate-100/10 px-3 py-1.5 text-sm font-semibold text-slate-900 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-sky-300"
+      : "relative block rounded-md px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900";
   }
 
   return (
-    <div className="h-full border border-slate-800/80 bg-[color:var(--surface)]/95 p-4">
+    <div className="h-full border border-slate-200/80 bg-[color:var(--surface)]/95 p-4">
       <div className="space-y-3">
         <nav className="space-y-2">
           <Link href={hrefFor("all")} className={itemClass(activeBoard === "all")}>

@@ -57,15 +57,15 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
       <section className="mx-auto max-w-4xl space-y-6 px-4 py-8 md:px-6">
-        <article className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
-          <p className="text-xs text-slate-400">{project.tab ?? "교과"} · {project.channel ?? "전체"}</p>
+        <article className="space-y-4 rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
+          <p className="text-xs text-slate-500">{project.tab ?? "교과"} · {project.channel ?? "전체"}</p>
           <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
             <div className="space-y-4">
-              <h1 className="text-3xl font-bold text-slate-100">{project.title}</h1>
-              <p className="text-sm text-slate-300">{project.summary ?? project.description.slice(0, 160)}</p>
-              <p className="text-sm leading-7 text-slate-200">{project.description}</p>
+              <h1 className="text-3xl font-bold text-slate-900">{project.title}</h1>
+              <p className="text-sm text-slate-600">{project.summary ?? project.description.slice(0, 160)}</p>
+              <p className="text-sm leading-7 text-slate-800">{project.description}</p>
 
-              <div className="grid gap-2 text-sm text-slate-300 md:grid-cols-2">
+              <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                 <p>대표: {ownerSchool} · {ownerGrade} · {ownerName}</p>
                 <p>모집 인원: {project.capacity}명 (확정 {project._count.members}명)</p>
                 <p>모집 상태: {statusText(project.status)}</p>
@@ -77,7 +77,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="lg:sticky lg:top-24">
-              <div className="overflow-hidden rounded-lg border border-slate-700/80 bg-slate-900/60">
+              <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white/60">
                 {project.thumbnailUrl ? (
                   <img
                     src={project.thumbnailUrl}
@@ -85,7 +85,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                     className="h-[260px] w-full object-cover md:h-[320px]"
                   />
                 ) : (
-                  <div className="flex h-[260px] w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700 text-sm text-slate-300 md:h-[320px]">
+                  <div className="flex h-[260px] w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700 text-sm text-slate-600 md:h-[320px]">
                     썸네일 없음
                   </div>
                 )}
@@ -93,8 +93,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
 
-          <div className="space-y-2 rounded-md border border-slate-700/70 p-3 text-sm text-slate-300">
-            <p className="font-semibold text-slate-100">지원 질문</p>
+          <div className="space-y-2 rounded-md border border-slate-200/70 p-3 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">지원 질문</p>
             {[project.question1, project.question2, project.question3]
               .filter((question): question is string => !!question)
               .map((question, index) => (
@@ -109,28 +109,28 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </Link>
             ) : project.ownerId === user.id ? (
               <>
-                <Link href={`/projects/${project.id}/edit`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                <Link href={`/projects/${project.id}/edit`} className="rounded-md border border-slate-300/80 px-4 py-2 text-sm font-semibold text-slate-900 hover:border-slate-300">
                   프로젝트 수정
                 </Link>
                 <Link href={`/me/projects/${project.id}/applications`} className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white">
                   지원자 관리
                 </Link>
-                <Link href={`/workspace/${project.id}`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                <Link href={`/workspace/${project.id}`} className="rounded-md border border-slate-300/80 px-4 py-2 text-sm font-semibold text-slate-900 hover:border-slate-300">
                   프로젝트 공간으로 이동
                 </Link>
               </>
             ) : user.role === "ADMIN" ? (
               <>
-                <Link href={`/projects/${project.id}/edit`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                <Link href={`/projects/${project.id}/edit`} className="rounded-md border border-slate-300/80 px-4 py-2 text-sm font-semibold text-slate-900 hover:border-slate-300">
                   관리자 권한으로 수정
                 </Link>
-                <Link href={`/workspace/${project.id}`} className="rounded-md border border-slate-500/80 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-300">
+                <Link href={`/workspace/${project.id}`} className="rounded-md border border-slate-300/80 px-4 py-2 text-sm font-semibold text-slate-900 hover:border-slate-300">
                   관리자 권한으로 프로젝트 공간 입장
                 </Link>
               </>
             ) : myApplication ? (
               <>
-                <p className="rounded-md border border-slate-500/80 px-4 py-2 text-sm text-slate-200">
+                <p className="rounded-md border border-slate-300/80 px-4 py-2 text-sm text-slate-800">
                   지원 완료 (상태: {myApplication.status})
                 </p>
                 {myApplication.status === "ACCEPTED" ? (
@@ -140,14 +140,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 ) : null}
               </>
             ) : project.status === ProjectStatus.CLOSED ? (
-              <p className="rounded-md border border-rose-500/60 px-4 py-2 text-sm text-rose-300">모집 마감</p>
+              <p className="rounded-md border border-rose-500/60 px-4 py-2 text-sm text-rose-600">모집 마감</p>
             ) : (
               <Link href={`/projects/${project.id}/apply`} className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white">
                 신청하기(지원서 작성)
               </Link>
             )}
 
-            <Link href="/projects" className="text-sm text-slate-300 hover:text-white">목록으로</Link>
+            <Link href="/projects" className="text-sm text-slate-600 hover:text-slate-900">목록으로</Link>
           </div>
         </article>
 

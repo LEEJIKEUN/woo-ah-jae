@@ -152,15 +152,15 @@ export default function BoardPostEditor({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-slate-700/70 bg-[color:var(--surface)] p-5">
+    <section className="space-y-4 rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
       <div className="grid gap-3 md:grid-cols-2">
         {mode === "create" ? (
           <label className="space-y-1 md:col-span-2">
-            <span className="text-sm text-slate-300">게시판</span>
+            <span className="text-sm text-slate-600">게시판</span>
             <select
               value={targetChannelSlug}
               onChange={(e) => setTargetChannelSlug(e.target.value)}
-              className="h-10 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+              className="h-10 w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900"
             >
               {channelOptions.map((channel) => (
                 <option key={channel.slug} value={channel.slug}>
@@ -171,11 +171,11 @@ export default function BoardPostEditor({
           </label>
         ) : null}
         <label className="space-y-1">
-          <span className="text-sm text-slate-300">말머리</span>
+          <span className="text-sm text-slate-600">말머리</span>
           <select
             value={categoryTag}
             onChange={(e) => setCategoryTag(e.target.value)}
-            className="h-10 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+            className="h-10 w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900"
           >
             <option value="">선택 안함</option>
             {BOARD_CATEGORY_TAGS.map((x) => (
@@ -188,45 +188,45 @@ export default function BoardPostEditor({
       </div>
 
       <label className="block space-y-1">
-        <span className="text-sm text-slate-300">제목</span>
+        <span className="text-sm text-slate-600">제목</span>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="h-10 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 text-sm text-slate-100"
+          className="h-10 w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 text-sm text-slate-900"
           maxLength={160}
         />
       </label>
 
       <label className="block space-y-1">
-        <span className="text-sm text-slate-300">내용</span>
+        <span className="text-sm text-slate-600">내용</span>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={14}
-          className="w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-100"
+          className="w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-900"
           maxLength={12000}
         />
       </label>
 
       <div className="space-y-2">
-        <p className="text-sm text-slate-300">첨부파일 (이미지 최대 5개 / 일반 파일 최대 3개)</p>
-        <label className="inline-flex cursor-pointer rounded-md border border-slate-500/80 px-3 py-2 text-xs font-semibold text-slate-100 hover:border-slate-300">
+        <p className="text-sm text-slate-600">첨부파일 (이미지 최대 5개 / 일반 파일 최대 3개)</p>
+        <label className="inline-flex cursor-pointer rounded-md border border-slate-300/80 px-3 py-2 text-xs font-semibold text-slate-900 hover:border-slate-300">
           {uploading ? "업로드 중..." : "파일 선택"}
           <input type="file" className="hidden" multiple onChange={(e) => void onUploadFiles(e.target.files)} />
         </label>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           현재 이미지 {counts.images}개 / 일반 파일 {counts.files}개
         </p>
-        <ul className="space-y-1 text-xs text-slate-300">
+        <ul className="space-y-1 text-xs text-slate-600">
           {attachments.map((a, index) => (
-            <li key={`${a.url}-${index}`} className="flex items-center justify-between rounded border border-slate-700/70 px-2 py-1">
-              <a href={a.url} target="_blank" rel="noreferrer" className="truncate hover:text-white">
+            <li key={`${a.url}-${index}`} className="flex items-center justify-between rounded border border-slate-200/70 px-2 py-1">
+              <a href={a.url} target="_blank" rel="noreferrer" className="truncate hover:text-slate-900">
                 {a.name}
               </a>
               <button
                 type="button"
                 onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== index))}
-                className="ml-2 text-rose-300 hover:text-rose-200"
+                className="ml-2 text-rose-600 hover:text-rose-700"
               >
                 삭제
               </button>
@@ -236,14 +236,14 @@ export default function BoardPostEditor({
       </div>
 
       {isAdmin ? (
-        <div className="grid gap-3 rounded-md border border-slate-700/70 p-3 md:grid-cols-3">
+        <div className="grid gap-3 rounded-md border border-slate-200/70 p-3 md:grid-cols-3">
           {mode === "edit" ? (
-            <label className="space-y-1 text-sm text-slate-300 md:col-span-3">
+            <label className="space-y-1 text-sm text-slate-600 md:col-span-3">
               게시판 이동
               <select
                 value={targetChannelSlug}
                 onChange={(e) => setTargetChannelSlug(e.target.value)}
-                className="h-9 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-2 text-sm text-slate-100"
+                className="h-9 w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-2 text-sm text-slate-900"
               >
                 {availableChannels.map((channel) => (
                   <option key={channel.slug} value={channel.slug}>
@@ -253,20 +253,20 @@ export default function BoardPostEditor({
               </select>
             </label>
           ) : null}
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={isNotice} onChange={(e) => setIsNotice(e.target.checked)} />
             공지글
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} />
             상단고정
           </label>
-          <label className="space-y-1 text-sm text-slate-300">
+          <label className="space-y-1 text-sm text-slate-600">
             상태
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as "ACTIVE" | "HIDDEN" | "DELETED")}
-              className="h-9 w-full rounded-md border border-slate-600/80 bg-[color:var(--surface)] px-2 text-sm text-slate-100"
+              className="h-9 w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-2 text-sm text-slate-900"
             >
               <option value="ACTIVE">ACTIVE</option>
               <option value="HIDDEN">HIDDEN</option>
@@ -276,7 +276,7 @@ export default function BoardPostEditor({
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
       <div className="flex items-center gap-2">
         <button
@@ -287,7 +287,7 @@ export default function BoardPostEditor({
         >
           {submitting ? "저장 중..." : mode === "create" ? "게시글 등록" : "수정 저장"}
         </button>
-        <button type="button" onClick={() => router.back()} className="rounded-md border border-slate-500 px-4 py-2 text-sm text-slate-100">
+        <button type="button" onClick={() => router.back()} className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-900">
           취소
         </button>
       </div>

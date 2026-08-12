@@ -24,7 +24,7 @@ export default function BoardChannelTabs({ activeSlug }: { activeSlug: string })
           className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
             activeSlug === channel.slug
               ? "bg-slate-100 text-slate-900"
-              : "border border-slate-600 text-slate-200 hover:border-slate-400"
+              : "border border-slate-200 text-slate-800 hover:border-slate-400"
           }`}
         >
           {channel.name}

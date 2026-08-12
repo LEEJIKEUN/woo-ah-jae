@@ -23,8 +23,8 @@ export default function PrimaryTabs({ activeTab, query, preserveSort }: Props) {
             href={`/category?${params.toString()}`}
             className={`shrink-0 border-b-2 pb-2 text-sm font-semibold transition ${
               active
-                ? "border-slate-100 text-slate-100"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-slate-100 text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             {tab}

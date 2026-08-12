@@ -114,17 +114,17 @@ export default function HomePortal(props: Props) {
         />
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-100">인기 프로젝트</h2>
+          <h2 className="text-xl font-semibold text-slate-900">인기 프로젝트</h2>
           <ProjectGrid projects={popular} />
         </section>
 
         <section className="space-y-4 pt-6 md:pt-8">
-          <h2 className="text-xl font-semibold text-slate-100">최신</h2>
+          <h2 className="text-xl font-semibold text-slate-900">최신</h2>
           <ProjectGrid projects={latest} />
         </section>
 
         <section className="space-y-4 pt-6 md:pt-8">
-          <h2 className="text-xl font-semibold text-slate-100">모집중</h2>
+          <h2 className="text-xl font-semibold text-slate-900">모집중</h2>
           <ProjectGrid projects={open} />
         </section>
       </section>
