@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isUserEnrolled } from "@/lib/enrollment-store";
+import { prisma } from "@/lib/prisma";
 
 export type Role = "STUDENT" | "FACILITATOR" | "PARENT" | "ADMIN";
 export type CourseSession = { userId: string; role: Role; email: string };
@@ -22,11 +23,25 @@ export async function getSession(): Promise<CourseSession | null> {
   }
 }
 
-/** 강의실 입장 가능 여부 (관리자·퍼실리테이터 or 수강신청 완료) */
+/** 학부모가 이 강좌에 (승인된) 자녀가 수강 중인지 — 학부모의 열람 접근 근거 */
+export async function isParentOfEnrolledChild(courseId: string, parentUserId: string): Promise<boolean> {
+  const links = await prisma.parentChildLink.findMany({
+    where: { parentUserId, status: "APPROVED" },
+    select: { childUserId: true },
+  });
+  for (const l of links) {
+    if (await isUserEnrolled(courseId, l.childUserId)) return true;
+  }
+  return false;
+}
+
+/** 강의실 입장 가능 여부 (관리자·퍼실리테이터 or 수강신청 완료 or 자녀 수강중인 학부모) */
 export async function canEnterClassroom(courseId: string, session: CourseSession | null): Promise<boolean> {
   if (!session) return false;
   if (isStaffRole(session.role)) return true;
-  return isUserEnrolled(courseId, session.userId);
+  if (await isUserEnrolled(courseId, session.userId)) return true;
+  if (session.role === "PARENT") return isParentOfEnrolledChild(courseId, session.userId);
+  return false;
 }
 
 /**
@@ -41,5 +56,6 @@ export async function requireClassroomAccess(courseId: string, nextPath: string)
   if (!session) redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   if (isStaffRole(session.role)) return session;
   if (await isUserEnrolled(courseId, session.userId)) return session;
+  if (session.role === "PARENT" && (await isParentOfEnrolledChild(courseId, session.userId))) return session;
   redirect(`/course/${courseId}`);
 }

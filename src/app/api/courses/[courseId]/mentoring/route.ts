@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
-import { isStaffRole } from "@/lib/course/access";
+import { isStaffRole, isParentOfEnrolledChild } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { addChat, getRoom, saveBooks, saveReport, type Book, type Report } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
@@ -20,15 +20,18 @@ async function sessionFromReq(request: NextRequest) {
   }
 }
 
-/** 강좌 존재 + 로그인 + (스태프 or 수강신청) 게이트 */
+/** 강좌 존재 + 로그인 + (스태프 or 수강신청 or 자녀수강 학부모) 게이트. 학부모는 열람 전용(canWrite=false). */
 async function gate(request: NextRequest, courseId: string) {
   if (!getCourse(courseId)) return { error: NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 }) };
   const session = await sessionFromReq(request);
   if (!session) return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }) };
-  if (!isStaffRole(session.role) && !(await isUserEnrolled(courseId, session.userId))) {
+  const staff = isStaffRole(session.role);
+  const enrolled = !staff && (await isUserEnrolled(courseId, session.userId));
+  const parent = !staff && !enrolled && session.role === "PARENT" && (await isParentOfEnrolledChild(courseId, session.userId));
+  if (!staff && !enrolled && !parent) {
     return { error: NextResponse.json({ error: "수강신청이 필요합니다." }, { status: 403 }) };
   }
-  return { session };
+  return { session, canWrite: staff || enrolled }; // 학부모는 읽기 전용
 }
 
 function nowLabel() {
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { courseId } = await params;
   const g = await gate(request, courseId);
   if ("error" in g) return g.error;
+  if (!g.canWrite) return NextResponse.json({ error: "열람 전용입니다." }, { status: 403 });
   const s = g.session;
 
   const body = (await request.json()) as { action?: string; report?: unknown; text?: string; books?: unknown };

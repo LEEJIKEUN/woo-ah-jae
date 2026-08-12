@@ -63,6 +63,12 @@ export async function getApplied(courseId: string): Promise<number> {
   return all[courseId]?.length ?? 0;
 }
 
+/** 수강생 userId 목록(출석·이수 관리용) */
+export async function getEnrolledUserIds(courseId: string): Promise<string[]> {
+  const all = await readAll();
+  return all[courseId] ?? [];
+}
+
 /** 특정 사용자의 수강신청 여부 */
 export async function isUserEnrolled(courseId: string, userId: string): Promise<boolean> {
   const all = await readAll();

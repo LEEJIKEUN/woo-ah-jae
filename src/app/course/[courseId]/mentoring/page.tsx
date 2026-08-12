@@ -9,5 +9,6 @@ export default async function MentoringPage({ params }: { params: Promise<{ cour
   const { courseId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/mentoring`);
   const staff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 멘토(teacher)
-  return <MentoringView courseId={courseId} role={staff ? "teacher" : "student"} isStaff={staff} />;
+  const isParent = session.role === "PARENT";
+  return <MentoringView courseId={courseId} role={staff ? "teacher" : "student"} isStaff={staff} isParent={isParent} />;
 }

@@ -66,7 +66,8 @@ async function postRoom(courseId: string, payload: object) {
   });
 }
 
-export default function MentoringView({ courseId, role, isStaff = false }: { courseId: string; role: "teacher" | "student"; isStaff?: boolean }) {
+export default function MentoringView({ courseId, role, isStaff = false, isParent = false }: { courseId: string; role: "teacher" | "student"; isStaff?: boolean; isParent?: boolean }) {
+  const readOnly = isParent; // 학부모는 공유방을 덮어쓰지 않도록 열람 전용
   const [report, setReport] = useState<Report>(blankReport());
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -113,12 +114,14 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
   const hasContent = useMemo(() => Object.values(report).some((v) => v.trim().length > 0), [report]);
 
   function setField(key: FieldKey, value: string) {
+    if (readOnly) return;
     dirtyRef.current = true;
     setReport((prev) => ({ ...prev, [key]: value }));
     setSavedFlash(false);
   }
 
   async function save() {
+    if (readOnly) return;
     try {
       await postRoom(courseId, { action: "report", report });
       dirtyRef.current = false;
@@ -129,6 +132,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
   }
 
   async function send() {
+    if (readOnly) return;
     const t = draft.trim();
     if (!t) return;
     setDraft("");
@@ -148,6 +152,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
     }
   }
   function addBook() {
+    if (readOnly) return;
     if (books.length >= MAX_BOOKS) return;
     if (!bookDraft.book.trim() && !bookDraft.author.trim()) return;
     void persistBooks([...books, bookDraft]);
@@ -159,6 +164,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
 
   // PDF 업로드 (로컬)
   function onUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    if (readOnly) return;
     setFileError(null);
     const f = e.target.files?.[0];
     e.target.value = "";
@@ -206,7 +212,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
 
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
-      <ClassroomSidebar courseId={courseId} isStaff={isStaff} />
+      <ClassroomSidebar courseId={courseId} isStaff={isStaff} isParent={isParent} />
 
       <main className="min-w-0 flex-1 px-6 py-8 lg:px-8">
         <div className="mb-6 flex items-end justify-between gap-3">
@@ -217,7 +223,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
             <h1 className="text-[26px] font-normal" style={{ ...serif, color: INK }}>탐구활동 멘토링</h1>
           </div>
           <span className="rounded-full px-3 py-1 text-[12px] font-semibold" style={{ background: PANEL, color: DEEP, border: `1px solid ${LINE}` }}>
-            {role === "teacher" ? "교사(관리자)로 접속" : "학생으로 접속"} · 실시간 공유
+            {readOnly ? "학부모 · 열람 전용" : role === "teacher" ? "교사(관리자)로 접속" : "학생으로 접속"} · 실시간 공유
           </span>
         </div>
 
@@ -246,7 +252,8 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
                     value={report[f.key]}
                     onChange={(e) => setField(f.key, e.target.value)}
                     rows={f.rows}
-                    placeholder={`${f.label}을(를) 입력하세요.`}
+                    readOnly={readOnly}
+                    placeholder={readOnly ? "" : `${f.label}을(를) 입력하세요.`}
                     className="w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]"
                     style={{ borderColor: "#E7E2D6", color: BODY, background: "#fff" }}
                   />
@@ -270,6 +277,8 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
                       <button type="button" onClick={removeFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><X size={16} /></button>
                     </div>
                   </div>
+                ) : readOnly ? (
+                  <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>첨부된 보고서 파일이 없습니다.</p>
                 ) : (
                   <label className="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-4 text-[13.5px] transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: SUB }}>
                     <Upload size={16} /> PDF 파일 업로드 (최대 6MB)
@@ -280,12 +289,14 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
               </div>
             </div>
 
+            {!readOnly ? (
             <div className="flex items-center justify-end gap-3 border-t px-6 py-4" style={{ borderColor: CARD }}>
               {savedFlash ? <span className="text-[13px]" style={{ color: "#3E7E5B" }}>저장됨 · 상대에게 실시간 반영</span> : null}
               <button type="button" onClick={save} className="rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>
                 저장하기
               </button>
             </div>
+            ) : null}
           </section>
 
           {/* 우: 독서활동상황 → 작성 가이드 → 1:1 멘토링 */}
@@ -311,7 +322,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
                   </div>
                 ))}
 
-                {books.length < MAX_BOOKS ? (
+                {!readOnly && books.length < MAX_BOOKS ? (
                   <div className="space-y-2 rounded-[10px] p-3" style={{ border: `1px dashed ${LINE}` }}>
                     <div className="grid grid-cols-2 gap-2">
                       <BookInput label="책" value={bookDraft.book} onChange={(v) => setBookDraft((p) => ({ ...p, book: v }))} />
@@ -324,9 +335,9 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
                       <Plus size={15} /> 추가
                     </button>
                   </div>
-                ) : (
+                ) : !readOnly ? (
                   <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>최대 {MAX_BOOKS}개까지 추가할 수 있습니다.</p>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -371,6 +382,7 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
                   })
                 )}
               </div>
+              {!readOnly ? (
               <div className="flex items-center gap-2 border-t px-3 py-3" style={{ borderColor: CARD }}>
                 <input
                   value={draft}
@@ -389,6 +401,9 @@ export default function MentoringView({ courseId, role, isStaff = false }: { cou
                   <Send size={16} />
                 </button>
               </div>
+              ) : (
+                <div className="border-t px-4 py-3 text-center text-[12px]" style={{ borderColor: CARD, color: MUTED }}>열람 전용 — 메시지를 보낼 수 없습니다.</div>
+              )}
             </div>
           </aside>
         </div>

@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { FileText, Folder, Download, ChevronDown, ChevronLeft, ChevronRight, Clock, PlayCircle, MessageSquare } from "lucide-react";
 import type { Activity, Course, Module } from "@/lib/course/content";
 import { BC, IB } from "@/lib/course/theme";
-import DoneBadge from "@/components/course/DoneBadge";
 import { useCompletion } from "@/components/course/completion";
 
 export default function ActivityView({
@@ -17,13 +16,6 @@ export default function ActivityView({
   module: Module;
   activity: Activity;
 }) {
-  const { toggle } = useCompletion();
-
-  // 열람 시 자동 완료
-  useEffect(() => {
-    if (activity.completion === "auto") toggle(activity.id, true);
-  }, [activity.id, activity.completion, toggle]);
-
   return (
     <div>
       {/* 라이트 헤더 */}
@@ -52,19 +44,6 @@ export default function ActivityView({
           </p>
         ) : null}
       </div>
-
-      {/* 완료 조건 바 */}
-      {activity.completion !== "none" ? (
-        <div
-          className="mb-6 flex items-center justify-between gap-3 rounded-[4px] border px-4 py-2.5"
-          style={{ borderColor: BC.borderCard, background: "#F5F0E4" }}
-        >
-          <span className="text-[13px]" style={{ color: BC.sub }}>
-            완료 조건: {activity.completion === "auto" ? "이 활동을 열람하면 자동 완료됩니다" : "아래를 마친 뒤 완료로 표시하세요"}
-          </span>
-          <DoneBadge activityId={activity.id} mode={activity.completion} />
-        </div>
-      ) : null}
 
       {activity.kind === "resource" || activity.kind === "page" ? (
         <ResourceBody activity={activity} course={course} module={module} />

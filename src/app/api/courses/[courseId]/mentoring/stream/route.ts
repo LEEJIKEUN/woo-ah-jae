@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
-import { isStaffRole } from "@/lib/course/access";
+import { isStaffRole, isParentOfEnrolledChild } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { getRoom } from "@/lib/mentoring-store";
 import { subscribeMentoring } from "@/lib/mentoring-bus";
@@ -24,7 +24,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!getCourse(courseId)) return new Response("Not found", { status: 404 });
   const s = await sessionFromReq(request);
   if (!s) return new Response("Unauthorized", { status: 401 });
-  if (!isStaffRole(s.role) && !(await isUserEnrolled(courseId, s.userId))) return new Response("Forbidden", { status: 403 });
+  const staff = isStaffRole(s.role);
+  const enrolled = !staff && (await isUserEnrolled(courseId, s.userId));
+  const parent = !staff && !enrolled && s.role === "PARENT" && (await isParentOfEnrolledChild(courseId, s.userId));
+  if (!staff && !enrolled && !parent) return new Response("Forbidden", { status: 403 });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

@@ -13,7 +13,7 @@ const SUB = "#8A8479";
 const LINE = "#E4DBC7";
 const serif = { fontFamily: "var(--font-serif)" } as const;
 
-type Entry = { id: string; title: string; subtitle: string; note: string; href: string; cta: string };
+type Entry = { id: string; title: string; subtitle: string; note: string; href: string; cta: string; manageHref?: string };
 
 export default async function MyCoursesPage() {
   const user = await requireUser("/login?next=/my-courses");
@@ -31,6 +31,7 @@ export default async function MyCoursesPage() {
         note: role === "ADMIN" ? "관리자 · 전체 접근" : "담당 · 퍼실리테이터",
         href: `/course/${c.id}/learn`,
         cta: "강의실 입장",
+        manageHref: `/course/${c.id}/attendance`,
       });
     }
   } else if (isParent) {
@@ -48,7 +49,7 @@ export default async function MyCoursesPage() {
         }
       }
       if (anyChild) {
-        entries.push({ id: c.id, title: c.title, subtitle: c.subtitle, note: "자녀 수강 중", href: `/course/${c.id}`, cta: "강좌 보기" });
+        entries.push({ id: c.id, title: c.title, subtitle: c.subtitle, note: "자녀 수강 중", href: `/course/${c.id}/mentoring`, cta: "강의실 입장" });
       }
     }
   } else {
@@ -93,13 +94,24 @@ export default async function MyCoursesPage() {
                 <p className="mt-1.5 truncate text-[16px] font-semibold" style={{ ...serif, color: INK }}>{e.title}</p>
                 <p className="truncate text-[13px]" style={{ color: SUB }}>{e.subtitle}</p>
               </div>
-              <Link
-                href={e.href}
-                className="inline-flex shrink-0 items-center rounded-[8px] px-5 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90"
-                style={{ background: BROWN, ...serif }}
-              >
-                {e.cta}
-              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                {e.manageHref ? (
+                  <Link
+                    href={e.manageHref}
+                    className="inline-flex items-center rounded-[8px] border px-4 py-2.5 text-[14px] font-semibold transition hover:opacity-90"
+                    style={{ borderColor: BROWN, color: BROWN, ...serif }}
+                  >
+                    출석·이수 관리
+                  </Link>
+                ) : null}
+                <Link
+                  href={e.href}
+                  className="inline-flex items-center rounded-[8px] px-5 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90"
+                  style={{ background: BROWN, ...serif }}
+                >
+                  {e.cta}
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

@@ -53,7 +53,7 @@ function fromStored(c: StoredCourse): Classroom {
   };
 }
 
-export default function ClassroomSidebar({ courseId, isStaff = false }: { courseId: string; isStaff?: boolean }) {
+export default function ClassroomSidebar({ courseId, isStaff = false, isParent = false }: { courseId: string; isStaff?: boolean; isParent?: boolean }) {
   const seedRoom = useMemo(() => {
     const c = getCourse(courseId);
     return c ? fromSeed(c, isStaff) : null;
@@ -67,10 +67,27 @@ export default function ClassroomSidebar({ courseId, isStaff = false }: { course
   }, [courseId, seedRoom]);
 
   if (!room) return null;
+  // 학부모: 자녀 학습 현황 + 탐구활동 멘토링 두 가지만
+  if (isParent) return <ParentSidebar room={room} />;
   return (
     <CompletionProvider courseId={courseId}>
       <SidebarInner room={room} />
     </CompletionProvider>
+  );
+}
+
+function ParentSidebar({ room }: { room: Classroom }) {
+  return (
+    <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
+      <div className="flex items-center gap-3 px-5 py-6 text-white" style={{ background: heroGrad }}>
+        <h1 className="min-w-0 flex-1 text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
+      </div>
+      <div className="space-y-2 px-5 py-5">
+        <p className="mb-1 text-[12px]" style={{ color: SUB }}>학부모 메뉴</p>
+        <SideBox label="자녀 학습 현황" href="/me/children" />
+        <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} />
+      </div>
+    </aside>
   );
 }
 
