@@ -6,6 +6,7 @@ import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, Che
 import { getCourse, isModuleLocked, weekOpenLabel, weekPeriodLabel, type Course, type ActivityKind } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
+import CourseSummaryBox from "@/components/course/CourseSummaryBox";
 
 const BROWN = "#8C6E59";
 const NUM = "#B58F72";
@@ -103,9 +104,8 @@ function Sidebar({ room, isStaff = false, isParent = false }: { room: Classroom;
       </div>
 
       <div className="px-5 py-5">
-        {/* 강좌 소개 */}
-        <h2 className="text-[13px] font-semibold" style={{ ...serif, color: BROWN }}>강좌 소개</h2>
-        <p className="mt-2 text-[12.5px] leading-5" style={{ color: SUB }}>{room.summary}</p>
+        {/* 강좌 소개 (관리자·퍼실 편집 가능) */}
+        <CourseSummaryBox courseId={room.id} initialSummary={room.summary} isStaff={isStaff} />
 
         {/* 공지 · 토론 · 탐구활동 멘토링 */}
         <div className="mt-5 space-y-2">

@@ -501,6 +501,8 @@ export default function MentoringView({
             <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>과목별 세부능력 특기사항 작성 가이드</p>
+                <div className="flex shrink-0 items-center gap-2">
+                <span className="text-[11px]" style={{ color: MUTED }}>{byteLen(editingGuide ? guideDraft : guide)} byte</span>
                 {isStaff ? (
                   editingGuide ? (
                     <span className="flex shrink-0 gap-1.5">
@@ -513,6 +515,7 @@ export default function MentoringView({
                 ) : (
                   <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span>
                 )}
+                </div>
               </div>
               <div className="px-4 py-4">
                 {editingGuide ? (

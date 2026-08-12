@@ -182,6 +182,13 @@ model CourseGuide {
   updatedAt DateTime @updatedAt
 }
 
+/** 강좌 소개(사이드바) 편집 오버라이드 — 강좌별 1개, 관리자·퍼실 편집. */
+model CourseSummary {
+  courseId  String   @id
+  body      String
+  updatedAt DateTime @updatedAt
+}
+
 /** 수강신청 — 강좌별 학생 등록(파일이 아닌 DB에 보존). */
 model Enrollment {
   courseId  String

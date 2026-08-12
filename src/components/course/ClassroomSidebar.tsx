@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Lock, ClipboardCheck, Eye } from "lucide-react"
 import { getCourse, isModuleLocked, weekOpenLabel, type Course } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
+import CourseSummaryBox from "@/components/course/CourseSummaryBox";
 
 /**
  * 강의실(LearningHome) 좌측 사이드바를 다른 페이지(탐구활동 멘토링 등)에서도
@@ -94,8 +95,7 @@ function SidebarInner({ room, isStaff = false, isParent = false }: { room: Class
       </div>
 
       <div className="px-5 py-5">
-        <h2 className="text-[13px] font-semibold" style={{ ...serif, color: BROWN }}>강좌 소개</h2>
-        <p className="mt-2 text-[12.5px] leading-5" style={{ color: SUB }}>{room.summary}</p>
+        <CourseSummaryBox courseId={room.id} initialSummary={room.summary} isStaff={isStaff} />
 
         <div className="mt-5 space-y-2">
           <SideBox label="공지사항" href={`/course/${room.id}/notices`} />
