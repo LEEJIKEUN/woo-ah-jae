@@ -7,14 +7,17 @@ import { prisma } from "@/lib/prisma";
  * 함수 시그니처는 파일 버전과 동일하게 유지하여 사용처 변경이 없다.
  */
 
-/** 신청 인원 */
+/** 신청 인원 (활성 계정만 집계 — 탈퇴/삭제된 유령 카운트 방지) */
 export async function getApplied(courseId: string): Promise<number> {
-  return prisma.enrollment.count({ where: { courseId } });
+  return prisma.enrollment.count({ where: { courseId, user: { lifecycleStatus: "ACTIVE" } } });
 }
 
-/** 수강생 userId 목록(출석·이수 관리용) */
+/** 수강생 userId 목록(출석·이수 관리용, 활성 계정만) */
 export async function getEnrolledUserIds(courseId: string): Promise<string[]> {
-  const rows = await prisma.enrollment.findMany({ where: { courseId }, select: { userId: true } });
+  const rows = await prisma.enrollment.findMany({
+    where: { courseId, user: { lifecycleStatus: "ACTIVE" } },
+    select: { userId: true },
+  });
   return rows.map((r) => r.userId);
 }
 

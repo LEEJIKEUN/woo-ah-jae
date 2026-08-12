@@ -500,22 +500,11 @@ export default function MentoringView({
             {/* 과목별 세부능력 특기사항 작성 가이드 */}
             <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
-                <p className="text-[14px] font-bold" style={{ color: INK }}>과목별 세부능력 특기사항 작성 가이드</p>
-                <div className="flex shrink-0 items-center gap-2">
-                <span className="text-[11px]" style={{ color: MUTED }}>{byteLen(editingGuide ? guideDraft : guide)} byte</span>
-                {isStaff ? (
-                  editingGuide ? (
-                    <span className="flex shrink-0 gap-1.5">
-                      <button type="button" onClick={saveGuide} className="rounded-[6px] px-2.5 py-1 text-[12px] font-bold text-white" style={{ background: BROWN }}>저장</button>
-                      <button type="button" onClick={() => setEditingGuide(false)} className="rounded-[6px] border px-2.5 py-1 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
-                    </span>
-                  ) : (
-                    <button type="button" onClick={startEditGuide} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] border px-2.5 py-1 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
-                  )
-                ) : (
-                  <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span>
-                )}
-                </div>
+                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
+                  과목별 세부능력 특기사항 작성 가이드
+                  {!isStaff ? <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
+                </p>
+                <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{byteLen(editingGuide ? guideDraft : guide)} byte</span>
               </div>
               <div className="px-4 py-4">
                 {editingGuide ? (
@@ -523,6 +512,18 @@ export default function MentoringView({
                 ) : (
                   <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{guide}</p>
                 )}
+                {isStaff ? (
+                  <div className="mt-3 flex justify-end gap-1.5">
+                    {editingGuide ? (
+                      <>
+                        <button type="button" onClick={saveGuide} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
+                        <button type="button" onClick={() => setEditingGuide(false)} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={startEditGuide} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
 
