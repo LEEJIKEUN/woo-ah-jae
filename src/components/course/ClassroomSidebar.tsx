@@ -67,31 +67,14 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
   }, [courseId, seedRoom]);
 
   if (!room) return null;
-  // 학부모: 자녀 학습 현황 + 탐구활동 멘토링 두 가지만
-  if (isParent) return <ParentSidebar room={room} />;
   return (
     <CompletionProvider courseId={courseId}>
-      <SidebarInner room={room} isStaff={isStaff} />
+      <SidebarInner room={room} isStaff={isStaff} isParent={isParent} />
     </CompletionProvider>
   );
 }
 
-function ParentSidebar({ room }: { room: Classroom }) {
-  return (
-    <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
-      <div className="flex items-center gap-3 px-5 py-6 text-white" style={{ background: heroGrad }}>
-        <h1 className="whitespace-nowrap text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
-      </div>
-      <div className="space-y-2 px-5 py-5">
-        <p className="mb-1 text-[12px]" style={{ color: SUB }}>학부모 메뉴</p>
-        <SideBox label="자녀 학습 현황" href="/me/children" />
-        <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} />
-      </div>
-    </aside>
-  );
-}
-
-function SidebarInner({ room, isStaff = false }: { room: Classroom; isStaff?: boolean }) {
+function SidebarInner({ room, isStaff = false, isParent = false }: { room: Classroom; isStaff?: boolean; isParent?: boolean }) {
   const { done } = useCompletion();
   const completable = room.modules.flatMap((m) => m.completableIds);
   const pct = completable.length ? Math.round((completable.filter((id) => done.has(id)).length / completable.length) * 100) : 0;
@@ -102,7 +85,9 @@ function SidebarInner({ room, isStaff = false }: { room: Classroom; isStaff?: bo
       <div className="px-5 py-6 text-white" style={{ background: heroGrad }}>
         <h1 className="whitespace-nowrap text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
         <div className="mt-3 flex justify-end">
-          {isStaff ? (
+          {isParent ? (
+            <span className="rounded-[8px] bg-white/20 px-3 py-1.5 text-[12px] font-bold text-white">열람 전용</span>
+          ) : isStaff ? (
             <Link href={`/course/${room.id}/attendance`} className="flex items-center gap-1.5 rounded-[8px] bg-white/20 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-white/30">
               <ClipboardCheck size={14} /> 출석 체크
             </Link>
@@ -146,12 +131,19 @@ function SidebarInner({ room, isStaff = false }: { room: Classroom; isStaff?: bo
                     ) : (
                       m.lessons.map((l) => {
                         const d = done.has(l.id);
+                        const inner = (
+                          <>
+                            <span className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2" style={{ borderColor: BROWN, background: d ? BROWN : "transparent" }} />
+                            <span className="min-w-0">{l.title}</span>
+                          </>
+                        );
                         return (
                           <li key={l.id}>
-                            <Link href={`/course/${room.id}/a/${l.id}`} className="flex items-start gap-2 text-[12.5px] leading-5 hover:underline" style={{ color: SUB }}>
-                              <span className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2" style={{ borderColor: BROWN, background: d ? BROWN : "transparent" }} />
-                              <span className="min-w-0">{l.title}</span>
-                            </Link>
+                            {isParent ? (
+                              <span className="flex cursor-default items-start gap-2 text-[12.5px] leading-5" style={{ color: SUB }}>{inner}</span>
+                            ) : (
+                              <Link href={`/course/${room.id}/a/${l.id}`} className="flex items-start gap-2 text-[12.5px] leading-5 hover:underline" style={{ color: SUB }}>{inner}</Link>
+                            )}
                           </li>
                         );
                       })

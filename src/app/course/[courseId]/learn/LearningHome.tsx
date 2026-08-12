@@ -54,7 +54,7 @@ function KindIcon({ kind }: { kind: string }) {
   return <I size={18} style={{ color: BROWN }} />;
 }
 
-export default function LearningHome({ courseId, isStaff = false }: { courseId: string; isStaff?: boolean }) {
+export default function LearningHome({ courseId, isStaff = false, isParent = false }: { courseId: string; isStaff?: boolean; isParent?: boolean }) {
   const seedRoom = useMemo(() => {
     const c = getCourse(courseId);
     return c ? fromSeed(c, isStaff) : null;
@@ -74,15 +74,15 @@ export default function LearningHome({ courseId, isStaff = false }: { courseId: 
   return (
     <CompletionProvider courseId={courseId}>
       <div className="flex w-full flex-1 items-start" style={{ background: "#fff" }}>
-        <Sidebar room={room} isStaff={isStaff} />
-        <Content room={room} />
+        <Sidebar room={room} isStaff={isStaff} isParent={isParent} />
+        <Content room={room} isParent={isParent} />
       </div>
     </CompletionProvider>
   );
 }
 
 /* ── 왼쪽 사이드바 ── */
-function Sidebar({ room, isStaff = false }: { room: Classroom; isStaff?: boolean }) {
+function Sidebar({ room, isStaff = false, isParent = false }: { room: Classroom; isStaff?: boolean; isParent?: boolean }) {
   const { done } = useCompletion();
   const completable = room.modules.flatMap((m) => m.lessons).filter((l) => l.completable);
   const pct = completable.length ? Math.round((completable.filter((l) => done.has(l.id)).length / completable.length) * 100) : 0;
@@ -94,7 +94,9 @@ function Sidebar({ room, isStaff = false }: { room: Classroom; isStaff?: boolean
       <div className="px-5 py-6 text-white" style={{ background: heroGrad }}>
         <h1 className="whitespace-nowrap text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
         <div className="mt-3 flex justify-end">
-          {isStaff ? (
+          {isParent ? (
+            <span className="rounded-[8px] bg-white/20 px-3 py-1.5 text-[12px] font-bold text-white">열람 전용</span>
+          ) : isStaff ? (
             <Link href={`/course/${room.id}/attendance`} className="flex items-center gap-1.5 rounded-[8px] bg-white/20 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-white/30">
               <ClipboardCheck size={14} /> 출석 체크
             </Link>
@@ -141,12 +143,19 @@ function Sidebar({ room, isStaff = false }: { room: Classroom; isStaff?: boolean
                     ) : (
                       m.lessons.map((l) => {
                         const d = done.has(l.id);
+                        const inner = (
+                          <>
+                            <span className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2" style={{ borderColor: BROWN, background: d ? BROWN : "transparent" }} />
+                            <span className="min-w-0">{l.title}</span>
+                          </>
+                        );
                         return (
                           <li key={l.id}>
-                            <Link href={`/course/${room.id}/a/${l.id}`} className="flex items-start gap-2 text-[12.5px] leading-5 hover:underline" style={{ color: SUB }}>
-                              <span className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-full border-2" style={{ borderColor: BROWN, background: d ? BROWN : "transparent" }} />
-                              <span className="min-w-0">{l.title}</span>
-                            </Link>
+                            {isParent ? (
+                              <span className="flex cursor-default items-start gap-2 text-[12.5px] leading-5" style={{ color: SUB }}>{inner}</span>
+                            ) : (
+                              <Link href={`/course/${room.id}/a/${l.id}`} className="flex items-start gap-2 text-[12.5px] leading-5 hover:underline" style={{ color: SUB }}>{inner}</Link>
+                            )}
                           </li>
                         );
                       })
@@ -186,7 +195,7 @@ function SideBox({ label, href, icon }: { label: string; href?: string; icon?: R
 }
 
 /* ── 오른쪽 콘텐츠 ── */
-function Content({ room }: { room: Classroom }) {
+function Content({ room, isParent = false }: { room: Classroom; isParent?: boolean }) {
   const { done } = useCompletion();
 
   return (
@@ -210,7 +219,7 @@ function Content({ room }: { room: Classroom }) {
                 ) : null}
               </div>
               <div className="mt-2">
-                {m.lessons.length === 0 ? <p className="py-3 pl-9 text-[14px]" style={{ color: SUB }}>등록된 강의가 없습니다.</p> : m.lessons.map((l) => <LessonRow key={l.id} courseId={room.id} lesson={l} isDone={done.has(l.id)} locked={m.locked} />)}
+                {m.lessons.length === 0 ? <p className="py-3 pl-9 text-[14px]" style={{ color: SUB }}>등록된 강의가 없습니다.</p> : m.lessons.map((l) => <LessonRow key={l.id} courseId={room.id} lesson={l} isDone={done.has(l.id)} locked={m.locked} isParent={isParent} />)}
               </div>
             </div>
           ))}
@@ -220,7 +229,7 @@ function Content({ room }: { room: Classroom }) {
   );
 }
 
-function LessonRow({ courseId, lesson, isDone, locked }: { courseId: string; lesson: ClassLesson; isDone: boolean; locked: boolean }) {
+function LessonRow({ courseId, lesson, isDone, locked, isParent = false }: { courseId: string; lesson: ClassLesson; isDone: boolean; locked: boolean; isParent?: boolean }) {
   const inner = (
     <>
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px]" style={{ background: PANEL }}>
@@ -247,6 +256,14 @@ function LessonRow({ courseId, lesson, isDone, locked }: { courseId: string; les
   if (locked) {
     return (
       <div className="flex cursor-not-allowed items-center gap-4 border-b py-4" style={{ borderColor: "#F0EBE0", opacity: 0.55 }}>
+        {inner}
+      </div>
+    );
+  }
+  if (isParent) {
+    // 학부모 뷰어: 레슨 열람(이동) 차단
+    return (
+      <div className="flex cursor-default items-center gap-4 border-b py-4" style={{ borderColor: "#F0EBE0" }}>
         {inner}
       </div>
     );

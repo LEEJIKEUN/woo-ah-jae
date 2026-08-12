@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCourse, findActivity, isModuleLocked, weekOpenLabel } from "@/lib/course/content";
 import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
@@ -24,6 +24,8 @@ export default async function ActivityPage({
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/a/${activityId}`);
   const isStaff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 잠금 무시 + 콘텐츠 편집
   const isParent = session.role === "PARENT";
+  // 학부모는 개별 레슨 열람 차단(강의실 홈으로) — 커리큘럼은 뷰어로만 확인
+  if (isParent) redirect(`/course/${courseId}/learn`);
   const course = getCourse(courseId);
 
   // 시드 강좌 → 기존 학습 뷰 (홈 브라운 톤)

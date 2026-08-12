@@ -49,7 +49,7 @@ export default async function MyCoursesPage() {
         }
       }
       if (anyChild) {
-        entries.push({ id: c.id, title: c.title, subtitle: c.subtitle, note: "자녀 수강 중", href: `/course/${c.id}/mentoring`, cta: "강의실 입장" });
+        entries.push({ id: c.id, title: c.title, subtitle: c.subtitle, note: "자녀 수강 중", href: `/course/${c.id}/learn`, cta: "강의실 입장" });
       }
     }
   } else {

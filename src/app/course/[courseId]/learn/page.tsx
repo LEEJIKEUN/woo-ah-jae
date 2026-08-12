@@ -11,5 +11,5 @@ export async function generateMetadata({ params }: { params: Promise<{ courseId:
 export default async function LearnPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/learn`);
-  return <LearningHome courseId={courseId} isStaff={isStaffRole(session.role)} />;
+  return <LearningHome courseId={courseId} isStaff={isStaffRole(session.role)} isParent={session.role === "PARENT"} />;
 }
