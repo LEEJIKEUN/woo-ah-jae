@@ -98,9 +98,25 @@ function session(
   scheduleLabel: string,
   title: string,
   body: string[],
-  kind: ActivityKind = "page"
+  kind: ActivityKind = "page",
+  materials?: Material[]
 ): Activity {
-  return { id, kind, title, scheduleLabel, durationMin: 90, completion: "auto", body };
+  return { id, kind, title, scheduleLabel, durationMin: 90, completion: "auto", body, materials };
+}
+
+// 강의자료(public/materials/ai-linalg 아래 정적 파일) 헬퍼
+const AI_MAT = "/materials/ai-linalg";
+function note(n: string, name: string, size: string): Material {
+  return { id: `note-${n}`, name: `${name} · 강의노트(PDF)`, type: "pdf", group: "강의노트", href: `${AI_MAT}/notes/ch${n}.pdf`, sizeLabel: size };
+}
+function lab(n: string, name: string, size: string): Material {
+  return { id: `lab-${n}`, name: `${name} · 실습지(PDF)`, type: "pdf", group: "실습자료", href: `${AI_MAT}/labs/lab${n}.pdf`, sizeLabel: size };
+}
+function colab(file: string, name: string, size: string): Material {
+  return { id: `colab-${file}`, name: `${name} · Colab 노트북(.ipynb)`, type: "link", group: "실습자료", href: `${AI_MAT}/labs/${file}.ipynb`, sizeLabel: size };
+}
+function xlsx(file: string, name: string, size: string): Material {
+  return { id: `xlsx-${file}`, name, type: "sheet", group: "프로젝트 양식", href: `${AI_MAT}/project/${file}.xlsx`, sizeLabel: size };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -181,11 +197,11 @@ const linearAlgebraForAI: Course = {
               "과정 안내와 평가 방법 · 구글 계정과 Colab 접속 확인",
               "스칼라·벡터·행렬의 정의와 표기 · 행렬의 덧셈과 곱셈",
               "곱셈은 교환되지 않는다 (AB ≠ BA)",
-            ]),
+            ], "page", [note("01", "선형대수의 기초", "1.1MB")]),
             session("w1-s2", "8.19.(수) 19:00", "실습 1. NumPy 기초", [
               "Colab 사용법 · np.array로 벡터와 행렬 만들기 · shape와 전치(.T)",
               "행렬 곱(@)과 크기 규칙 확인 · 실습 과제 3문항",
-            ], "resource"),
+            ], "resource", [lab("1", "NumPy 기초", "778KB"), colab("colab-lab1", "실습1 NumPy 기초", "9KB")]),
           ],
         },
       ],
@@ -202,11 +218,11 @@ const linearAlgebraForAI: Course = {
             session("w2-s1", "8.24.(월) 19:00", "2장 선형방정식과 선형시스템", [
               "선형방정식의 정의 · 연립방정식을 Ax = b 로 옮기기",
               "역행렬로 해 구하기 · 역행렬이 없을 때(해가 없거나 무수히 많은 경우)",
-            ]),
+            ], "page", [note("02", "선형방정식과 선형시스템", "1016KB")]),
             session("w2-s2", "8.26.(수) 19:00", "실습 2. 역행렬과 연립방정식", [
               "문제를 행렬 A와 b로 옮기기 · 항등행렬과 np.linalg.inv",
               "np.linalg.solve로 해 구하기 · 행렬식과 특이행렬 판정 · 실습 과제 3문항",
-            ], "resource"),
+            ], "resource", [lab("2", "역행렬과 연립방정식", "672KB"), colab("colab-lab2", "실습2 역행렬과 연립방정식", "9KB")]),
           ],
         },
       ],
@@ -223,11 +239,11 @@ const linearAlgebraForAI: Course = {
             session("w3-s1", "8.31.(월) 19:00", "3장 선형결합과 행렬곱의 네 관점", [
               "선형결합(Linear Combination)의 뜻 · Span의 기하적 의미",
               "행렬곱을 보는 네 가지 관점 — 내적 · 열의 결합 · 행의 결합 · 외적의 합",
-            ]),
+            ], "page", [note("03", "선형결합과 행렬곱의 네 관점", "1.1MB")]),
             session("w3-s2", "9.2.(수) 19:00", "4장 선형독립과 선형종속", [
               "선형독립과 선형종속의 정의 · 그림으로 이해하기",
               "해가 유일한가 — 독립성과 해의 개수 사이의 관계",
-            ]),
+            ], "page", [note("04", "선형독립과 선형종속", "886KB")]),
           ],
         },
       ],
@@ -244,11 +260,11 @@ const linearAlgebraForAI: Course = {
             session("w4-s1", "9.7.(월) 19:00", "5장 부분공간·기저·차원·랭크", [
               "부분공간(Subspace)의 뜻 · 기저와 차원 · 열공간과 랭크",
               "랭크로 해의 존재를 판정하기",
-            ]),
+            ], "page", [note("05", "부분공간·기저·차원·랭크", "845KB")]),
             session("w4-s2", "9.9.(수) 19:00", "6장 선형변환과 신경망", [
               "함수로서의 변환 · 선형변환의 조건 · 표준행렬 구하기",
               "신경망의 한 층이 왜 행렬 곱인가 — 가중치 행렬과 편향",
-            ]),
+            ], "page", [note("06", "선형변환과 신경망", "879KB")]),
           ],
         },
       ],
@@ -265,11 +281,11 @@ const linearAlgebraForAI: Course = {
             session("w5-s1", "9.14.(월) 19:00", "7장 전사함수와 일대일함수", [
               "전사(ONTO)와 일대일(ONE-TO-ONE)의 정의 · 행렬로 판정하기",
               "신경망에서 차원이 늘고 주는 것의 의미",
-            ]),
+            ], "page", [note("07", "전사함수와 일대일함수", "889KB")]),
             session("w5-s2", "9.16.(수) 19:00", "8장 과결정시스템과 내적·노름", [
               "식이 미지수보다 많을 때 — 해가 없는 상황 · 내적(Inner Product)",
               "노름과 거리 · 각도와 직교성",
-            ]),
+            ], "page", [note("08", "과결정시스템과 내적·노름", "963KB")]),
           ],
         },
       ],
@@ -286,11 +302,11 @@ const linearAlgebraForAI: Course = {
             session("w6-s1", "9.21.(월) 19:00", "9장 최소제곱법과 정규방정식", [
               "어떤 답이 더 좋은가 — 오차를 재는 기준 · 수선의 발 내리기",
               "정규방정식 AᵀAx̂ = Aᵀb 의 유도와 의미",
-            ]),
+            ], "page", [note("09", "최소제곱법과 정규방정식", "992KB")]),
             session("w6-s2", "9.23.(수) 19:00", "실습 3. 최소제곱법", [
               "해가 없다는 것을 코드로 확인하기 · 여러 후보 답 비교하기",
               "정규방정식으로 풀기 · 잔차와 직교성으로 최소임을 검증하기 · 실습 과제 3문항",
-            ], "resource"),
+            ], "resource", [lab("3", "최소제곱법", "872KB"), colab("colab-lab3", "실습3 최소제곱법", "12KB"), colab("colab-linreg3", "선형회귀 3변수(응용)", "16KB")]),
           ],
         },
       ],
@@ -313,6 +329,11 @@ const linearAlgebraForAI: Course = {
               body: [
                 "9.24.~10.25. 탐구 프로젝트 기간입니다. 탐구 주제를 확정하고 데이터를 수집한 뒤, 탐구 보고서를 작성하고 발표 영상을 제작하세요.",
                 "탐구 보고서와 발표 영상을 10.26.(월) 12:00까지 제출하세요.",
+                "아래 데이터 양식과 샘플을 참고해 데이터를 정리하세요.",
+              ],
+              materials: [
+                xlsx("project-data-template", "프로젝트 데이터 양식", "7KB"),
+                xlsx("project-data-sample", "프로젝트 데이터 양식(작성 샘플)", "12KB"),
               ],
             },
           ],
@@ -331,11 +352,11 @@ const linearAlgebraForAI: Course = {
             session("w7-s1", "10.26.(월) 19:00", "10장 직교집합과 정사영 · 11장 그람슈미트와 QR분해", [
               "직교집합과 정규직교집합 · 정사영(Orthogonal Projection) · 정사영도 선형변환이다",
               "그람–슈미트 과정 · QR 분해와 최소제곱법에의 활용",
-            ]),
+            ], "page", [note("10", "직교집합과 정사영", "769KB"), note("11", "그람슈미트와 QR분해", "879KB")]),
             session("w7-s2", "10.28.(수) 19:00", "12장 고유벡터와 고유값 · 13장 대각화와 고유값분해", [
               "고유벡터의 정의와 기하적 의미 · 특성방정식으로 고유값 구하기",
               "대각화 A = VDV⁻¹ · 변환을 3단계로 나누어 보기 · 거듭제곱 계산에의 활용",
-            ]),
+            ], "page", [note("12", "고유벡터와 고유값", "941KB"), note("13", "대각화와 고유값분해", "1013KB")]),
           ],
         },
       ],
@@ -352,11 +373,11 @@ const linearAlgebraForAI: Course = {
             session("w8-s1", "11.2.(월) 19:00", "14장 특이값 분해", [
               "A = UΣVᵀ 의 구조와 크기 · U, Σ, V 각각의 정체 · SVD는 외적의 합이다",
               "AAᵀ 와 AᵀA 로 SVD 구하는 법 · 고유값분해와 무엇이 다른가",
-            ]),
+            ], "page", [note("14", "특이값 분해", "1.0MB")]),
             session("w8-s2", "11.4.(수) 19:00", "15장 저계수 근사와 차원 축소 · 전 과정 마무리", [
               "앞의 r개만 남기기 — 저계수 근사 · 얼마나 잃고 얼마나 아끼는가 · 차원 축소와 PCA",
               "서로의 발표 영상 보고 상호평가 · 1장부터 15장까지 전 과정 회고",
-            ]),
+            ], "page", [note("15", "저계수 근사와 차원 축소", "800KB")]),
           ],
         },
       ],
@@ -411,8 +432,12 @@ export function weekActivationMs(weekStart: string): number {
   return Date.UTC(y, m - 1, d) - KST_OFFSET_MS;
 }
 
-/** 아직 열리지 않은 주차인지. weekStart 없으면 상시 열림(오리엔테이션 등) */
-export function isModuleLocked(module: Module, nowMs: number = Date.now()): boolean {
+/**
+ * 아직 열리지 않은 주차인지. weekStart 없으면 상시 열림(오리엔테이션 등).
+ * 스태프(관리자·퍼실리테이터)는 잠금을 무시하고 항상 열람·수정할 수 있다(isStaff=true).
+ */
+export function isModuleLocked(module: Module, nowMs: number = Date.now(), isStaff = false): boolean {
+  if (isStaff) return false;
   if (!module.weekStart) return false;
   return nowMs < weekActivationMs(module.weekStart);
 }

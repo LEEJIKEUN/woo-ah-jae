@@ -5,7 +5,7 @@ import { useState } from "react";
 type MeResponse = {
   id: string;
   email: string;
-  role: "STUDENT" | "ADMIN";
+  role: "STUDENT" | "FACILITATOR" | "ADMIN";
   createdAt: string;
   studentProfile: {
     realName: string;

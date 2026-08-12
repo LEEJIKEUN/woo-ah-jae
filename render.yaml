@@ -42,6 +42,8 @@ services:
         sync: false
       - key: SUPER_ADMIN_EMAIL
         value: admin@wooahjae.local
+      - key: FACILITATOR_SIGNUP_CODE
+        sync: false
       - key: ALLOW_DESTRUCTIVE_ADMIN_SCRIPT
         value: "false"
       - key: ALLOW_MEMBER_WITHDRAW_IN_PROD

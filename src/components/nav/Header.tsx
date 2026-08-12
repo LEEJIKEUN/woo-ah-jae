@@ -7,7 +7,7 @@ import Logo from "@/components/nav/Logo";
 
 type HeaderSession = {
   userId: string;
-  role: "ADMIN" | "STUDENT";
+  role: "ADMIN" | "FACILITATOR" | "STUDENT";
   email: string;
 };
 

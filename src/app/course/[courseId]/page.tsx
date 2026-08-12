@@ -1,5 +1,5 @@
 import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
-import { canEnterClassroom, getSession } from "@/lib/course/access";
+import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
 import CourseIntro from "./CourseIntro";
 import type { IntroData } from "./CourseIntro";
 
@@ -12,6 +12,12 @@ export async function generateMetadata({ params }: { params: Promise<{ courseId:
 export default async function CoursePage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   const course = getCourse(courseId);
+
+  // 로그인 여부 + 수강신청 완료(또는 스태프) 여부 — seed 잠금 계산 전에 먼저 확인
+  const session = await getSession();
+  const authed = !!session;
+  const isStaff = !!session && isStaffRole(session.role);
+  const enrolled = await canEnterClassroom(courseId, session);
 
   let seed: IntroData | null = null;
   if (course) {
@@ -31,7 +37,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
       instructor: { name: course.instructor.name, initials: course.instructor.initials },
       modules: course.modules.map((m) => ({
         label: m.label,
-        locked: isModuleLocked(m),
+        locked: isModuleLocked(m, Date.now(), isStaff),
         period: m.weekStart ? weekPeriodLabel(m.weekStart, m.weekEnd) : undefined,
         openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
         sessions: m.blocks
@@ -41,11 +47,6 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
       firstHref: activities[0] ? courseActivityHref(course.id, activities[0].id) : undefined,
     };
   }
-
-  // 로그인 여부 + 수강신청 완료(또는 관리자) 여부
-  const session = await getSession();
-  const authed = !!session;
-  const enrolled = await canEnterClassroom(courseId, session);
 
   // seed 가 없으면(커스텀 코스) CourseIntro 가 localStorage 에서 해석
   return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} />;

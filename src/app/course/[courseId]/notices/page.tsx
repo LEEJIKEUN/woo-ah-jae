@@ -1,4 +1,4 @@
-import { requireClassroomAccess } from "@/lib/course/access";
+import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import NoticesView from "./NoticesView";
 
 export async function generateMetadata() {
@@ -7,6 +7,6 @@ export async function generateMetadata() {
 
 export default async function NoticesPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  await requireClassroomAccess(courseId, `/course/${courseId}/notices`);
-  return <NoticesView courseId={courseId} />;
+  const session = await requireClassroomAccess(courseId, `/course/${courseId}/notices`);
+  return <NoticesView courseId={courseId} isStaff={isStaffRole(session.role)} />;
 }

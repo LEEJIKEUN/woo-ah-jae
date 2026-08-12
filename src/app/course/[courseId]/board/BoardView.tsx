@@ -29,7 +29,7 @@ const SEED_POSTS: Post[] = [
   { id: "p3", title: "선형변환에서 표준행렬 구하는 순서가 헷갈려요", body: "기저 벡터의 상을 열로 세우면 된다고 하셨는데, 예시 하나만 더 볼 수 있을까요?", author: "이서준", date: "2026.08.20", likes: 3, comments: 2, ts: 1755651600000 },
 ];
 
-export default function BoardView({ courseId }: { courseId: string }) {
+export default function BoardView({ courseId, isStaff = false }: { courseId: string; isStaff?: boolean }) {
   const [posts, setPosts] = useState<Post[]>(SEED_POSTS);
   const [sort, setSort] = useState<SortKey>("recent");
   const [query, setQuery] = useState("");
@@ -85,7 +85,7 @@ export default function BoardView({ courseId }: { courseId: string }) {
 
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
-      <ClassroomSidebar courseId={courseId} />
+      <ClassroomSidebar courseId={courseId} isStaff={isStaff} />
 
       <main className="min-w-0 flex-1 px-6 py-10 lg:px-10">
         <div className="mx-auto max-w-[900px]">

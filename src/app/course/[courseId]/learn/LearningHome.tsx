@@ -21,7 +21,7 @@ type ClassLesson = { id: string; title: string; kind: string; durationMin?: numb
 type ClassModule = { label: string; locked: boolean; periodLabel?: string; openLabel?: string; lessons: ClassLesson[] };
 type Classroom = { id: string; title: string; programme: string; instructor: string; summary: string; modules: ClassModule[] };
 
-function fromSeed(c: Course): Classroom {
+function fromSeed(c: Course, isStaff = false): Classroom {
   return {
     id: c.id,
     title: c.title,
@@ -30,7 +30,7 @@ function fromSeed(c: Course): Classroom {
     summary: c.summary,
     modules: c.modules.map((m) => ({
       label: m.label,
-      locked: isModuleLocked(m),
+      locked: isModuleLocked(m, Date.now(), isStaff),
       periodLabel: m.weekStart ? weekPeriodLabel(m.weekStart, m.weekEnd) : undefined,
       openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
       lessons: m.blocks.flatMap((b) => b.activities).map((a) => ({ id: a.id, title: a.title, kind: a.kind as ActivityKind, durationMin: a.durationMin, scheduleLabel: a.scheduleLabel, completable: a.completion !== "none" })),
@@ -54,11 +54,11 @@ function KindIcon({ kind }: { kind: string }) {
   return <I size={18} style={{ color: BROWN }} />;
 }
 
-export default function LearningHome({ courseId }: { courseId: string }) {
+export default function LearningHome({ courseId, isStaff = false }: { courseId: string; isStaff?: boolean }) {
   const seedRoom = useMemo(() => {
     const c = getCourse(courseId);
-    return c ? fromSeed(c) : null;
-  }, [courseId]);
+    return c ? fromSeed(c, isStaff) : null;
+  }, [courseId, isStaff]);
   const [room, setRoom] = useState<Classroom | null>(seedRoom);
   const [ready, setReady] = useState(false);
   useEffect(() => {

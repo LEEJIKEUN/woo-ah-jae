@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCourse, findActivity, isModuleLocked, weekOpenLabel } from "@/lib/course/content";
-import { requireClassroomAccess } from "@/lib/course/access";
+import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import BcCourseShell from "@/components/course/BcCourseShell";
 import LessonBlocks from "@/components/course/LessonBlocks";
 import ActivityView from "./ActivityView";
@@ -21,7 +21,7 @@ export default async function ActivityPage({
 }) {
   const { courseId, activityId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/a/${activityId}`);
-  const isAdmin = session.role === "ADMIN";
+  const isStaff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 잠금 무시 + 콘텐츠 편집
   const course = getCourse(courseId);
 
   // 시드 강좌 → 기존 학습 뷰 (홈 브라운 톤)
@@ -29,8 +29,8 @@ export default async function ActivityPage({
     const found = findActivity(course, activityId);
     if (!found) notFound();
 
-    // 아직 열리지 않은 주차는 접근 차단
-    if (isModuleLocked(found.module)) {
+    // 아직 열리지 않은 주차는 접근 차단 (스태프는 잠금 무시)
+    if (isModuleLocked(found.module, Date.now(), isStaff)) {
       const openLabel = found.module.weekStart ? weekOpenLabel(found.module.weekStart) : "";
       return (
         <div className="mx-auto max-w-[560px] px-6 py-40 text-center">
@@ -53,9 +53,9 @@ export default async function ActivityPage({
     }
 
     return (
-      <BcCourseShell course={course} activeModuleId={found.module.id}>
+      <BcCourseShell course={course} activeModuleId={found.module.id} isStaff={isStaff}>
         <ActivityView course={course} module={found.module} activity={found.activity} />
-        <LessonBlocks courseId={courseId} activityId={activityId} isAdmin={isAdmin} />
+        <LessonBlocks courseId={courseId} activityId={activityId} isAdmin={isStaff} />
       </BcCourseShell>
     );
   }

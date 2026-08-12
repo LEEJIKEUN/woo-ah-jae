@@ -8,7 +8,7 @@ type MemberItem = {
   id: string;
   email: string;
   realName: string | null;
-  role: "STUDENT" | "ADMIN";
+  role: "STUDENT" | "FACILITATOR" | "ADMIN";
   schoolName: string | null;
   grade: string | null;
   residenceCountry: string | null;

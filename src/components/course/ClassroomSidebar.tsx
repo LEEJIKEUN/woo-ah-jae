@@ -22,7 +22,7 @@ type ClassLesson = { id: string; title: string };
 type ClassModule = { label: string; locked: boolean; openLabel?: string; completableIds: string[]; lessons: ClassLesson[] };
 type Classroom = { id: string; title: string; summary: string; modules: ClassModule[] };
 
-function fromSeed(c: Course): Classroom {
+function fromSeed(c: Course, isStaff = false): Classroom {
   return {
     id: c.id,
     title: c.title,
@@ -31,7 +31,7 @@ function fromSeed(c: Course): Classroom {
       const acts = m.blocks.flatMap((b) => b.activities);
       return {
         label: m.label,
-        locked: isModuleLocked(m),
+        locked: isModuleLocked(m, Date.now(), isStaff),
         openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
         completableIds: acts.filter((a) => a.completion !== "none").map((a) => a.id),
         lessons: acts.map((a) => ({ id: a.id, title: a.title })),
@@ -53,11 +53,11 @@ function fromStored(c: StoredCourse): Classroom {
   };
 }
 
-export default function ClassroomSidebar({ courseId }: { courseId: string }) {
+export default function ClassroomSidebar({ courseId, isStaff = false }: { courseId: string; isStaff?: boolean }) {
   const seedRoom = useMemo(() => {
     const c = getCourse(courseId);
-    return c ? fromSeed(c) : null;
-  }, [courseId]);
+    return c ? fromSeed(c, isStaff) : null;
+  }, [courseId, isStaff]);
   const [room, setRoom] = useState<Classroom | null>(seedRoom);
   useEffect(() => {
     if (!seedRoom) {

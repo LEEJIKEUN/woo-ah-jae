@@ -13,10 +13,12 @@ export default function BcSidebar({
   course,
   activeModuleId,
   onSelectModule,
+  isStaff = false,
 }: {
   course: Course;
   activeModuleId: string;
   onSelectModule?: (id: string) => void;
+  isStaff?: boolean;
 }) {
   return (
     <aside className="hidden w-[320px] shrink-0 border-r bg-white lg:block" style={{ borderColor: BC.borderSide }}>
@@ -70,6 +72,7 @@ export default function BcSidebar({
               module={m}
               active={m.id === activeModuleId}
               onSelectModule={onSelectModule}
+              isStaff={isStaff}
             />
           ))}
         </div>
@@ -117,15 +120,17 @@ function AccordionItem({
   module,
   active,
   onSelectModule,
+  isStaff = false,
 }: {
   course: Course;
   module: Module;
   active: boolean;
   onSelectModule?: (id: string) => void;
+  isStaff?: boolean;
 }) {
   const { isDone } = useCompletion();
   const activities = module.blocks.flatMap((b) => b.activities);
-  const locked = isModuleLocked(module);
+  const locked = isModuleLocked(module, Date.now(), isStaff);
 
   const headerStyle = active
     ? { borderColor: BC.accent, color: BC.accentInk }

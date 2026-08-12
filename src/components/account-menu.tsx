@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Props = {
-  role: "ADMIN" | "STUDENT";
+  role: "ADMIN" | "FACILITATOR" | "STUDENT";
   email: string;
 };
 

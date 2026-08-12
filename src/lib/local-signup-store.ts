@@ -30,6 +30,14 @@ const persistentStoreDir =
     : path.join(process.cwd(), ".local_data"));
 const resolvedStorePath = path.join(persistentStoreDir, "signup_queue.json");
 
+// 프로세스 내 뮤텍스 — 동시 read-modify-write(승인/반려 경합) 방지
+let lock: Promise<unknown> = Promise.resolve();
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = lock.then(fn, fn);
+  lock = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 async function ensureStore() {
   await fs.mkdir(persistentStoreDir, { recursive: true });
   try {
@@ -67,20 +75,22 @@ export async function createLocalSignup(
     | "rejectReasonText"
   >
 ) {
-  const items = await readAll();
-  const item: LocalSignupItem = {
-    id: `local_${crypto.randomUUID()}`,
-    status: VerificationStatus.PENDING_REVIEW,
-    submittedAt: new Date().toISOString(),
-    reviewedAt: null,
-    reviewedBy: null,
-    rejectReasonCode: null,
-    rejectReasonText: null,
-    ...data,
-  };
-  items.unshift(item);
-  await writeAll(items);
-  return item;
+  return withLock(async () => {
+    const items = await readAll();
+    const item: LocalSignupItem = {
+      id: `local_${crypto.randomUUID()}`,
+      status: VerificationStatus.PENDING_REVIEW,
+      submittedAt: new Date().toISOString(),
+      reviewedAt: null,
+      reviewedBy: null,
+      rejectReasonCode: null,
+      rejectReasonText: null,
+      ...data,
+    };
+    items.unshift(item);
+    await writeAll(items);
+    return item;
+  });
 }
 
 export async function listLocalSignups() {
@@ -98,12 +108,14 @@ export async function findLocalSignupByEmail(email: string) {
 }
 
 export async function setLocalSignupPasswordHash(id: string, passwordHash: string) {
-  const items = await readAll();
-  const idx = items.findIndex((x) => x.id === id);
-  if (idx < 0) return null;
-  items[idx] = { ...items[idx], passwordHash };
-  await writeAll(items);
-  return items[idx];
+  return withLock(async () => {
+    const items = await readAll();
+    const idx = items.findIndex((x) => x.id === id);
+    if (idx < 0) return null;
+    items[idx] = { ...items[idx], passwordHash };
+    await writeAll(items);
+    return items[idx];
+  });
 }
 
 export async function decideLocalSignup(
@@ -113,35 +125,39 @@ export async function decideLocalSignup(
   rejectReasonCode?: string,
   rejectReasonText?: string
 ) {
-  const items = await readAll();
-  const idx = items.findIndex((x) => x.id === id);
-  if (idx < 0) return null;
+  return withLock(async () => {
+    const items = await readAll();
+    const idx = items.findIndex((x) => x.id === id);
+    if (idx < 0) return null;
 
-  const current = items[idx];
-  if (current.status !== VerificationStatus.PENDING_REVIEW) {
-    return { error: "Submission already processed" as const };
-  }
+    const current = items[idx];
+    if (current.status !== VerificationStatus.PENDING_REVIEW) {
+      return { error: "Submission already processed" as const };
+    }
 
-  items[idx] = {
-    ...current,
-    status: decision === "APPROVE" ? VerificationStatus.VERIFIED : VerificationStatus.REJECTED,
-    reviewedAt: new Date().toISOString(),
-    reviewedBy: reviewerId,
-    rejectReasonCode: decision === "REJECT" ? rejectReasonCode ?? "MANUAL_REJECT" : null,
-    rejectReasonText: decision === "REJECT" ? rejectReasonText ?? "관리자 수동 반려" : null,
-  };
+    items[idx] = {
+      ...current,
+      status: decision === "APPROVE" ? VerificationStatus.VERIFIED : VerificationStatus.REJECTED,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: reviewerId,
+      rejectReasonCode: decision === "REJECT" ? rejectReasonCode ?? "MANUAL_REJECT" : null,
+      rejectReasonText: decision === "REJECT" ? rejectReasonText ?? "관리자 수동 반려" : null,
+    };
 
-  await writeAll(items);
-  return { item: items[idx] };
+    await writeAll(items);
+    return { item: items[idx] };
+  });
 }
 
 export async function deleteLocalSignup(id: string) {
-  const items = await readAll();
-  const idx = items.findIndex((x) => x.id === id);
-  if (idx < 0) return false;
-  items.splice(idx, 1);
-  await writeAll(items);
-  return true;
+  return withLock(async () => {
+    const items = await readAll();
+    const idx = items.findIndex((x) => x.id === id);
+    if (idx < 0) return false;
+    items.splice(idx, 1);
+    await writeAll(items);
+    return true;
+  });
 }
 
 export function isDbConnectionError(error: unknown) {

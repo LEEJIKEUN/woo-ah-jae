@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
+import { isStaffRole } from "@/lib/course/access";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const capacity = capacityForCourse(courseId);
   const applied = await getApplied(courseId);
   const s = await sessionFromReq(request);
-  const enrolled = s ? s.role === "ADMIN" || (await isUserEnrolled(courseId, s.userId)) : false;
+  const enrolled = s ? isStaffRole(s.role) || (await isUserEnrolled(courseId, s.userId)) : false;
   return NextResponse.json({ applied, capacity, full: applied >= capacity, enrolled });
 }
 

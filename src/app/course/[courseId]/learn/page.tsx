@@ -1,5 +1,5 @@
 import { getCourse } from "@/lib/course/content";
-import { requireClassroomAccess } from "@/lib/course/access";
+import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import LearningHome from "./LearningHome";
 
 export async function generateMetadata({ params }: { params: Promise<{ courseId: string }> }) {
@@ -10,6 +10,6 @@ export async function generateMetadata({ params }: { params: Promise<{ courseId:
 
 export default async function LearnPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  await requireClassroomAccess(courseId, `/course/${courseId}/learn`);
-  return <LearningHome courseId={courseId} />;
+  const session = await requireClassroomAccess(courseId, `/course/${courseId}/learn`);
+  return <LearningHome courseId={courseId} isStaff={isStaffRole(session.role)} />;
 }

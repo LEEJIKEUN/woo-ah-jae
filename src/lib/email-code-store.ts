@@ -29,6 +29,14 @@ const persistentStoreDir =
     : path.join(process.cwd(), ".local_data"));
 const resolvedStorePath = path.join(persistentStoreDir, "email_codes.json");
 
+// 프로세스 내 뮤텍스 — read-modify-write 경합(특히 시도횟수 카운터) 방지
+let lock: Promise<unknown> = Promise.resolve();
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = lock.then(fn, fn);
+  lock = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -75,35 +83,37 @@ function prune(items: EmailCodeRecord[], now: number) {
 export async function requestEmailCode(
   email: string
 ): Promise<{ code: string } | { error: string; retryAfterSec?: number }> {
-  const key = normalizeEmail(email);
-  const now = Date.now();
-  const items = await readAll();
+  return withLock(async () => {
+    const key = normalizeEmail(email);
+    const now = Date.now();
+    const items = await readAll();
 
-  const existing = items.find((x) => x.email === key);
-  if (existing) {
-    const sinceMs = now - new Date(existing.createdAt).getTime();
-    if (sinceMs < RESEND_COOLDOWN_SEC * 1000) {
-      return {
-        error: "인증코드를 방금 보냈습니다. 잠시 후 다시 시도해 주세요.",
-        retryAfterSec: Math.ceil((RESEND_COOLDOWN_SEC * 1000 - sinceMs) / 1000),
-      };
+    const existing = items.find((x) => x.email === key);
+    if (existing) {
+      const sinceMs = now - new Date(existing.createdAt).getTime();
+      if (sinceMs < RESEND_COOLDOWN_SEC * 1000) {
+        return {
+          error: "인증코드를 방금 보냈습니다. 잠시 후 다시 시도해 주세요.",
+          retryAfterSec: Math.ceil((RESEND_COOLDOWN_SEC * 1000 - sinceMs) / 1000),
+        };
+      }
     }
-  }
 
-  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-  const record: EmailCodeRecord = {
-    email: key,
-    codeHash: hashCode(code),
-    expiresAt: new Date(now + CODE_TTL_MIN * 60 * 1000).toISOString(),
-    attempts: 0,
-    verifiedAt: null,
-    createdAt: new Date(now).toISOString(),
-  };
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    const record: EmailCodeRecord = {
+      email: key,
+      codeHash: hashCode(code),
+      expiresAt: new Date(now + CODE_TTL_MIN * 60 * 1000).toISOString(),
+      attempts: 0,
+      verifiedAt: null,
+      createdAt: new Date(now).toISOString(),
+    };
 
-  const next = prune(items.filter((x) => x.email !== key), now);
-  next.push(record);
-  await writeAll(next);
-  return { code };
+    const next = prune(items.filter((x) => x.email !== key), now);
+    next.push(record);
+    await writeAll(next);
+    return { code };
+  });
 }
 
 /** 코드 검증. 성공 시 verifiedAt 을 기록한다. */
@@ -111,29 +121,31 @@ export async function verifyEmailCode(
   email: string,
   code: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const key = normalizeEmail(email);
-  const now = Date.now();
-  const items = await readAll();
-  const idx = items.findIndex((x) => x.email === key);
-  if (idx < 0) return { ok: false, error: "인증코드를 먼저 요청해 주세요." };
+  return withLock(async () => {
+    const key = normalizeEmail(email);
+    const now = Date.now();
+    const items = await readAll();
+    const idx = items.findIndex((x) => x.email === key);
+    if (idx < 0) return { ok: false, error: "인증코드를 먼저 요청해 주세요." };
 
-  const rec = items[idx];
-  if (new Date(rec.expiresAt).getTime() <= now) {
-    return { ok: false, error: "인증코드가 만료되었습니다. 다시 요청해 주세요." };
-  }
-  if (rec.attempts >= MAX_ATTEMPTS) {
-    return { ok: false, error: "시도 횟수를 초과했습니다. 코드를 다시 요청해 주세요." };
-  }
-  if (rec.codeHash !== hashCode(code)) {
-    items[idx] = { ...rec, attempts: rec.attempts + 1 };
+    const rec = items[idx];
+    if (new Date(rec.expiresAt).getTime() <= now) {
+      return { ok: false, error: "인증코드가 만료되었습니다. 다시 요청해 주세요." };
+    }
+    if (rec.attempts >= MAX_ATTEMPTS) {
+      return { ok: false, error: "시도 횟수를 초과했습니다. 코드를 다시 요청해 주세요." };
+    }
+    if (rec.codeHash !== hashCode(code)) {
+      items[idx] = { ...rec, attempts: rec.attempts + 1 };
+      await writeAll(items);
+      const left = Math.max(MAX_ATTEMPTS - items[idx].attempts, 0);
+      return { ok: false, error: `인증코드가 일치하지 않습니다. (남은 시도 ${left}회)` };
+    }
+
+    items[idx] = { ...rec, verifiedAt: new Date(now).toISOString() };
     await writeAll(items);
-    const left = Math.max(MAX_ATTEMPTS - items[idx].attempts, 0);
-    return { ok: false, error: `인증코드가 일치하지 않습니다. (남은 시도 ${left}회)` };
-  }
-
-  items[idx] = { ...rec, verifiedAt: new Date(now).toISOString() };
-  await writeAll(items);
-  return { ok: true };
+    return { ok: true };
+  });
 }
 
 /** 최근(VERIFIED_TTL_MIN 이내)에 인증된 이메일인지 확인 */
@@ -147,8 +159,10 @@ export async function isEmailVerified(email: string): Promise<boolean> {
 
 /** 가입 완료 후 코드 레코드 제거 */
 export async function clearEmailCode(email: string): Promise<void> {
-  const key = normalizeEmail(email);
-  const items = await readAll();
-  const next = items.filter((x) => x.email !== key);
-  if (next.length !== items.length) await writeAll(next);
+  return withLock(async () => {
+    const key = normalizeEmail(email);
+    const items = await readAll();
+    const next = items.filter((x) => x.email !== key);
+    if (next.length !== items.length) await writeAll(next);
+  });
 }

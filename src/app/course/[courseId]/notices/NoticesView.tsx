@@ -44,12 +44,12 @@ const NOTICES: Notice[] = [
   },
 ];
 
-export default function NoticesView({ courseId }: { courseId: string }) {
+export default function NoticesView({ courseId, isStaff = false }: { courseId: string; isStaff?: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
 
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
-      <ClassroomSidebar courseId={courseId} />
+      <ClassroomSidebar courseId={courseId} isStaff={isStaff} />
 
       <main className="min-w-0 flex-1 px-6 py-10 lg:px-10">
         <div className="mx-auto max-w-[860px]">

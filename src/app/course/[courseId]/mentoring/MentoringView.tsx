@@ -66,7 +66,7 @@ async function postRoom(courseId: string, payload: object) {
   });
 }
 
-export default function MentoringView({ courseId, role }: { courseId: string; role: "teacher" | "student" }) {
+export default function MentoringView({ courseId, role, isStaff = false }: { courseId: string; role: "teacher" | "student"; isStaff?: boolean }) {
   const [report, setReport] = useState<Report>(blankReport());
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
@@ -206,7 +206,7 @@ export default function MentoringView({ courseId, role }: { courseId: string; ro
 
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
-      <ClassroomSidebar courseId={courseId} />
+      <ClassroomSidebar courseId={courseId} isStaff={isStaff} />
 
       <main className="min-w-0 flex-1 px-6 py-8 lg:px-8">
         <div className="mb-6 flex items-end justify-between gap-3">

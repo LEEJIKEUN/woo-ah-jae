@@ -1,4 +1,4 @@
-import { requireClassroomAccess } from "@/lib/course/access";
+import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import MentoringView from "./MentoringView";
 
 export async function generateMetadata() {
@@ -8,6 +8,6 @@ export async function generateMetadata() {
 export default async function MentoringPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/mentoring`);
-  const role = session.role === "ADMIN" ? "teacher" : "student";
-  return <MentoringView courseId={courseId} role={role} />;
+  const staff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 멘토(teacher)
+  return <MentoringView courseId={courseId} role={staff ? "teacher" : "student"} isStaff={staff} />;
 }

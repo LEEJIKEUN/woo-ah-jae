@@ -78,6 +78,8 @@ export default function ActivityView({
 
 // ── 자료/페이지 ─────────────────────────────────────────
 function ResourceBody({ activity, course, module }: { activity: Activity; course: Course; module: Module }) {
+  const materials = activity.materials ?? [];
+  const online = activity.onlineResources ?? [];
   return (
     <div>
       {activity.body?.map((p, i) => (
@@ -85,6 +87,36 @@ function ResourceBody({ activity, course, module }: { activity: Activity; course
           {p}
         </p>
       ))}
+
+      {/* 강의자료(다운로드) + 온라인 자료 */}
+      {materials.length > 0 || online.length > 0 ? (
+        <div className="mt-6 rounded-[6px] border" style={{ borderColor: BC.borderCard }}>
+          <p className="border-b px-4 py-2.5 text-[13px] font-bold" style={{ borderColor: BC.borderCard, color: BC.ink, background: "#FAF7EF" }}>
+            강의자료
+          </p>
+          <ul className="divide-y" style={{ borderColor: BC.borderCard }}>
+            {materials.map((f) => (
+              <li key={f.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                <FileText size={16} style={{ color: "#B84A4A" }} />
+                <a href={f.href ?? "#"} target="_blank" rel="noopener noreferrer" download className="flex-1 truncate text-[14px] hover:underline" style={{ color: BC.accentInk }}>
+                  {f.name}
+                </a>
+                {f.sizeLabel ? <span className="text-[12px]" style={{ color: BC.meta }}>{f.sizeLabel}</span> : null}
+                <Download size={15} style={{ color: BC.meta }} />
+              </li>
+            ))}
+            {online.map((r, i) => (
+              <li key={`o-${i}`} className="flex items-center gap-2.5 px-4 py-2.5">
+                <PlayCircle size={16} style={{ color: BC.accentInk }} />
+                <a href={r.href} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-[14px] hover:underline" style={{ color: BC.accentInk }}>
+                  {r.label}
+                </a>
+                <span className="text-[12px]" style={{ color: BC.meta }}>바로가기</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {activity.cards && activity.cards.length > 0 ? (
         <div className="mt-6 overflow-hidden rounded-lg" style={{ background: "#2C2823" }}>

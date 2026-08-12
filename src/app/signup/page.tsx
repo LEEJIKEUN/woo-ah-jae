@@ -33,6 +33,7 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [isFacilitator, setIsFacilitator] = useState(false);
   const [birthYear, setBirthYear] = useState<string>("");
   const [birthMonth, setBirthMonth] = useState<string>("");
   const [birthDay, setBirthDay] = useState<string>("");
@@ -72,6 +73,15 @@ export default function SignupPage() {
         setError("생년월일을 모두 선택해주세요.");
         setMessage(null);
         return;
+      }
+
+      if (isFacilitator) {
+        const code = formData.get("facilitatorCode");
+        if (typeof code !== "string" || !code.trim()) {
+          setError("퍼실리테이터 초대코드를 입력해 주세요.");
+          setMessage(null);
+          return;
+        }
       }
 
       const y = Number(birthYear);
@@ -191,6 +201,31 @@ export default function SignupPage() {
             placeholder="실명을 입력하세요"
           />
         </label>
+
+        {/* 8. 퍼실리테이터(강의 담당자) 가입 — 초대코드 보유 시에만 */}
+        <div className="space-y-2 rounded-md border border-slate-200 p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={isFacilitator}
+              onChange={(e) => setIsFacilitator(e.target.checked)}
+              className="h-4 w-4"
+            />
+            강의 담당자(퍼실리테이터)로 가입
+          </label>
+          <p className="text-xs text-slate-500">
+            담당 강의가 있는 경우 체크하고 발급받은 초대코드를 입력하세요. (예: 인공지능을 위한 선형대수학 담당자)
+          </p>
+          {isFacilitator ? (
+            <input
+              name="facilitatorCode"
+              type="text"
+              autoComplete="off"
+              className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2"
+              placeholder="퍼실리테이터 초대코드"
+            />
+          ) : null}
+        </div>
 
         {message ? <p className="rounded-md bg-blue-500/10 px-3 py-2 text-sm text-blue-600">{message}</p> : null}
         {error ? <p className="rounded-md bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p> : null}

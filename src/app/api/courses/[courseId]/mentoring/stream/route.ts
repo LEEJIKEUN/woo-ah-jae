@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { getCourse } from "@/lib/course/content";
+import { isStaffRole } from "@/lib/course/access";
+import { isUserEnrolled } from "@/lib/enrollment-store";
 import { getRoom } from "@/lib/mentoring-store";
 import { subscribeMentoring } from "@/lib/mentoring-bus";
 
@@ -18,8 +21,10 @@ async function sessionFromReq(request: NextRequest) {
 /** 멘토링 방 SSE 스트림: 접속 시 현재 방 + 변경마다 즉시 푸시 */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
+  if (!getCourse(courseId)) return new Response("Not found", { status: 404 });
   const s = await sessionFromReq(request);
   if (!s) return new Response("Unauthorized", { status: 401 });
+  if (!isStaffRole(s.role) && !(await isUserEnrolled(courseId, s.userId))) return new Response("Forbidden", { status: 403 });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

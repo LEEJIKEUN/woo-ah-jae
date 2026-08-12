@@ -16,6 +16,8 @@ const signupSchema = z.object({
   birthDate: z.string().date(),
   // 졸업 예정 연도 (예: "2028년 1(2)월") — grade 컬럼(String)에 저장
   grade: z.string().min(1).max(40),
+  // 퍼실리테이터(강의 담당자) 가입 초대코드 — 일치 시 FACILITATOR 역할로 생성
+  facilitatorCode: z.string().max(100).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,10 +33,22 @@ export async function POST(request: NextRequest) {
       schoolName: form.get("schoolName"),
       birthDate: form.get("birthDate"),
       grade: form.get("grade"),
+      facilitatorCode: form.get("facilitatorCode") ?? undefined,
     });
 
     if (parsed.password !== parsed.passwordConfirm) {
       return NextResponse.json({ error: "비밀번호 확인이 일치하지 않습니다." }, { status: 400 });
+    }
+
+    // 퍼실리테이터 초대코드 검증 — 입력됐으면 서버 환경변수와 일치해야 함
+    const facilitatorCode = (parsed.facilitatorCode ?? "").trim();
+    let signupRole: UserRole = UserRole.STUDENT;
+    if (facilitatorCode) {
+      const expected = (process.env.FACILITATOR_SIGNUP_CODE ?? "").trim();
+      if (!expected || facilitatorCode !== expected) {
+        return NextResponse.json({ error: "퍼실리테이터 초대코드가 올바르지 않습니다." }, { status: 403 });
+      }
+      signupRole = UserRole.FACILITATOR;
     }
 
     if (!(await isEmailVerified(parsed.email))) {
@@ -64,7 +78,7 @@ export async function POST(request: NextRequest) {
           data: {
             email: parsed.email,
             passwordHash,
-            role: UserRole.STUDENT,
+            role: signupRole,
           },
         });
 
