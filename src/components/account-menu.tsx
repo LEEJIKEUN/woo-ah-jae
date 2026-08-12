@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Props = {
-  role: "ADMIN" | "FACILITATOR" | "STUDENT";
+  role: "ADMIN" | "FACILITATOR" | "PARENT" | "STUDENT";
   email: string;
 };
 
@@ -47,6 +47,12 @@ export default function AccountMenu({ role, email }: Props) {
             <>
               <Link href="/account" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-900 hover:bg-[color:var(--surface-elevated)]">계정 정보</Link>
               <Link href="/admin/members" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-900 hover:bg-[color:var(--surface-elevated)]">회원 관리 (구독관리)</Link>
+            </>
+          ) : role === "PARENT" ? (
+            <>
+              <Link href="/me/children" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-semibold hover:bg-[color:var(--surface-elevated)]" style={{ color: "#4E6B5A" }}>자녀 학습 현황</Link>
+              <Link href="/account" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-900 hover:bg-[color:var(--surface-elevated)]">계정 정보</Link>
+              <Link href="/settings/password" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-900 hover:bg-[color:var(--surface-elevated)]">비밀번호 변경</Link>
             </>
           ) : (
             <>

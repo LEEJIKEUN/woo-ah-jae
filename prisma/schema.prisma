@@ -11,7 +11,14 @@ datasource db {
 enum UserRole {
   STUDENT
   FACILITATOR
+  PARENT
   ADMIN
+}
+
+enum ParentLinkStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum UserLifecycleStatus {
@@ -121,6 +128,39 @@ model User {
   groupMembers            GroupMember[]
   auditLogs               AuditLog[]
   entitlements            Entitlement[]
+  lessonCompletions       LessonCompletion[]
+  parentLinksAsParent     ParentChildLink[]        @relation("ParentLinksAsParent")
+  parentLinksAsChild      ParentChildLink[]        @relation("ParentLinksAsChild")
+}
+
+/** 강의 활동(레슨) 완료 기록 — 학생별 서버 진도. 학부모가 자녀 진도를 조회하는 근거. */
+model LessonCompletion {
+  userId      String
+  courseId    String
+  activityId  String
+  completedAt DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, courseId, activityId])
+  @@index([userId, courseId])
+}
+
+/** 학부모↔자녀(학생) 연결. 학부모가 자녀 이메일로 요청 → 자녀가 수락해야 APPROVED. */
+model ParentChildLink {
+  id           String           @id @default(cuid())
+  parentUserId String
+  childUserId  String
+  status       ParentLinkStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  respondedAt  DateTime?
+
+  parent       User             @relation("ParentLinksAsParent", fields: [parentUserId], references: [id], onDelete: Cascade)
+  child        User             @relation("ParentLinksAsChild", fields: [childUserId], references: [id], onDelete: Cascade)
+
+  @@unique([parentUserId, childUserId])
+  @@index([childUserId, status])
+  @@index([parentUserId, status])
 }
 
 model PasswordResetToken {
@@ -140,10 +180,10 @@ model PasswordResetToken {
 model StudentProfile {
   userId            String   @id
   realName          String
-  schoolName        String
+  schoolName        String?
   residenceCountry  String?
   birthDate         DateTime?
-  grade             String
+  grade             String?
   className         String?
   number            String?
   bio               String?

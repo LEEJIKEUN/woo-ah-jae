@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 
-export type Role = "STUDENT" | "FACILITATOR" | "ADMIN";
+export type Role = "STUDENT" | "FACILITATOR" | "PARENT" | "ADMIN";
 export type CourseSession = { userId: string; role: Role; email: string };
 
 /** 관리자·퍼실리테이터(강의 담당자) = 강의 운영 권한(잠금 무시·전체 접근·콘텐츠 편집) */

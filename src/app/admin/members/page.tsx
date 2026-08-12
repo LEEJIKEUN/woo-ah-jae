@@ -8,11 +8,18 @@ type MemberItem = {
   id: string;
   email: string;
   realName: string | null;
-  role: "STUDENT" | "FACILITATOR" | "ADMIN";
+  role: "STUDENT" | "FACILITATOR" | "PARENT" | "ADMIN";
   schoolName: string | null;
   grade: string | null;
   residenceCountry: string | null;
   createdAt: string;
+};
+
+const ROLE_KO: Record<MemberItem["role"], string> = {
+  ADMIN: "관리자",
+  FACILITATOR: "퍼실리테이터",
+  PARENT: "학부모",
+  STUDENT: "학생",
 };
 
 type SortKey = "realName" | "email" | "role" | "schoolName" | "grade" | "residenceCountry" | "createdAt";
@@ -368,7 +375,7 @@ export default function AdminMembersPage() {
                     <tr key={x.id} className="border-t border-slate-200/60 odd:bg-white/20 hover:bg-slate-100/40">
                       <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-600">{x.realName ?? "-"}</td>
                       <td className="truncate whitespace-nowrap px-4 py-3 font-medium text-slate-900">{x.email}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">{x.role}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">{ROLE_KO[x.role] ?? x.role}</td>
                       <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-600">{x.schoolName ?? "-"}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">{x.grade ?? "-"}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">{compactCountry(x.residenceCountry)}</td>

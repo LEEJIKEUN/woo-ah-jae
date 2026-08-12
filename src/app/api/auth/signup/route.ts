@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserLifecycleStatus, UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
@@ -20,9 +20,23 @@ const signupSchema = z.object({
   facilitatorCode: z.string().max(100).optional(),
 });
 
+// 학부모 가입 — 간소 폼(이름·이메일·비밀번호 + 자녀 이메일). 학생 전용 항목은 받지 않음.
+const parentSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).max(72),
+  passwordConfirm: z.string().min(8).max(72),
+  realName: z.string().min(1).max(80),
+  childEmail: z.string().email(),
+});
+
 export async function POST(request: NextRequest) {
   try {
     const form = await request.formData();
+
+    // 학부모 가입은 별도 경로(자녀 연결 요청 생성)
+    if (form.get("accountType") === "parent") {
+      return await handleParentSignup(form);
+    }
 
     const parsed = signupSchema.parse({
       email: form.get("email"),
@@ -146,4 +160,64 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
+}
+
+async function handleParentSignup(form: FormData): Promise<NextResponse> {
+  const parsed = parentSchema.parse({
+    email: form.get("email"),
+    password: form.get("password"),
+    passwordConfirm: form.get("passwordConfirm"),
+    realName: form.get("realName"),
+    childEmail: form.get("childEmail"),
+  });
+
+  if (parsed.password !== parsed.passwordConfirm) {
+    return NextResponse.json({ error: "비밀번호 확인이 일치하지 않습니다." }, { status: 400 });
+  }
+
+  const email = parsed.email.trim().toLowerCase();
+  const childEmail = parsed.childEmail.trim().toLowerCase();
+  if (email === childEmail) {
+    return NextResponse.json({ error: "자녀 이메일은 본인 이메일과 달라야 합니다." }, { status: 400 });
+  }
+  if (!(await isEmailVerified(parsed.email))) {
+    return NextResponse.json({ error: "이메일 인증을 완료해 주세요." }, { status: 400 });
+  }
+
+  // 자녀(학생) 계정 확인 — 실제 존재하는 활성 학생만 연결 요청 가능
+  const child = await prisma.user.findUnique({
+    where: { email: childEmail },
+    select: { id: true, role: true, lifecycleStatus: true },
+  });
+  if (!child || child.role !== UserRole.STUDENT || child.lifecycleStatus !== UserLifecycleStatus.ACTIVE) {
+    return NextResponse.json({ error: "해당 이메일의 학생 계정을 찾을 수 없습니다." }, { status: 404 });
+  }
+
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists) {
+    return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
+  }
+
+  const passwordHash = await hashPassword(parsed.password);
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { email, passwordHash, role: UserRole.PARENT },
+    });
+    // 이름 표시용 최소 프로필(학교·학년은 학부모라 비움 → nullable)
+    await tx.studentProfile.create({
+      data: { userId: user.id, realName: parsed.realName.trim() },
+    });
+    // 자녀 연결 요청(PENDING) — 자녀가 수락해야 APPROVED
+    await tx.parentChildLink.create({
+      data: { parentUserId: user.id, childUserId: child.id },
+    });
+    return user;
+  });
+
+  await clearEmailCode(parsed.email);
+
+  return NextResponse.json(
+    { id: result.id, email: result.email, status: "ACTIVE", role: "PARENT", pendingChild: childEmail, fallback: false },
+    { status: 201 }
+  );
 }

@@ -34,6 +34,7 @@ export default function SignupPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
   const [isFacilitator, setIsFacilitator] = useState(false);
+  const [accountType, setAccountType] = useState<"student" | "parent">("student");
   const [birthYear, setBirthYear] = useState<string>("");
   const [birthMonth, setBirthMonth] = useState<string>("");
   const [birthDay, setBirthDay] = useState<string>("");
@@ -69,26 +70,35 @@ export default function SignupPage() {
         return;
       }
 
-      if (!birthYear || !birthMonth || !birthDay) {
-        setError("생년월일을 모두 선택해주세요.");
-        setMessage(null);
-        return;
-      }
-
-      if (isFacilitator) {
-        const code = formData.get("facilitatorCode");
-        if (typeof code !== "string" || !code.trim()) {
-          setError("퍼실리테이터 초대코드를 입력해 주세요.");
+      if (accountType === "parent") {
+        const childEmail = formData.get("childEmail");
+        if (typeof childEmail !== "string" || !childEmail.trim()) {
+          setError("자녀(학생) 이메일을 입력해 주세요.");
           setMessage(null);
           return;
         }
-      }
+      } else {
+        if (!birthYear || !birthMonth || !birthDay) {
+          setError("생년월일을 모두 선택해주세요.");
+          setMessage(null);
+          return;
+        }
 
-      const y = Number(birthYear);
-      const m = Number(birthMonth);
-      const d = Number(birthDay);
-      const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      formData.set("birthDate", iso);
+        if (isFacilitator) {
+          const code = formData.get("facilitatorCode");
+          if (typeof code !== "string" || !code.trim()) {
+            setError("퍼실리테이터 초대코드를 입력해 주세요.");
+            setMessage(null);
+            return;
+          }
+        }
+
+        const y = Number(birthYear);
+        const m = Number(birthMonth);
+        const d = Number(birthDay);
+        const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        formData.set("birthDate", iso);
+      }
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
@@ -126,6 +136,39 @@ export default function SignupPage() {
       </p>
 
       <form action={onSubmit} className="space-y-5 rounded-2xl border bg-[color:var(--surface)] p-6">
+        <input type="hidden" name="accountType" value={accountType} />
+
+        {/* 가입 유형 */}
+        <div className="space-y-1.5">
+          <span className="text-sm font-medium">가입 유형</span>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { key: "student", label: "학생", desc: "강의 수강" },
+              { key: "parent", label: "학부모", desc: "자녀 진도 열람" },
+            ] as const).map((t) => {
+              const active = accountType === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setAccountType(t.key)}
+                  className="rounded-md border px-3 py-2.5 text-left transition"
+                  style={{
+                    borderColor: active ? "#4E6B5A" : "#e2e8f0",
+                    background: active ? "rgba(78,107,90,0.08)" : "transparent",
+                  }}
+                >
+                  <span className="block text-[14px] font-bold" style={{ color: active ? "#4E6B5A" : "#334155" }}>{t.label}</span>
+                  <span className="block text-[12px] text-slate-500">{t.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+          {accountType === "parent" ? (
+            <p className="text-xs text-slate-500">학부모는 이름·이메일·비밀번호와 자녀 이메일만 입력하면 됩니다. 자녀가 연결을 수락하면 진도를 볼 수 있어요.</p>
+          ) : null}
+        </div>
+
         <div className="block space-y-1">
           <span className="text-sm font-medium">1. 이메일 (인증 필요)</span>
           <EmailVerifyField onVerifiedChange={setEmailVerified} />
@@ -141,6 +184,8 @@ export default function SignupPage() {
           <input name="passwordConfirm" type="password" minLength={8} required className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2" placeholder="비밀번호 재입력" />
         </label>
 
+        {accountType === "student" ? (
+        <>
         <label className="block space-y-1">
           <span className="text-sm font-medium">3. 거주 국가</span>
           <select name="residenceCountry" required className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
@@ -191,6 +236,8 @@ export default function SignupPage() {
             ))}
           </select>
         </label>
+        </>
+        ) : null}
 
         <label className="block space-y-1">
           <span className="text-sm font-medium">7. 이름(실명)</span>
@@ -202,7 +249,23 @@ export default function SignupPage() {
           />
         </label>
 
-        {/* 8. 퍼실리테이터(강의 담당자) 가입 — 초대코드 보유 시에만 */}
+        {accountType === "parent" ? (
+          <label className="block space-y-1">
+            <span className="text-sm font-medium">자녀(학생) 이메일</span>
+            <input
+              name="childEmail"
+              type="email"
+              required
+              autoComplete="off"
+              className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2"
+              placeholder="자녀가 가입한 이메일 주소"
+            />
+            <p className="text-xs text-slate-500">이 학생 계정으로 연결 요청이 전송되고, 자녀가 수락하면 진도 열람이 가능합니다.</p>
+          </label>
+        ) : null}
+
+        {/* 8. 퍼실리테이터(강의 담당자) 가입 — 초대코드 보유 시에만 (학생 유형에서만) */}
+        {accountType === "student" ? (
         <div className="space-y-2 rounded-md border border-slate-200 p-3">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input
@@ -226,6 +289,7 @@ export default function SignupPage() {
             />
           ) : null}
         </div>
+        ) : null}
 
         {message ? <p className="rounded-md bg-blue-500/10 px-3 py-2 text-sm text-blue-600">{message}</p> : null}
         {error ? <p className="rounded-md bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p> : null}

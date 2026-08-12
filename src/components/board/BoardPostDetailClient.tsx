@@ -42,7 +42,7 @@ type PostDetail = {
 type Props = {
   post: PostDetail;
   initialComments: CommentItem[];
-  user: { id: string; role: "ADMIN" | "FACILITATOR" | "STUDENT" } | null;
+  user: { id: string; role: "ADMIN" | "FACILITATOR" | "PARENT" | "STUDENT" } | null;
 };
 
 const REPORT_REASONS = [
