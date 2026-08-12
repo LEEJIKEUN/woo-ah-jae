@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Lock, ClipboardCheck, Eye } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, ClipboardCheck } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, type Course } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
 import CourseSummaryBox from "@/components/course/CourseSummaryBox";
+import ParentProgressDonut from "@/components/course/ParentProgressDonut";
 
 /**
  * 강의실(LearningHome) 좌측 사이드바를 다른 페이지(탐구활동 멘토링 등)에서도
@@ -86,7 +87,7 @@ function SidebarInner({ room, isStaff = false, isParent = false }: { room: Class
       <div className="flex items-center gap-2 px-5 py-6 text-white" style={{ background: heroGrad }}>
         <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
         {isParent ? (
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20" title="열람 전용" aria-label="열람 전용"><Eye size={19} /></span>
+          <ParentProgressDonut courseId={room.id} />
         ) : isStaff ? (
           <Link href={`/course/${room.id}/attendance`} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
         ) : (

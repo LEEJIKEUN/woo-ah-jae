@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock, ClipboardCheck, Eye } from "lucide-react";
+import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock, ClipboardCheck } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, weekPeriodLabel, type Course, type ActivityKind } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
 import CourseSummaryBox from "@/components/course/CourseSummaryBox";
+import ParentProgressDonut from "@/components/course/ParentProgressDonut";
 
 const BROWN = "#8C6E59";
 const NUM = "#B58F72";
@@ -95,7 +96,7 @@ function Sidebar({ room, isStaff = false, isParent = false }: { room: Classroom;
       <div className="flex items-center gap-2 px-5 py-6 text-white" style={{ background: heroGrad }}>
         <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
         {isParent ? (
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20" title="열람 전용" aria-label="열람 전용"><Eye size={19} /></span>
+          <ParentProgressDonut courseId={room.id} />
         ) : isStaff ? (
           <Link href={`/course/${room.id}/attendance`} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
         ) : (
