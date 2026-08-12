@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FileText, Folder, Download, ChevronDown, ChevronLeft, ChevronRight, Clock, MessageSquare } from "lucide-react";
 import type { Activity, Course, Module } from "@/lib/course/content";
@@ -11,11 +11,23 @@ export default function ActivityView({
   course,
   module,
   activity,
+  autoComplete = false,
 }: {
   course: Course;
   module: Module;
   activity: Activity;
+  autoComplete?: boolean;
 }) {
+  const { toggle } = useCompletion();
+
+  // 실시간 수업 회차(scheduleLabel 있음)는 관리자 출석으로만 이수 처리.
+  // 그 외 활동(오리엔테이션·과정 안내 등)은 학생이 열람하면 자동 이수.
+  useEffect(() => {
+    if (autoComplete && !activity.scheduleLabel && activity.completion !== "none") {
+      toggle(activity.id, true);
+    }
+  }, [autoComplete, activity.id, activity.scheduleLabel, activity.completion, toggle]);
+
   return (
     <div>
       {/* 라이트 헤더 */}
