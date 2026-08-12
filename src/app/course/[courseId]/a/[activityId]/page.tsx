@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCourse, findActivity, isModuleLocked, weekOpenLabel } from "@/lib/course/content";
 import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
-import BcCourseShell from "@/components/course/BcCourseShell";
+import ClassroomSidebar from "@/components/course/ClassroomSidebar";
+import { CompletionProvider } from "@/components/course/completion";
 import LessonBlocks from "@/components/course/LessonBlocks";
 import ActivityView from "./ActivityView";
 import CustomLessonView from "./CustomLessonView";
@@ -22,6 +23,7 @@ export default async function ActivityPage({
   const { courseId, activityId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/a/${activityId}`);
   const isStaff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 잠금 무시 + 콘텐츠 편집
+  const isParent = session.role === "PARENT";
   const course = getCourse(courseId);
 
   // 시드 강좌 → 기존 학습 뷰 (홈 브라운 톤)
@@ -53,10 +55,17 @@ export default async function ActivityPage({
     }
 
     return (
-      <BcCourseShell course={course} activeModuleId={found.module.id} isStaff={isStaff}>
-        <ActivityView course={course} module={found.module} activity={found.activity} />
-        <LessonBlocks courseId={courseId} activityId={activityId} isAdmin={isStaff} />
-      </BcCourseShell>
+      <div className="flex w-full items-start" style={{ background: "#fff" }}>
+        <ClassroomSidebar courseId={courseId} isStaff={isStaff} isParent={isParent} />
+        <main className="min-w-0 flex-1 px-6 py-8 lg:px-12">
+          <div className="mx-auto max-w-[860px]">
+            <CompletionProvider courseId={courseId}>
+              <ActivityView course={course} module={found.module} activity={found.activity} />
+              <LessonBlocks courseId={courseId} activityId={activityId} isAdmin={isStaff} />
+            </CompletionProvider>
+          </div>
+        </main>
+      </div>
     );
   }
 

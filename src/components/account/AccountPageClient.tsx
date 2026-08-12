@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import ParentLinkRequests from "@/components/account/ParentLinkRequests";
 
 type MeResponse = {
   id: string;
@@ -94,9 +93,6 @@ export default function AccountPageClient({ initialMe }: Props) {
 
         {message ? <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">{message}</p> : null}
         {error ? <p className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
-
-        {/* 학생 계정이라면, 받은 학부모 연결 요청을 여기서 수락/거절 */}
-        <ParentLinkRequests />
 
         <section className="rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
           <h2 className="text-xl font-semibold text-slate-900">프로필</h2>

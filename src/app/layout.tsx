@@ -6,6 +6,7 @@ import Footer from "@/components/nav/Footer";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import MaintenanceBanner from "@/components/system/MaintenanceBanner";
+import ParentLinkRequests from "@/components/account/ParentLinkRequests";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -84,6 +85,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }
           accountLabel={accountLabel}
         />
+        {/* 학생(자녀)에게 온 보호자 연결 동의 요청을 전 페이지 상단 배너로 노출 */}
+        {session?.role === "STUDENT" ? <ParentLinkRequests /> : null}
         {children}
         <Footer />
       </body>
