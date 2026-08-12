@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock, Sparkles } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, weekPeriodLabel, type Course, type ActivityKind } from "@/lib/course/content";
@@ -105,13 +105,7 @@ function Sidebar({ room }: { room: Classroom }) {
         <div className="mt-5 space-y-2">
           <SideBox label="공지사항" href={`/course/${room.id}/notices`} />
           <SideBox label="수강생 토론 게시판" href={`/course/${room.id}/board`} />
-          <Link
-            href={`/course/${room.id}/mentoring`}
-            className="flex h-11 w-full items-center gap-2 rounded-[8px] border px-4 text-left text-[13.5px] font-bold transition hover:opacity-90"
-            style={{ borderColor: BROWN, color: "#fff", background: BROWN }}
-          >
-            <Sparkles size={15} /> 탐구활동 멘토링
-          </Link>
+          <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} icon={<Sparkles size={15} style={{ color: BROWN }} />} />
         </div>
 
         <div className="my-4 border-t" style={{ borderColor: LINE }} />
@@ -170,11 +164,17 @@ function Donut({ percent }: { percent: number }) {
     </svg>
   );
 }
-function SideBox({ label, href }: { label: string; href?: string }) {
-  const cls = "flex h-11 w-full items-center rounded-[8px] border px-4 text-left text-[13.5px] font-bold transition hover:border-[#8C6E59]";
+function SideBox({ label, href, icon }: { label: string; href?: string; icon?: ReactNode }) {
+  const cls = "flex h-11 w-full items-center gap-2 rounded-[8px] border px-4 text-left text-[13.5px] font-bold transition hover:border-[#8C6E59]";
   const st = { borderColor: LINE, color: INK } as const;
-  if (href) return <Link href={href} className={cls} style={st}>{label}</Link>;
-  return <button type="button" className={cls} style={st}>{label}</button>;
+  const inner = (
+    <>
+      {icon}
+      {label}
+    </>
+  );
+  if (href) return <Link href={href} className={cls} style={st}>{inner}</Link>;
+  return <button type="button" className={cls} style={st}>{inner}</button>;
 }
 
 /* ── 오른쪽 콘텐츠 ── */
