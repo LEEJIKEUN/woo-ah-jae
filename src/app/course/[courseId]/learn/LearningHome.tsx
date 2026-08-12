@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock, ClipboardCheck } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, weekPeriodLabel, type Course, type ActivityKind } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
@@ -74,7 +74,7 @@ export default function LearningHome({ courseId, isStaff = false }: { courseId: 
   return (
     <CompletionProvider courseId={courseId}>
       <div className="flex w-full flex-1 items-start" style={{ background: "#fff" }}>
-        <Sidebar room={room} />
+        <Sidebar room={room} isStaff={isStaff} />
         <Content room={room} />
       </div>
     </CompletionProvider>
@@ -82,7 +82,7 @@ export default function LearningHome({ courseId, isStaff = false }: { courseId: 
 }
 
 /* ── 왼쪽 사이드바 ── */
-function Sidebar({ room }: { room: Classroom }) {
+function Sidebar({ room, isStaff = false }: { room: Classroom; isStaff?: boolean }) {
   const { done } = useCompletion();
   const completable = room.modules.flatMap((m) => m.lessons).filter((l) => l.completable);
   const pct = completable.length ? Math.round((completable.filter((l) => done.has(l.id)).length / completable.length) * 100) : 0;
@@ -90,10 +90,16 @@ function Sidebar({ room }: { room: Classroom }) {
 
   return (
     <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
-      {/* 헤더 밴드 + 진도 도넛 */}
+      {/* 헤더 밴드 + 진도 도넛(관리자는 출석 체크) */}
       <div className="flex items-center gap-3 px-5 py-6 text-white" style={{ background: heroGrad }}>
-        <h1 className="min-w-0 flex-1 text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
-        <Donut percent={pct} />
+        <h1 className="min-w-0 flex-1 break-keep text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
+        {isStaff ? (
+          <Link href={`/course/${room.id}/attendance`} className="flex shrink-0 items-center gap-1.5 rounded-[8px] bg-white/20 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-white/30">
+            <ClipboardCheck size={14} /> 출석 체크
+          </Link>
+        ) : (
+          <Donut percent={pct} />
+        )}
       </div>
 
       <div className="px-5 py-5">

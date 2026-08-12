@@ -19,15 +19,22 @@ export default async function AttendancePage({ params }: { params: Promise<{ cou
   if (!session) redirect(`/login?next=/course/${courseId}/attendance`);
   if (!isStaffRole(session.role)) redirect(`/course/${courseId}`);
 
-  // 이수 집계 대상(완료 가능한) 세션들
+  // 이수 집계 대상(완료 가능한) 활동. 일정(scheduleLabel)이 있는 것은 실시간 수업 '회차'로 번호를 매긴다.
+  let n = 0;
   const sessions = allActivities(course)
     .filter((x) => x.activity.completion !== "none")
-    .map((x) => ({
-      id: x.activity.id,
-      title: x.activity.title,
-      moduleLabel: x.module.label,
-      scheduleLabel: x.activity.scheduleLabel,
-    }));
+    .map((x) => {
+      const scheduled = !!x.activity.scheduleLabel;
+      if (scheduled) n += 1;
+      return {
+        id: x.activity.id,
+        title: x.activity.title,
+        week: x.module.label,
+        scheduleLabel: x.activity.scheduleLabel ?? null,
+        no: scheduled ? n : null,
+      };
+    });
+  const liveCount = n;
 
   const enrolledIds = await getEnrolledUserIds(courseId);
   const [users, completions] = await Promise.all([
@@ -57,7 +64,11 @@ export default async function AttendancePage({ params }: { params: Promise<{ cou
       </Link>
       <h1 className="text-[26px] font-semibold" style={{ fontFamily: "var(--font-serif)", color: "#2C2823" }}>출석·이수 관리</h1>
       <p className="mt-1.5 text-[14px] leading-6" style={{ color: "#8A8479" }}>
-        실시간 수업에 참석한 수강생을 세션별로 체크하세요. 체크하면 해당 학생의 이수(진도)로 기록되고, 학생·학부모 화면에 반영됩니다.
+        {course.title} · 실시간 수업 {liveCount}회{course.classDays ? ` · ${course.classDays}` : ""}
+        {course.periodLabel ? ` · ${course.periodLabel}` : ""}
+      </p>
+      <p className="mt-1 text-[13px] leading-6" style={{ color: "#8A8479" }}>
+        각 회차에 참석한 수강생을 체크하세요. 체크하면 해당 학생의 이수(진도)로 기록되어 학생·학부모 화면에 반영됩니다.
       </p>
 
       <AttendanceGrid courseId={courseId} sessions={sessions} students={students} initialDone={initialDone} />

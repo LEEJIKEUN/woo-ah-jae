@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download } from "lucide-react";
+import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download, Pencil } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 
 /* 우아재 서재 톤 */
@@ -74,6 +74,8 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
   const [draft, setDraft] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
   const [bookDraft, setBookDraft] = useState<Book>(BLANK_BOOK);
+  const [editBookIdx, setEditBookIdx] = useState<number | null>(null);
+  const [editBook, setEditBook] = useState<Book>(BLANK_BOOK);
   const [reportFile, setReportFile] = useState<ReportFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
@@ -159,7 +161,24 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
     setBookDraft(BLANK_BOOK);
   }
   function removeBook(idx: number) {
+    if (readOnly) return;
+    if (editBookIdx === idx) cancelEditBook();
     void persistBooks(books.filter((_, i) => i !== idx));
+  }
+  function startEditBook(i: number) {
+    if (readOnly) return;
+    setEditBookIdx(i);
+    setEditBook({ ...books[i] });
+  }
+  function cancelEditBook() {
+    setEditBookIdx(null);
+    setEditBook(BLANK_BOOK);
+  }
+  function saveEditBook() {
+    if (readOnly || editBookIdx === null) return;
+    const next = books.map((b, i) => (i === editBookIdx ? editBook : b));
+    void persistBooks(next);
+    cancelEditBook();
   }
 
   // PDF 업로드 (로컬)
@@ -308,19 +327,41 @@ export default function MentoringView({ courseId, role, isStaff = false, isParen
                 <span className="text-[12px]" style={{ color: MUTED }}>{books.length} / {MAX_BOOKS}</span>
               </div>
               <div className="space-y-3 px-4 py-4">
-                {books.map((b, i) => (
-                  <div key={i} className="rounded-[10px] p-3" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-[13.5px] font-bold" style={{ color: INK }}>
-                        {b.book || "(제목 없음)"} {b.author ? <span className="font-normal" style={{ color: SUB }}>· {b.author}</span> : null}
-                      </p>
-                      <button type="button" onClick={() => removeBook(i)} aria-label="삭제" style={{ color: MUTED }}><X size={15} /></button>
+                {books.map((b, i) =>
+                  editBookIdx === i ? (
+                    <div key={i} className="space-y-2 rounded-[10px] p-3" style={{ border: `1px solid ${BROWN}`, background: "#fff" }}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <BookInput label="책" value={editBook.book} onChange={(v) => setEditBook((p) => ({ ...p, book: v }))} />
+                        <BookInput label="저자" value={editBook.author} onChange={(v) => setEditBook((p) => ({ ...p, author: v }))} />
+                      </div>
+                      <BookArea label="읽게 된 동기" value={editBook.motive} onChange={(v) => setEditBook((p) => ({ ...p, motive: v }))} />
+                      <BookArea label="책에 대한 평가" value={editBook.review} onChange={(v) => setEditBook((p) => ({ ...p, review: v }))} />
+                      <BookArea label="자신에게 준 영향" value={editBook.influence} onChange={(v) => setEditBook((p) => ({ ...p, influence: v }))} />
+                      <div className="flex gap-2">
+                        <button type="button" onClick={saveEditBook} className="flex-1 rounded-[8px] py-2 text-[13px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
+                        <button type="button" onClick={cancelEditBook} className="rounded-[8px] border px-3 py-2 text-[13px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                      </div>
                     </div>
-                    {b.motive ? <p className="mt-1.5 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>동기</b> {b.motive}</p> : null}
-                    {b.review ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>평가</b> {b.review}</p> : null}
-                    {b.influence ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>영향</b> {b.influence}</p> : null}
-                  </div>
-                ))}
+                  ) : (
+                    <div key={i} className="rounded-[10px] p-3" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[13.5px] font-bold" style={{ color: INK }}>
+                          {b.book || "(제목 없음)"}
+                          {b.author ? <span className="font-normal" style={{ color: SUB }}>({b.author})</span> : null}
+                        </p>
+                        {!readOnly ? (
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <button type="button" onClick={() => startEditBook(i)} aria-label="수정" style={{ color: MUTED }}><Pencil size={13} /></button>
+                            <button type="button" onClick={() => removeBook(i)} aria-label="삭제" style={{ color: MUTED }}><X size={15} /></button>
+                          </div>
+                        ) : null}
+                      </div>
+                      {b.motive ? <p className="mt-1.5 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>동기</b> {b.motive}</p> : null}
+                      {b.review ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>평가</b> {b.review}</p> : null}
+                      {b.influence ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>영향</b> {b.influence}</p> : null}
+                    </div>
+                  )
+                )}
 
                 {!readOnly && books.length < MAX_BOOKS ? (
                   <div className="space-y-2 rounded-[10px] p-3" style={{ border: `1px dashed ${LINE}` }}>
