@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock, ClipboardCheck } from "lucide-react";
+import { BookOpen, ClipboardList, Folder, MessageSquare, Check, ChevronDown, ChevronUp, Lock, ClipboardCheck, Eye } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, weekPeriodLabel, type Course, type ActivityKind } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
@@ -90,20 +90,16 @@ function Sidebar({ room, isStaff = false, isParent = false }: { room: Classroom;
 
   return (
     <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
-      {/* 헤더 밴드 + 진도 도넛(관리자는 출석 체크) */}
-      <div className="px-5 py-6 text-white" style={{ background: heroGrad }}>
-        <h1 className="whitespace-nowrap text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
-        <div className="mt-3 flex justify-end">
-          {isParent ? (
-            <span className="rounded-[8px] bg-white/20 px-3 py-1.5 text-[12px] font-bold text-white">열람 전용</span>
-          ) : isStaff ? (
-            <Link href={`/course/${room.id}/attendance`} className="flex items-center gap-1.5 rounded-[8px] bg-white/20 px-3 py-2 text-[12px] font-bold text-white transition hover:bg-white/30">
-              <ClipboardCheck size={14} /> 출석 체크
-            </Link>
-          ) : (
-            <Donut percent={pct} />
-          )}
-        </div>
+      {/* 헤더 밴드 + 진도 도넛(관리자는 출석 체크 · 학부모는 열람) */}
+      <div className="flex items-center gap-2 px-5 py-6 text-white" style={{ background: heroGrad }}>
+        <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
+        {isParent ? (
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20" title="열람 전용" aria-label="열람 전용"><Eye size={19} /></span>
+        ) : isStaff ? (
+          <Link href={`/course/${room.id}/attendance`} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
+        ) : (
+          <Donut percent={pct} />
+        )}
       </div>
 
       <div className="px-5 py-5">
@@ -174,7 +170,7 @@ function Sidebar({ room, isStaff = false, isParent = false }: { room: Classroom;
 function Donut({ percent }: { percent: number }) {
   const r = 20, c = 2 * Math.PI * r, off = c * (1 - percent / 100);
   return (
-    <svg width={48} height={48} viewBox="0 0 48 48" className="shrink-0">
+    <svg width={44} height={44} viewBox="0 0 48 48" className="shrink-0">
       <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="4" />
       <circle cx="24" cy="24" r={r} fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 24 24)" />
       <text x="24" y="24" textAnchor="middle" dominantBaseline="central" style={{ fill: "#fff", fontSize: 12, fontWeight: 700 }}>{percent}%</text>
