@@ -152,6 +152,7 @@ model ParentChildLink {
   parentUserId String
   childUserId  String
   status       ParentLinkStatus @default(PENDING)
+  consentToken String?          @unique // 자녀 이메일로 보내는 동의 링크 토큰
   createdAt    DateTime         @default(now())
   respondedAt  DateTime?
 

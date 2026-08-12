@@ -84,6 +84,47 @@ export async function sendPasswordResetEmail(params: {
   return postResend({ apiKey, from, to: params.to, subject, text, html });
 }
 
+export async function sendParentConsentEmail(params: {
+  to: string; // 자녀(학생) 이메일
+  childName: string;
+  parentName: string;
+  parentEmail: string;
+  consentUrl: string;
+}) {
+  const { apiKey, from } = getMailerConfig();
+
+  const subject = "[우아재] 보호자 연결 동의 요청";
+  const text = [
+    `${params.childName} 님,`,
+    "",
+    `${params.parentName}(${params.parentEmail}) 님이 회원님의 보호자(학부모)임을 확인하고,`,
+    "회원님의 강의 학습 현황과 탐구활동 멘토링 현황 열람에 대한 동의를 요청했습니다.",
+    "",
+    "본인의 보호자가 맞다면 아래 링크에서 '동의'를 눌러 주세요.",
+    params.consentUrl,
+    "",
+    "본인이 모르는 요청이라면 무시하거나 '동의 안 함'을 눌러 주세요.",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.7; color:#2c2823; max-width:520px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">보호자 연결 동의 요청</h2>
+      <p><strong>${params.childName}</strong> 님,</p>
+      <p><strong>${params.parentName}</strong> (${params.parentEmail}) 님이 회원님의 <strong>보호자(학부모)</strong>임을 확인하고,
+      회원님의 <strong>강의 학습 현황</strong>과 <strong>탐구활동 멘토링 현황</strong>을 열람하는 것에 대한 동의를 요청했습니다.</p>
+      <p>본인의 보호자가 맞다면 아래 버튼을 눌러 동의해 주세요. 동의하면 보호자가 바로 열람할 수 있습니다.</p>
+      <p style="margin:22px 0;">
+        <a href="${params.consentUrl}" style="background:#4E6B5A;color:#fff;padding:11px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:700;">동의하러 가기</a>
+      </p>
+      <p style="color:#8A8479;">버튼이 동작하지 않으면 아래 링크를 브라우저에 붙여넣어 주세요.</p>
+      <p><a href="${params.consentUrl}">${params.consentUrl}</a></p>
+      <p style="margin-top:18px; color:#8A8479;">본인이 모르는 요청이라면 이 메일을 무시하거나 링크에서 '동의 안 함'을 눌러 주세요.</p>
+    </div>
+  `;
+
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}
+
 export async function sendEmailVerificationCode(params: {
   to: string;
   code: string;

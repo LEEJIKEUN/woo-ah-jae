@@ -1,7 +1,9 @@
+import crypto from "node:crypto";
 import { UserLifecycleStatus, UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
+import { sendParentConsentEmail } from "@/lib/mailer";
 import { clearEmailCode, isEmailVerified } from "@/lib/email-code-store";
 import { createLocalSignup, isDbConnectionError, listLocalSignups } from "@/lib/local-signup-store";
 import { prisma } from "@/lib/prisma";
@@ -210,7 +212,7 @@ async function handleParentSignup(form: FormData): Promise<NextResponse> {
   // 자녀(학생) 계정 확인 — 실제 존재하는 활성 학생만 연결 요청 가능
   const child = await prisma.user.findUnique({
     where: { email: childEmail },
-    select: { id: true, role: true, lifecycleStatus: true },
+    select: { id: true, role: true, lifecycleStatus: true, studentProfile: { select: { realName: true } } },
   });
   if (!child || child.role !== UserRole.STUDENT || child.lifecycleStatus !== UserLifecycleStatus.ACTIVE) {
     return NextResponse.json({ error: "해당 이메일의 학생 계정을 찾을 수 없습니다." }, { status: 404 });
@@ -222,22 +224,38 @@ async function handleParentSignup(form: FormData): Promise<NextResponse> {
   }
 
   const passwordHash = await hashPassword(parsed.password);
+  const consentToken = crypto.randomBytes(24).toString("hex");
+  const parentName = parsed.realName.trim();
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: { email, passwordHash, role: UserRole.PARENT },
     });
     // 이름 표시용 최소 프로필(학교·학년은 학부모라 비움 → nullable)
     await tx.studentProfile.create({
-      data: { userId: user.id, realName: parsed.realName.trim() },
+      data: { userId: user.id, realName: parentName },
     });
-    // 자녀 연결 요청(PENDING) — 자녀가 수락해야 APPROVED
+    // 자녀 연결 요청(PENDING) — 자녀가 이메일 링크 또는 앱 배너에서 동의해야 APPROVED
     await tx.parentChildLink.create({
-      data: { parentUserId: user.id, childUserId: child.id },
+      data: { parentUserId: user.id, childUserId: child.id, consentToken },
     });
     return user;
   });
 
   await clearEmailCode(parsed.email);
+
+  // 자녀 이메일로 동의 요청 링크 발송(실패해도 가입은 유지 — 앱 내 배너로도 동의 가능)
+  try {
+    const base = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "").replace(/\/$/, "");
+    await sendParentConsentEmail({
+      to: childEmail,
+      childName: child.studentProfile?.realName || "학생",
+      parentName,
+      parentEmail: email,
+      consentUrl: `${base}/parent-consent?token=${consentToken}`,
+    });
+  } catch {
+    /* 이메일 발송 실패는 무시 */
+  }
 
   return NextResponse.json(
     { id: result.id, email: result.email, status: "ACTIVE", role: "PARENT", pendingChild: childEmail, fallback: false },
