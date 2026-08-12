@@ -338,17 +338,23 @@ export default function MentoringView({
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {showSelector ? (
-              <select
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                className="rounded-full border px-3 py-1.5 text-[12.5px] font-semibold outline-none focus:border-[#8C6E59]"
-                style={{ borderColor: LINE, color: INK, background: "#fff" }}
-                aria-label="학생 선택"
-              >
-                {students.map((st) => (
-                  <option key={st.id} value={st.id}>{st.name} 학생</option>
-                ))}
-              </select>
+              isParent && students.length === 1 ? (
+                <span className="rounded-full border px-3 py-1.5 text-[12.5px] font-semibold" style={{ borderColor: LINE, color: INK, background: "#fff" }}>
+                  {students[0].name} 학생 (내 자녀)
+                </span>
+              ) : (
+                <select
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  className="rounded-full border px-3 py-1.5 text-[12.5px] font-semibold outline-none focus:border-[#8C6E59]"
+                  style={{ borderColor: LINE, color: INK, background: "#fff" }}
+                  aria-label={isParent ? "자녀 선택" : "학생 선택"}
+                >
+                  {students.map((st) => (
+                    <option key={st.id} value={st.id}>{st.name} 학생{isParent ? " (내 자녀)" : ""}</option>
+                  ))}
+                </select>
+              )
             ) : null}
             <span className="rounded-full px-3 py-1 text-[12px] font-semibold" style={{ background: PANEL, color: DEEP, border: `1px solid ${LINE}` }}>
               {isParent ? "학부모 · 열람 전용" : role === "teacher" ? "교사(관리자) · 보고서 열람 + 채팅" : "학생으로 접속"} · 실시간 공유
