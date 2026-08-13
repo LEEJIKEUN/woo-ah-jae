@@ -36,7 +36,7 @@ type ChatMsg = { id: string; from: "teacher" | "student"; senderId: string; text
 type Book = { book: string; author: string; motive: string; review: string; influence: string };
 type Notice = { id: string; body: string; at: string; updated: boolean };
 type Assignment = { id: string; name: string; size: number; mime: string; at: string };
-type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[] };
+type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string };
 const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
@@ -125,6 +125,9 @@ export default function MentoringView({
   const [uploadingChat, setUploadingChat] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editMsgDraft, setEditMsgDraft] = useState("");
+  const [sete, setSete] = useState("");
+  const [editingSete, setEditingSete] = useState(false);
+  const [seteDraft, setSeteDraft] = useState("");
   const [guide, setGuide] = useState<string>(SEED_GUIDE);
   const [editingGuide, setEditingGuide] = useState(false);
   const [guideDraft, setGuideDraft] = useState("");
@@ -132,6 +135,7 @@ export default function MentoringView({
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
   const [noticeEditDraft, setNoticeEditDraft] = useState("");
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
+  const seteDirtyRef = useRef(false); // 세특 편집 중이면 SSE 로 덮어쓰지 않음
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -149,6 +153,9 @@ export default function MentoringView({
     setBooks([]);
     setNotices([]);
     setAssignments([]);
+    setSete("");
+    setEditingSete(false);
+    seteDirtyRef.current = false;
     setEditingMsgId(null);
     dirtyRef.current = false;
     const es = new EventSource(`/api/courses/${courseId}/mentoring/stream?studentId=${encodeURIComponent(studentId)}`);
@@ -159,6 +166,7 @@ export default function MentoringView({
         setBooks(Array.isArray(room.books) ? room.books : []);
         setNotices(Array.isArray(room.notices) ? room.notices : []);
         setAssignments(Array.isArray(room.assignments) ? room.assignments : []);
+        if (!seteDirtyRef.current) setSete(typeof room.sete === "string" ? room.sete : "");
         setReportFile(room.reportFile ?? null);
         if (!dirtyRef.current) setReport({ ...blankReport(), ...(room.report ?? {}) });
       } catch {
@@ -210,6 +218,27 @@ export default function MentoringView({
       }
     } catch {
       /* 무시 */
+    }
+  }
+
+  function startEditSete() {
+    setSeteDraft(sete);
+    seteDirtyRef.current = true;
+    setEditingSete(true);
+  }
+  function cancelEditSete() {
+    seteDirtyRef.current = false;
+    setEditingSete(false);
+  }
+  async function submitSete() {
+    try {
+      await postRoom(courseId, studentId, { action: "sete", body: seteDraft });
+      setSete(seteDraft);
+    } catch {
+      /* 무시 */
+    } finally {
+      seteDirtyRef.current = false;
+      setEditingSete(false);
     }
   }
 
@@ -633,6 +662,38 @@ export default function MentoringView({
                   </div>
                 ) : canEditBooks ? (
                   <p className="rounded-[10px] py-3 text-center text-[12.5px]" style={{ background: PANEL, color: SUB }}>최대 {MAX_BOOKS}개까지 추가할 수 있습니다.</p>
+                ) : null}
+              </div>
+            </div>
+
+            {/* 과목별 세부능력 특기사항(세특) — 학생별, 관리자·퍼실 작성 */}
+            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+              <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
+                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
+                  과목별 세부능력 특기사항
+                  {!isStaff ? <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
+                </p>
+                <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{byteLen(editingSete ? seteDraft : sete)} byte</span>
+              </div>
+              <div className="px-4 py-4">
+                {editingSete ? (
+                  <textarea value={seteDraft} onChange={(e) => setSeteDraft(e.target.value)} rows={6} placeholder="이 학생의 과목별 세부능력 특기사항을 작성하세요." className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+                ) : sete ? (
+                  <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{sete}</p>
+                ) : (
+                  <p className="text-[13px]" style={{ color: SUB }}>{isStaff ? "이 학생의 세특을 작성하세요." : "아직 작성된 세특이 없습니다."}</p>
+                )}
+                {isStaff ? (
+                  <div className="mt-3 flex justify-end gap-1.5">
+                    {editingSete ? (
+                      <>
+                        <button type="button" onClick={() => void submitSete()} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
+                        <button type="button" onClick={cancelEditSete} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={startEditSete} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
+                    )}
+                  </div>
                 ) : null}
               </div>
             </div>

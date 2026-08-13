@@ -9,8 +9,9 @@ export async function generateMetadata() {
   return { title: "탐구활동 멘토링 · 우아재" };
 }
 
-export default async function MentoringPage({ params }: { params: Promise<{ courseId: string }> }) {
+export default async function MentoringPage({ params, searchParams }: { params: Promise<{ courseId: string }>; searchParams: Promise<{ student?: string }> }) {
   const { courseId } = await params;
+  const sp = await searchParams;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/mentoring`);
   const staff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 멘토(teacher)
   const isParent = session.role === "PARENT";
@@ -33,7 +34,9 @@ export default async function MentoringPage({ params }: { params: Promise<{ cour
     students = users
       .map((u) => ({ id: u.id, name: u.studentProfile?.realName || u.email }))
       .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-    initialStudentId = students[0]?.id ?? "";
+    // 현황표에서 넘어온 ?student= 가 유효하면 그 학생을 초기 선택
+    const requested = typeof sp.student === "string" ? sp.student : "";
+    initialStudentId = requested && students.some((st) => st.id === requested) ? requested : students[0]?.id ?? "";
   } else if (isParent) {
     const links = await prisma.parentChildLink.findMany({
       where: { parentUserId: session.userId, status: "APPROVED" },

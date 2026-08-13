@@ -147,6 +147,7 @@ function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }:
           <SideBox label="공지사항" href={`/course/${room.id}/notices`} onNavigate={onNavigate} />
           <SideBox label="수강생 토론 게시판" href={`/course/${room.id}/board`} onNavigate={onNavigate} />
           <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} onNavigate={onNavigate} />
+          {isStaff ? <SideBox label="세특·과제 현황" href={`/course/${room.id}/status`} onNavigate={onNavigate} /> : null}
         </div>
 
         <div className="my-4 border-t" style={{ borderColor: LINE }} />

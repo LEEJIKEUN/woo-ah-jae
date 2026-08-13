@@ -35,13 +35,14 @@ export type MentoringRoom = {
   chat: ChatMsg[];
   notices: Notice[];
   assignments: Assignment[];
+  sete: string;
 };
 
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
 }
 export function emptyRoom(): MentoringRoom {
-  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [], assignments: [] };
+  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [], assignments: [], sete: "" };
 }
 
 function fmtAt(d: Date): string {
@@ -54,12 +55,13 @@ function fmtAt(d: Date): string {
 
 /** 방 전체 스냅샷(메타데이터). 파일 실제 바이트(dataUrl)는 포함하지 않는다 — 다운로드는 file 라우트로. */
 export async function loadRoom(courseId: string, studentId: string): Promise<MentoringRoom> {
-  const [rep, books, msgs, notices, assignments] = await Promise.all([
+  const [rep, books, msgs, notices, assignments, sete] = await Promise.all([
     prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } } }),
     prisma.mentoringBook.findMany({ where: { courseId, studentId }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
     prisma.mentoringMessage.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "asc" }, take: -500 }),
     prisma.mentoringNotice.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "desc" } }),
     prisma.mentoringAssignment.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "asc" } }),
+    prisma.mentoringSete.findUnique({ where: { courseId_studentId: { courseId, studentId } }, select: { body: true } }),
   ]);
 
   const report: Report = rep
@@ -86,7 +88,17 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
     })),
     notices: notices.map((n) => ({ id: n.id, body: n.body, at: fmtAt(n.createdAt), updated: n.updatedAt.getTime() - n.createdAt.getTime() > 1000 })),
     assignments: assignments.map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime, at: fmtAt(a.createdAt) })),
+    sete: sete?.body ?? "",
   };
+}
+
+/** 세특(과목별 세부능력 특기사항) 저장 — 관리자·퍼실. */
+export async function saveSete(courseId: string, studentId: string, body: string): Promise<void> {
+  await prisma.mentoringSete.upsert({
+    where: { courseId_studentId: { courseId, studentId } },
+    create: { courseId, studentId, body },
+    update: { body },
+  });
 }
 
 /* ── 탐구 보고서 ── */

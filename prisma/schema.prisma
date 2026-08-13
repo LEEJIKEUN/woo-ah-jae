@@ -263,6 +263,17 @@ model MentoringNotice {
   @@index([courseId, studentId, createdAt])
 }
 
+/** 학생별 과목별 세부능력 특기사항(세특) — 관리자·퍼실 작성. 멘토링 방(강좌+학생)별 1개. */
+model MentoringSete {
+  courseId  String
+  studentId String
+  body      String   @default("")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@id([courseId, studentId])
+}
+
 /** 학생 과제 업로드(멘토링 방별) — PDF·동영상. 파일 바이트는 R2, DB엔 키만. */
 model MentoringAssignment {
   id         String   @id @default(cuid())

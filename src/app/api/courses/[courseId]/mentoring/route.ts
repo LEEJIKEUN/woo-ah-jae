@@ -7,7 +7,7 @@ import {
   loadRoom, saveReport, setReportFile, saveBooks,
   addTextMessage, addFileMessage, editMessage, deleteMessage, getMessage,
   addNotice, editNotice, deleteNotice, getNotice,
-  addAssignment, deleteAssignment, getAssignment,
+  addAssignment, deleteAssignment, getAssignment, saveSete,
   FIELD_KEYS, type Book, type Report, type UploadFile,
 } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
@@ -167,6 +167,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!m || m.courseId !== courseId || m.studentId !== studentId || m.deletedAt) return NextResponse.json({ error: "메시지를 찾을 수 없습니다." }, { status: 404 });
       if (m.senderId !== g.session.userId && !g.staff) return forbidden("본인이 보낸 메시지만 삭제할 수 있습니다.");
       await deleteMessage(id);
+      break;
+    }
+    /* 과목별 세부능력 특기사항(세특) — 관리자·퍼실만 작성 */
+    case "sete": {
+      if (!g.staff) return forbidden("세특은 관리자·퍼실리테이터만 작성할 수 있습니다.");
+      const t = typeof body.body === "string" ? body.body.slice(0, 5000) : "";
+      await saveSete(courseId, studentId, t);
       break;
     }
     /* 개별 공지 — 관리자·퍼실만 */
