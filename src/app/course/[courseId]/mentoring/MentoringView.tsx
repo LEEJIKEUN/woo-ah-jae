@@ -42,9 +42,6 @@ function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
 }
 
-const SEED_GUIDE =
-  "탐구의 동기 → 과정 → 결과를 인과적으로 연결하고, 사용한 개념·이론과 그것을 적용한 방법을 구체적으로 서술하세요. 수치·데이터로 성과를 제시하고, 배운 점과 진로·후속 탐구로의 확장을 담으면 좋습니다.";
-
 const MAX_BOOKS = 5;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -128,9 +125,6 @@ export default function MentoringView({
   const [sete, setSete] = useState("");
   const [editingSete, setEditingSete] = useState(false);
   const [seteDraft, setSeteDraft] = useState("");
-  const [guide, setGuide] = useState<string>(SEED_GUIDE);
-  const [editingGuide, setEditingGuide] = useState(false);
-  const [guideDraft, setGuideDraft] = useState("");
   const [noticeDraft, setNoticeDraft] = useState("");
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
   const [noticeEditDraft, setNoticeEditDraft] = useState("");
@@ -181,45 +175,6 @@ export default function MentoringView({
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat]);
-
-  // 작성 가이드(강좌 공통) 로드
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const res = await fetch(`/api/courses/${courseId}/mentoring-guide`, { cache: "no-store" });
-        if (!res.ok || !alive) return;
-        const d = (await res.json()) as { body?: string };
-        if (alive && typeof d.body === "string") setGuide(d.body);
-      } catch {
-        /* 무시 */
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [courseId]);
-
-  function startEditGuide() {
-    setGuideDraft(guide);
-    setEditingGuide(true);
-  }
-  async function saveGuide() {
-    try {
-      const res = await fetch(`/api/courses/${courseId}/mentoring-guide`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: guideDraft }),
-      });
-      if (res.ok) {
-        const d = (await res.json()) as { body?: string };
-        setGuide(typeof d.body === "string" ? d.body : guideDraft);
-        setEditingGuide(false);
-      }
-    } catch {
-      /* 무시 */
-    }
-  }
 
   function startEditSete() {
     setSeteDraft(sete);
@@ -670,7 +625,7 @@ export default function MentoringView({
             <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
-                  과목별 세부능력 특기사항
+                  과목별 세부능력 특기사항(참고)
                   {!isStaff ? <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
                 </p>
                 <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{byteLen(editingSete ? seteDraft : sete)} byte</span>
@@ -698,35 +653,6 @@ export default function MentoringView({
               </div>
             </div>
 
-            {/* 과목별 세부능력 특기사항 작성 가이드 */}
-            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
-              <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
-                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
-                  과목별 세부능력 특기사항 작성 가이드
-                  {!isStaff ? <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
-                </p>
-                <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{byteLen(editingGuide ? guideDraft : guide)} byte</span>
-              </div>
-              <div className="px-4 py-4">
-                {editingGuide ? (
-                  <textarea value={guideDraft} onChange={(e) => setGuideDraft(e.target.value)} rows={7} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
-                ) : (
-                  <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{guide}</p>
-                )}
-                {isStaff ? (
-                  <div className="mt-3 flex justify-end gap-1.5">
-                    {editingGuide ? (
-                      <>
-                        <button type="button" onClick={saveGuide} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
-                        <button type="button" onClick={() => setEditingGuide(false)} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
-                      </>
-                    ) : (
-                      <button type="button" onClick={startEditGuide} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
 
             {/* 1:1 멘토링 (실시간, 카카오톡식) */}
             <div className="flex flex-col rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
