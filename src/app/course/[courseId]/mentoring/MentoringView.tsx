@@ -46,7 +46,7 @@ const SEED_GUIDE =
   "탐구의 동기 → 과정 → 결과를 인과적으로 연결하고, 사용한 개념·이론과 그것을 적용한 방법을 구체적으로 서술하세요. 수치·데이터로 성과를 제시하고, 배운 점과 진로·후속 탐구로의 확장을 담으면 좋습니다.";
 
 const MAX_BOOKS = 5;
-const MAX_FILE_BYTES = 6 * 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 function byteLen(s: string) {
   try {
@@ -582,7 +582,7 @@ export default function MentoringView({
                   </div>
                 ) : canUploadFile ? (
                   <label className="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-4 text-[13.5px] transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: SUB }}>
-                    <Upload size={16} /> PDF 파일 업로드 (최대 6MB)
+                    <Upload size={16} /> PDF 파일 업로드
                     <input type="file" accept="application/pdf,.pdf" onChange={onUploadReportFile} className="hidden" />
                   </label>
                 ) : (
@@ -807,7 +807,7 @@ export default function MentoringView({
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59] disabled:opacity-50"
                   style={{ borderColor: "#E7E2D6", color: BROWN }}
                   aria-label="파일 첨부"
-                  title="사진·파일 첨부 (최대 6MB)"
+                  title="사진·파일 첨부 (최대 20MB)"
                 >
                   <Paperclip size={16} />
                 </button>

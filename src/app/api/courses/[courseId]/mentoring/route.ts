@@ -17,7 +17,7 @@ const MAX_FIELD = 20000;
 const MAX_BOOK_FIELD = 2000;
 const MAX_TEXT = 2000;
 const MAX_NOTICE = 3000;
-const MAX_FILE_DATAURL = 9 * 1024 * 1024; // 약 6MB 파일
+const MAX_FILE_DATAURL = 28 * 1024 * 1024; // base64 기준 ≈ 20MB 파일(보고서·채팅 첨부)
 
 async function sessionFromReq(request: NextRequest) {
   try {
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         await setReportFile(courseId, studentId, null);
       } else {
         const f = sanitizeFile(body.file);
-        if (f === "invalid") return NextResponse.json({ error: "파일이 올바르지 않거나 용량이 너무 큽니다. (최대 6MB)" }, { status: 413 });
+        if (f === "invalid") return NextResponse.json({ error: "파일이 올바르지 않거나 용량이 너무 큽니다. (최대 20MB)" }, { status: 413 });
         await setReportFile(courseId, studentId, f);
       }
       break;
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     case "chatFile": {
       if (!g.staff && !isOwnerStudent) return forbidden("파일 전송 권한이 없습니다.");
       const f = sanitizeFile(body.file);
-      if (f === "invalid") return NextResponse.json({ error: "파일이 올바르지 않거나 용량이 너무 큽니다. (최대 6MB)" }, { status: 413 });
+      if (f === "invalid") return NextResponse.json({ error: "파일이 올바르지 않거나 용량이 너무 큽니다. (최대 20MB)" }, { status: 413 });
       const caption = typeof body.text === "string" ? body.text.trim().slice(0, MAX_TEXT) : "";
       await addFileMessage(courseId, studentId, g.session.userId, senderRole, f, caption);
       break;
