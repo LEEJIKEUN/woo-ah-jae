@@ -568,7 +568,7 @@ export default function MentoringView({
                 <label className="mb-1.5 block text-[13.5px] font-bold" style={{ color: INK }}>보고서 파일 (PDF)</label>
                 {reportFile ? (
                   <div className="flex items-center justify-between gap-2 rounded-[10px] border px-3.5 py-3" style={{ borderColor: "#E7E2D6", background: PANEL }}>
-                    <a href={fileUrl("report")} download={reportFile.name} className="flex min-w-0 items-center gap-2.5 text-left" title="클릭하면 다운로드됩니다">
+                    <a href={`${fileUrl("report")}&v=${reportFile.size}`} download={reportFile.name} className="flex min-w-0 items-center gap-2.5 text-left" title="클릭하면 다운로드됩니다">
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }}><FileText size={16} /></span>
                       <span className="min-w-0">
                         <span className="block truncate text-[13.5px] font-semibold hover:underline" style={{ color: DEEP }}>{reportFile.name}</span>
@@ -576,7 +576,7 @@ export default function MentoringView({
                       </span>
                     </a>
                     <div className="flex shrink-0 items-center gap-1">
-                      <a href={fileUrl("report")} download={reportFile.name} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={16} /></a>
+                      <a href={`${fileUrl("report")}&v=${reportFile.size}`} download={reportFile.name} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={16} /></a>
                       {canUploadFile ? <button type="button" onClick={removeReportFile} className="grid h-8 w-8 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><X size={16} /></button> : null}
                     </div>
                   </div>
