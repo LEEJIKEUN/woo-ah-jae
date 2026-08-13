@@ -43,6 +43,18 @@ type Book = { book: string; author: string; motive: string; review: string; infl
 type Notice = { id: string; body: string; at: string; updated: boolean };
 type Assignment = { id: string; name: string; size: number; mime: string; at: string; column: number };
 const ASSIGN_SLOTS = [0, 1, 2, 3, 4]; // 과제1~5 슬롯(독립)
+// 브라우저 새 탭에서 소리·화면 원활히 재생되는 동영상만 허용
+const VIDEO_EXTS = ["mp4", "m4v", "webm", "mov"];
+const VIDEO_MIMES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+const VIDEO_LABEL = "MP4, WebM, MOV";
+const ASSIGN_ACCEPT = "application/pdf,.pdf,.mp4,.m4v,.webm,.mov,video/mp4,video/webm,video/quicktime";
+function checkAssignmentFile(name: string, mime: string): { ok: boolean; isVideo: boolean } {
+  const lower = name.toLowerCase();
+  const isPdf = mime === "application/pdf" || lower.endsWith(".pdf");
+  const ext = lower.includes(".") ? lower.split(".").pop()! : "";
+  const isVideo = VIDEO_EXTS.includes(ext) || VIDEO_MIMES.includes(mime);
+  return { ok: isPdf || isVideo, isVideo };
+}
 type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 type PeerReviewGroup = { column: number; items: PeerReview[] };
 type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[] };
@@ -486,10 +498,8 @@ export default function MentoringView({
     e.target.value = "";
     if (!f) return;
     const column = pendingColRef.current;
-    const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
-    const isVideo = f.type.startsWith("video/");
-    if (!isPdf && !isVideo) {
-      setAssignErr("PDF 또는 동영상 파일만 업로드할 수 있습니다.");
+    if (!checkAssignmentFile(f.name, f.type).ok) {
+      setAssignErr(`PDF 또는 지원되는 동영상(${VIDEO_LABEL})만 업로드할 수 있습니다.`);
       return;
     }
     setAssignErr(null);
@@ -1120,8 +1130,9 @@ export default function MentoringView({
 
                 {isStudent ? (
                   <>
-                    <input ref={assignInputRef} type="file" accept="application/pdf,.pdf,video/*" onChange={onAssignmentFile} className="hidden" />
-                    <p className="text-[11px] leading-5" style={{ color: MUTED }}>과제별로 각각 업로드하세요. PDF·동영상만 가능하며, 동영상은 10분 이내 녹화 파일을 권장합니다. (최대 2GB)</p>
+                    <input ref={assignInputRef} type="file" accept={ASSIGN_ACCEPT} onChange={onAssignmentFile} className="hidden" />
+                    <p className="text-[11px] leading-5" style={{ color: MUTED }}>PDF, 동영상 파일만 업로드할 수 있습니다. (최대 2GB)</p>
+                    <p className="mt-0.5 text-[11px] leading-5" style={{ color: MUTED }}>업로드 가능한 동영상 : {VIDEO_LABEL}</p>
                   </>
                 ) : null}
                 {assignErr ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{assignErr}</p> : null}

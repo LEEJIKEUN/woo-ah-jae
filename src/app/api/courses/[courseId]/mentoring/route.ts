@@ -215,8 +215,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const column = typeof body.column === "number" && body.column >= 0 && body.column <= 4 ? Math.floor(body.column) : -1;
       if (column < 0) return NextResponse.json({ error: "과제 번호가 올바르지 않습니다." }, { status: 400 });
       if (!name || !key || !key.startsWith(`mentoring/${courseId}/${studentId}/assignment/`)) return NextResponse.json({ error: "잘못된 업로드입니다." }, { status: 400 });
-      const isPdfOrVideo = mime === "application/pdf" || name.toLowerCase().endsWith(".pdf") || mime.startsWith("video/");
-      if (!isPdfOrVideo) return NextResponse.json({ error: "PDF 또는 동영상 파일만 업로드할 수 있습니다." }, { status: 400 });
+      const lower = name.toLowerCase();
+      const isPdf = mime === "application/pdf" || lower.endsWith(".pdf");
+      const okVideo = [".mp4", ".m4v", ".webm", ".mov"].some((e) => lower.endsWith(e)) || ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"].includes(mime);
+      if (!isPdf && !okVideo) return NextResponse.json({ error: "PDF 또는 지원되는 동영상(MP4·WebM·MOV)만 업로드할 수 있습니다." }, { status: 400 });
       if (await slotHasAssignment(courseId, studentId, column)) return NextResponse.json({ error: "이미 업로드된 과제가 있습니다. 삭제 후 다시 올려주세요." }, { status: 409 });
       const newAssignmentId = await addAssignment(courseId, studentId, g.session.userId, column, { name, size, mime, key });
       {

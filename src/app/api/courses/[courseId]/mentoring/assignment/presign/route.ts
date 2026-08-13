@@ -24,7 +24,9 @@ function safeName(name: string) {
 }
 function isAllowed(mime: string, name: string) {
   const lower = name.toLowerCase();
-  return mime === "application/pdf" || lower.endsWith(".pdf") || mime.startsWith("video/");
+  const isPdf = mime === "application/pdf" || lower.endsWith(".pdf");
+  const okVideo = [".mp4", ".m4v", ".webm", ".mov"].some((e) => lower.endsWith(e)) || ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"].includes(mime);
+  return isPdf || okVideo;
 }
 
 /** 학생 본인이 과제 파일(PDF·동영상)을 R2 로 직접 올리도록 서명 URL 발급. */
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const contentType = typeof body?.contentType === "string" ? body.contentType : "";
   const size = typeof body?.size === "number" ? body.size : 0;
 
-  if (!isAllowed(contentType, name)) return NextResponse.json({ error: "PDF 또는 동영상 파일만 업로드할 수 있습니다." }, { status: 400 });
+  if (!isAllowed(contentType, name)) return NextResponse.json({ error: "PDF 또는 지원되는 동영상(MP4·WebM·MOV)만 업로드할 수 있습니다." }, { status: 400 });
   if (size <= 0 || size > MAX_ASSIGNMENT_BYTES) return NextResponse.json({ error: "파일 용량이 올바르지 않습니다. (최대 2GB)" }, { status: 413 });
 
   const key = `mentoring/${courseId}/${s.userId}/assignment/${Date.now()}-${crypto.randomUUID()}-${safeName(name)}`;
