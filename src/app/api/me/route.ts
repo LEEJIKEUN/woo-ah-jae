@@ -83,11 +83,12 @@ export async function PATCH(request: NextRequest) {
     const number = asTrimmedOptionalString(body.number);
     const bio = asTrimmedOptionalString(body.bio);
 
-    if (!realName || !schoolName || !grade) {
-      return NextResponse.json(
-        { error: "실명, 학교, 학년은 필수입니다." },
-        { status: 400 },
-      );
+    const me = await prisma.user.findUnique({ where: { id: auth.userId }, select: { role: true } });
+    if (!realName) {
+      return NextResponse.json({ error: "이름(실명)은 필수입니다." }, { status: 400 });
+    }
+    if (me?.role === "STUDENT" && (!schoolName || !grade)) {
+      return NextResponse.json({ error: "학생은 학교·졸업 예정 연도가 필수입니다." }, { status: 400 });
     }
 
     const profile = await prisma.studentProfile.upsert({
