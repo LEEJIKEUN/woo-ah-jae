@@ -345,6 +345,7 @@ model MentoringAssignment {
   courseId   String
   studentId  String
   uploaderId String
+  column     Int      @default(0) // 과제 슬롯(0=과제1 … 4=과제5). 슬롯별 독립.
   name       String
   size       Int
   mime       String
@@ -352,6 +353,7 @@ model MentoringAssignment {
   createdAt  DateTime @default(now())
 
   @@index([courseId, studentId, createdAt])
+  @@index([courseId, studentId, column])
 }
 
 /** 레슨(강의)별 관리자 편집 콘텐츠 블록 — 강좌×활동 1개. blocks 는 JSON. DB 영구 보존. */

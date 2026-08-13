@@ -23,14 +23,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const users = ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, studentProfile: { select: { realName: true } } } }) : [];
   const nameOf = new Map(users.map((u) => [u.id, u.studentProfile?.realName || u.email]));
 
-  const asgs = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: ids } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true, name: true } });
-  const byStudent = new Map<string, { id: string; name: string }[]>();
-  for (const a of asgs) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), { id: a.id, name: a.name }]);
+  const asgs = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: ids }, column }, select: { id: true, studentId: true, name: true } });
   const colAsg = new Map<string, { author: string; fileName: string }>();
-  for (const [sid, list] of byStudent) {
-    const a = list[column];
-    if (a) colAsg.set(a.id, { author: sid, fileName: a.name });
-  }
+  for (const a of asgs) colAsg.set(a.id, { author: a.studentId, fileName: a.name });
 
   const pr = colAsg.size ? await prisma.mentoringPeerReview.findMany({ where: { courseId, assignmentId: { in: [...colAsg.keys()] } }, orderBy: { createdAt: "asc" } }) : [];
   const grouped = new Map<string, { authorName: string; fileName: string; assignmentId: string }[]>();

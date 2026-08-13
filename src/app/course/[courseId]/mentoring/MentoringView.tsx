@@ -41,7 +41,8 @@ type FileMeta = { name: string; size: number };
 type ChatMsg = { id: string; from: "teacher" | "student"; senderId: string; text: string; at: string; edited: boolean; deleted: boolean; kind: "text" | "file"; file: FileMeta | null; fileMime: string | null };
 type Book = { book: string; author: string; motive: string; review: string; influence: string };
 type Notice = { id: string; body: string; at: string; updated: boolean };
-type Assignment = { id: string; name: string; size: number; mime: string; at: string };
+type Assignment = { id: string; name: string; size: number; mime: string; at: string; column: number };
+const ASSIGN_SLOTS = [0, 1, 2, 3, 4]; // 과제1~5 슬롯(독립)
 type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 type PeerReviewGroup = { column: number; items: PeerReview[] };
 type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[] };
@@ -157,6 +158,8 @@ export default function MentoringView({
   const [standards, setStandards] = useState<StdItem[]>([]);
   const [assignErr, setAssignErr] = useState<string | null>(null);
   const [assignPct, setAssignPct] = useState<number | null>(null);
+  const [uploadCol, setUploadCol] = useState<number | null>(null); // 업로드 진행 중 슬롯
+  const pendingColRef = useRef<number>(0);
   const assignInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
@@ -474,10 +477,15 @@ export default function MentoringView({
   }
 
   /* ── 과제 업로드(학생 본인, R2 직접 업로드) ── */
+  function triggerAssignUpload(col: number) {
+    pendingColRef.current = col;
+    assignInputRef.current?.click();
+  }
   async function onAssignmentFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
+    const column = pendingColRef.current;
     const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
     const isVideo = f.type.startsWith("video/");
     if (!isPdf && !isVideo) {
@@ -485,6 +493,7 @@ export default function MentoringView({
       return;
     }
     setAssignErr(null);
+    setUploadCol(column);
     setAssignPct(0);
     try {
       const pres = await fetch(`/api/courses/${courseId}/mentoring/assignment/presign`, {
@@ -508,11 +517,16 @@ export default function MentoringView({
         xhr.onerror = () => reject(new Error("네트워크 오류(업로드). R2 CORS 설정을 확인하세요."));
         xhr.send(f);
       });
-      await postRoom(courseId, studentId, { action: "assignmentAdd", name: f.name, size: f.size, mime: f.type, key });
+      const res = await postRoom(courseId, studentId, { action: "assignmentAdd", name: f.name, size: f.size, mime: f.type, key, column });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        setAssignErr(d.error ?? "업로드에 실패했습니다.");
+      }
     } catch (e2) {
       setAssignErr(e2 instanceof Error ? e2.message : "업로드에 실패했습니다.");
     } finally {
       setAssignPct(null);
+      setUploadCol(null);
     }
   }
   async function removeAssignment(id: string) {
@@ -1058,19 +1072,26 @@ export default function MentoringView({
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   <Upload size={14} style={{ color: BROWN }} /> 과제 업로드
                 </p>
-                <span className="text-[12px]" style={{ color: MUTED }}>{assignments.length}개</span>
+                <span className="text-[12px]" style={{ color: MUTED }}>{assignments.filter((a) => a.column >= 0 && a.column <= 4).length} / {ASSIGN_SLOTS.length}</span>
               </div>
-              <div className="space-y-2 px-4 py-4">
-                {assignments.length === 0 ? (
-                  <p className="py-3 text-center text-[12.5px]" style={{ color: SUB }}>{isStudent ? "제출한 과제가 없습니다." : "제출된 과제가 없습니다."}</p>
-                ) : (
-                  <ol className="space-y-2">
-                    {assignments.map((a, i) => {
-                      const isVid = (a.mime || "").startsWith("video/");
-                      const url = `/api/courses/${courseId}/mentoring/assignment/${a.id}`;
-                      return (
-                        <li key={a.id} className="flex items-center gap-2 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "#E7E2D6", background: PANEL }}>
-                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold" style={{ background: CARD, color: BROWN }}>{i + 1}</span>
+              <div className="space-y-3 px-4 py-4">
+                {ASSIGN_SLOTS.map((col) => {
+                  const a = assignments.find((x) => x.column === col);
+                  const uploadingHere = isStudent && assignPct !== null && uploadCol === col;
+                  const isVid = a ? (a.mime || "").startsWith("video/") : false;
+                  const url = a ? `/api/courses/${courseId}/mentoring/assignment/${a.id}` : "";
+                  return (
+                    <div key={col}>
+                      <p className="mb-1.5 text-[12.5px] font-bold" style={{ color: DEEP }}>과제{col + 1}</p>
+                      {uploadingHere ? (
+                        <div className="rounded-[10px] border px-3 py-3" style={{ borderColor: LINE }}>
+                          <p className="mb-1.5 text-[12.5px] font-semibold" style={{ color: DEEP }}>업로드 중… {assignPct}% (닫지 마세요)</p>
+                          <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
+                            <div className="h-full rounded-full transition-all" style={{ width: `${assignPct}%`, background: BROWN }} />
+                          </div>
+                        </div>
+                      ) : a ? (
+                        <div className="flex items-center gap-2 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "#E7E2D6", background: PANEL }}>
                           <a href={url} target="_blank" rel="noreferrer" className="min-w-0 flex-1" title="열기">
                             <span className="block truncate text-[13px] font-semibold hover:underline" style={{ color: DEEP }}>{a.name}</span>
                             <span className="text-[11px]" style={{ color: MUTED }}>{a.at} · {fmtSize(a.size)} · {isVid ? "동영상" : "PDF"}</span>
@@ -1079,29 +1100,29 @@ export default function MentoringView({
                           {isStudent || isStaff ? (
                             <button type="button" onClick={() => void removeAssignment(a.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={15} /></button>
                           ) : null}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                )}
+                        </div>
+                      ) : isStudent ? (
+                        <button
+                          type="button"
+                          onClick={() => triggerAssignUpload(col)}
+                          disabled={assignPct !== null}
+                          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-3.5 text-[13px] transition hover:border-[#8C6E59] disabled:opacity-50"
+                          style={{ borderColor: LINE, color: SUB }}
+                        >
+                          <Upload size={15} /> 과제 파일 추가
+                        </button>
+                      ) : (
+                        <p className="rounded-[10px] border border-dashed py-3 text-center text-[12px]" style={{ borderColor: LINE, color: MUTED }}>미제출</p>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {isStudent ? (
-                  assignPct !== null ? (
-                    <div className="rounded-[10px] border px-3 py-3" style={{ borderColor: LINE }}>
-                      <p className="mb-1.5 text-[12.5px] font-semibold" style={{ color: DEEP }}>업로드 중… {assignPct}% (닫지 마세요)</p>
-                      <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${assignPct}%`, background: BROWN }} />
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-3.5 text-[13px] transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: SUB }}>
-                        <Upload size={15} /> 과제 파일 추가
-                        <input ref={assignInputRef} type="file" accept="application/pdf,.pdf,video/*" onChange={onAssignmentFile} className="hidden" />
-                      </label>
-                      <p className="text-[11px] leading-5" style={{ color: MUTED }}>PDF·동영상 파일만 업로드할 수 있습니다. 동영상은 10분 이내 줌 화면 녹화 파일을 권장합니다. (최대 2GB)</p>
-                    </>
-                  )
+                  <>
+                    <input ref={assignInputRef} type="file" accept="application/pdf,.pdf,video/*" onChange={onAssignmentFile} className="hidden" />
+                    <p className="text-[11px] leading-5" style={{ color: MUTED }}>과제별로 각각 업로드하세요. PDF·동영상만 가능하며, 동영상은 10분 이내 녹화 파일을 권장합니다. (최대 2GB)</p>
+                  </>
                 ) : null}
                 {assignErr ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{assignErr}</p> : null}
               </div>

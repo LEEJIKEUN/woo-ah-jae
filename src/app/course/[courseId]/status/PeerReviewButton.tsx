@@ -11,7 +11,7 @@ const LINE = "#E4DBC7";
 const CARD = "#EFEBE1";
 const PANEL = "#FBF8F2";
 
-type Student = { id: string; name: string; assignmentCount: number };
+type Student = { id: string; name: string; submittedColumns: number[] };
 
 /** 과제 헤더의 종이비행기 버튼 → '과제 보내기'(상호 피드백 배포) 모달. */
 export default function PeerReviewButton({ courseId, column, label, students }: { courseId: string; column: number; label: string; students: Student[] }) {
@@ -39,7 +39,7 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
     }
   }
 
-  const canReview = (s: Student) => s.assignmentCount > column; // 이 과제(column)를 제출했는지
+  const canReview = (s: Student) => s.submittedColumns.includes(column); // 이 슬롯(과제)을 제출했는지
   const submitters = students.filter(canReview);
   const allSelected = submitters.length > 0 && selected.size === submitters.length;
   function toggle(id: string) {

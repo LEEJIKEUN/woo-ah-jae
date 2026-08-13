@@ -27,7 +27,7 @@ export type ChatMsg = {
 };
 export type Book = { book: string; author: string; motive: string; review: string; influence: string };
 export type Notice = { id: string; body: string; at: string; updated: boolean };
-export type Assignment = { id: string; name: string; size: number; mime: string; at: string };
+export type Assignment = { id: string; name: string; size: number; mime: string; at: string; column: number };
 export type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 export type PeerReviewGroup = { column: number; items: PeerReview[] };
 export type MentoringRoom = {
@@ -103,7 +103,7 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
       fileMime: m.deletedAt ? null : m.fileMime ?? null,
     })),
     notices: notices.map((n) => ({ id: n.id, body: n.body, at: fmtAt(n.createdAt), updated: n.updatedAt.getTime() - n.createdAt.getTime() > 1000 })),
-    assignments: assignments.map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime, at: fmtAt(a.createdAt) })),
+    assignments: assignments.map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime, at: fmtAt(a.createdAt), column: a.column })),
     sete: sete?.body ?? "",
     peerReviews: await loadPeerReviews(courseId, studentId),
   };
@@ -150,11 +150,15 @@ export async function markPeerReviewsDeleted(courseId: string, assignmentId: str
   return [...new Set(affected.map((a) => a.recipientStudentId))];
 }
 
-/** 과제 재제출 → 이 작성자의 '삭제됨' 피어리뷰를 새 과제로 재연결('재제출됨'). 영향받은 recipient 목록 반환. */
-export async function repointPeerReviews(courseId: string, authorStudentId: string, newAssignmentId: string, newName: string): Promise<string[]> {
-  const affected = await prisma.mentoringPeerReview.findMany({ where: { courseId, authorStudentId, status: "deleted" }, select: { recipientStudentId: true } });
+/**
+ * 과제 재제출 → 이 작성자의 '삭제됨' 피어리뷰 중 같은 슬롯(column)만 새 과제로 재연결('재제출됨').
+ * column 을 매칭해 과제4 재업로드가 과제5 배정까지 덮어쓰던 문제를 방지. 영향받은 recipient 목록 반환.
+ */
+export async function repointPeerReviews(courseId: string, authorStudentId: string, newAssignmentId: string, newName: string, column: number): Promise<string[]> {
+  const where = { courseId, authorStudentId, column, status: "deleted" };
+  const affected = await prisma.mentoringPeerReview.findMany({ where, select: { recipientStudentId: true } });
   if (!affected.length) return [];
-  await prisma.mentoringPeerReview.updateMany({ where: { courseId, authorStudentId, status: "deleted" }, data: { assignmentId: newAssignmentId, assignmentName: newName, status: "resubmitted", resubmittedAt: new Date() } });
+  await prisma.mentoringPeerReview.updateMany({ where, data: { assignmentId: newAssignmentId, assignmentName: newName, status: "resubmitted", resubmittedAt: new Date() } });
   return [...new Set(affected.map((a) => a.recipientStudentId))];
 }
 
@@ -169,12 +173,13 @@ export async function isPeerReviewer(courseId: string, userId: string, assignmen
  * 본인 제외 랜덤 count 개를 배정. 선택된 학생들의 기존 배정은 교체한다.
  */
 export async function distributePeerReview(courseId: string, column: number, studentIds: string[], count: number): Promise<{ recipients: number; assigned: number; perAssignment: number }> {
-  const all = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: studentIds } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true, name: true } });
-  const byStudent = new Map<string, { id: string; name: string }[]>();
-  for (const a of all) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), { id: a.id, name: a.name }]);
+  // 이 슬롯(column)에 실제 제출된 과제만 대상 — 슬롯 단위로 독립
+  const all = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: studentIds }, column }, select: { id: true, studentId: true, name: true } });
+  const byStudent = new Map<string, { id: string; name: string }>();
+  for (const a of all) byStudent.set(a.studentId, { id: a.id, name: a.name });
 
   // 이 과제(column)를 실제로 제출한 학생만 참여 — 미제출자는 배부·수신에서 제외
-  const participants = studentIds.filter((sid) => !!byStudent.get(sid)?.[column]);
+  const participants = studentIds.filter((sid) => byStudent.has(sid));
   const n = participants.length;
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -187,7 +192,7 @@ export async function distributePeerReview(courseId: string, column: number, stu
     const recipient = participants[i];
     for (let off = 1; off <= k; off++) {
       const author = participants[(i + off) % n];
-      const asg = byStudent.get(author)![column];
+      const asg = byStudent.get(author)!;
       rows.push({ courseId, recipientStudentId: recipient, authorStudentId: author, assignmentId: asg.id, assignmentName: asg.name, column, status: "active" });
     }
   }
@@ -298,9 +303,14 @@ export async function deleteNotice(id: string): Promise<void> {
 }
 
 /* ── 과제 업로드 ── */
-export async function addAssignment(courseId: string, studentId: string, uploaderId: string, file: { name: string; size: number; mime: string; key: string }): Promise<string> {
-  const a = await prisma.mentoringAssignment.create({ data: { courseId, studentId, uploaderId, name: file.name, size: file.size, mime: file.mime, fileKey: file.key } });
+export async function addAssignment(courseId: string, studentId: string, uploaderId: string, column: number, file: { name: string; size: number; mime: string; key: string }): Promise<string> {
+  const a = await prisma.mentoringAssignment.create({ data: { courseId, studentId, uploaderId, column, name: file.name, size: file.size, mime: file.mime, fileKey: file.key } });
   return a.id;
+}
+/** 이 학생이 해당 슬롯(column)에 이미 제출한 과제가 있는지 */
+export async function slotHasAssignment(courseId: string, studentId: string, column: number): Promise<boolean> {
+  const a = await prisma.mentoringAssignment.findFirst({ where: { courseId, studentId, column }, select: { id: true } });
+  return !!a;
 }
 export async function getAssignment(id: string) {
   return prisma.mentoringAssignment.findUnique({ where: { id } });

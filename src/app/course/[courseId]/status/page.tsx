@@ -37,7 +37,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
     ids.length ? prisma.user.findMany({ where: { id: { in: ids }, lifecycleStatus: "ACTIVE" }, select: { id: true, email: true, studentProfile: { select: { realName: true } } } }) : Promise.resolve([]),
     ids.length ? prisma.mentoringSete.findMany({ where: { courseId, studentId: { in: ids } }, select: { studentId: true, body: true } }) : Promise.resolve([]),
     ids.length ? prisma.mentoringBook.findMany({ where: { courseId, studentId: { in: ids } }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }], select: { studentId: true, book: true, author: true } }) : Promise.resolve([]),
-    ids.length ? prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: ids } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true, name: true, mime: true } }) : Promise.resolve([]),
+    ids.length ? prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: ids } }, orderBy: { column: "asc" }, select: { id: true, studentId: true, name: true, mime: true, column: true } }) : Promise.resolve([]),
   ]);
 
   const seteMap = new Map(setes.map((s) => [s.studentId, s.body]));
@@ -46,9 +46,9 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
     const label = `${b.book || "(제목 없음)"}${b.author ? `(${b.author})` : ""}`;
     booksMap.set(b.studentId, [...(booksMap.get(b.studentId) ?? []), label]);
   }
-  const asgMap = new Map<string, { id: string; name: string; mime: string }[]>();
+  const asgMap = new Map<string, { id: string; name: string; mime: string; column: number }[]>();
   for (const a of assignments) {
-    asgMap.set(a.studentId, [...(asgMap.get(a.studentId) ?? []), { id: a.id, name: a.name, mime: a.mime }]);
+    asgMap.set(a.studentId, [...(asgMap.get(a.studentId) ?? []), { id: a.id, name: a.name, mime: a.mime, column: a.column }]);
   }
 
   const rows = users
@@ -64,7 +64,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-  const studentsForClient = rows.map((r) => ({ id: r.id, name: r.name, assignmentCount: r.assignments.length }));
+  const studentsForClient = rows.map((r) => ({ id: r.id, name: r.name, submittedColumns: r.assignments.map((a) => a.column) }));
 
   const th = "whitespace-nowrap border-b px-3 py-2.5 text-left text-[12.5px] font-bold";
   const td = "border-b px-3 py-2.5 align-top text-[13px]";
@@ -123,7 +123,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
                       {r.books ? <span className="leading-6">{r.books}</span> : <span style={{ color: MUTED }}>-</span>}
                     </td>
                     {Array.from({ length: MAX_ASSIGN_COLS }, (_, ci) => {
-                      const a = r.assignments[ci];
+                      const a = r.assignments.find((x) => x.column === ci);
                       return (
                         <td key={ci} className={td} style={{ borderColor: CARD }}>
                           {a ? (
@@ -143,8 +143,8 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
           </table>
         </div>
 
-        {rows.some((r) => r.assignments.length > MAX_ASSIGN_COLS) ? (
-          <p className="mt-2 text-[12px]" style={{ color: MUTED }}>* 과제가 {MAX_ASSIGN_COLS}개를 넘는 학생은 최근 것 일부가 생략됩니다. 전체는 학생 멘토링 페이지에서 확인하세요.</p>
+        {rows.some((r) => r.assignments.some((a) => a.column >= MAX_ASSIGN_COLS)) ? (
+          <p className="mt-2 text-[12px]" style={{ color: MUTED }}>* 과제 {MAX_ASSIGN_COLS}번을 넘는 슬롯은 표에 표시되지 않습니다. 전체는 학생 멘토링 페이지에서 확인하세요.</p>
         ) : null}
         <p className="mt-1 flex items-center gap-1 text-[12px]" style={{ color: MUTED }}>
           <Download size={12} /> 과제 파일명을 누르면 새 탭에서 열립니다. 세특은 이름을 눌러 학생 멘토링에서 작성/수정합니다.
