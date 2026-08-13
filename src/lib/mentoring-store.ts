@@ -28,7 +28,7 @@ export type ChatMsg = {
 export type Book = { book: string; author: string; motive: string; review: string; influence: string };
 export type Notice = { id: string; body: string; at: string; updated: boolean };
 export type Assignment = { id: string; name: string; size: number; mime: string; at: string };
-export type PeerReview = { assignmentId: string; name: string; mime: string };
+export type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 export type PeerReviewGroup = { column: number; items: PeerReview[] };
 export type MentoringRoom = {
   report: Report;
@@ -51,6 +51,19 @@ export function emptyRoom(): MentoringRoom {
 function fmtAt(d: Date): string {
   try {
     return d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+/** 재제출 타임스탬프 — "2026.6.30. 22:29" (연도 포함·24시간). */
+function fmtStamp(d: Date): string {
+  try {
+    const parts = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
+    const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    let hh = g("hour");
+    if (hh === "24") hh = "00"; // 자정 보정
+    return `${g("year")}.${Number(g("month"))}.${Number(g("day"))}. ${hh}:${g("minute")}`;
   } catch {
     return "";
   }
@@ -96,19 +109,34 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
   };
 }
 
-/** 이 학생이 상호 피드백으로 읽어야 할 과제 — 과제(column)별로 그룹(누적). */
+/** 이 학생이 상호 피드백으로 읽어야 할 과제 — 과제(column)별 그룹(누적), 상태 포함. */
 async function loadPeerReviews(courseId: string, studentId: string): Promise<PeerReviewGroup[]> {
-  const peer = await prisma.mentoringPeerReview.findMany({ where: { courseId, recipientStudentId: studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }], select: { assignmentId: true, column: true } });
+  const peer = await prisma.mentoringPeerReview.findMany({ where: { courseId, recipientStudentId: studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }] });
   if (!peer.length) return [];
-  const asgs = await prisma.mentoringAssignment.findMany({ where: { id: { in: peer.map((p) => p.assignmentId) } }, select: { id: true, name: true, mime: true } });
-  const m = new Map(asgs.map((a) => [a.id, a]));
   const byCol = new Map<number, PeerReview[]>();
   for (const p of peer) {
-    const a = m.get(p.assignmentId);
-    if (!a) continue;
-    byCol.set(p.column, [...(byCol.get(p.column) ?? []), { assignmentId: a.id, name: a.name, mime: a.mime }]);
+    byCol.set(p.column, [
+      ...(byCol.get(p.column) ?? []),
+      { assignmentId: p.status === "deleted" ? null : p.assignmentId, name: p.assignmentName || "과제", status: p.status, resubmittedAt: p.resubmittedAt ? fmtStamp(p.resubmittedAt) : null },
+    ]);
   }
   return [...byCol.entries()].sort((x, y) => x[0] - y[0]).map(([column, items]) => ({ column, items }));
+}
+
+/** 과제 삭제 → 이 과제를 피어리뷰로 받은 학생들에게 '삭제됨' 표시. 영향받은 recipient 목록 반환. */
+export async function markPeerReviewsDeleted(courseId: string, assignmentId: string): Promise<string[]> {
+  const affected = await prisma.mentoringPeerReview.findMany({ where: { courseId, assignmentId, status: { not: "deleted" } }, select: { recipientStudentId: true } });
+  if (!affected.length) return [];
+  await prisma.mentoringPeerReview.updateMany({ where: { courseId, assignmentId }, data: { status: "deleted", assignmentId: null } });
+  return [...new Set(affected.map((a) => a.recipientStudentId))];
+}
+
+/** 과제 재제출 → 이 작성자의 '삭제됨' 피어리뷰를 새 과제로 재연결('재제출됨'). 영향받은 recipient 목록 반환. */
+export async function repointPeerReviews(courseId: string, authorStudentId: string, newAssignmentId: string, newName: string): Promise<string[]> {
+  const affected = await prisma.mentoringPeerReview.findMany({ where: { courseId, authorStudentId, status: "deleted" }, select: { recipientStudentId: true } });
+  if (!affected.length) return [];
+  await prisma.mentoringPeerReview.updateMany({ where: { courseId, authorStudentId, status: "deleted" }, data: { assignmentId: newAssignmentId, assignmentName: newName, status: "resubmitted", resubmittedAt: new Date() } });
+  return [...new Set(affected.map((a) => a.recipientStudentId))];
 }
 
 /** 이 사용자가 해당 과제의 피어 리뷰 대상자인지(과제 열람 권한 근거). */
@@ -122,33 +150,33 @@ export async function isPeerReviewer(courseId: string, userId: string, assignmen
  * 본인 제외 랜덤 count 개를 배정. 선택된 학생들의 기존 배정은 교체한다.
  */
 export async function distributePeerReview(courseId: string, column: number, studentIds: string[], count: number): Promise<{ recipients: number; assigned: number; perAssignment: number }> {
-  const all = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: studentIds } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true } });
-  const byStudent = new Map<string, string[]>();
-  for (const a of all) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), a.id]);
+  const all = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: studentIds } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true, name: true } });
+  const byStudent = new Map<string, { id: string; name: string }[]>();
+  for (const a of all) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), { id: a.id, name: a.name }]);
 
   // 이 과제(column)를 실제로 제출한 학생만 참여 — 미제출자는 배부·수신에서 제외
   const participants = studentIds.filter((sid) => !!byStudent.get(sid)?.[column]);
   const n = participants.length;
-  // 무작위 순서로 섞기
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [participants[i], participants[j]] = [participants[j], participants[i]];
   }
-  // 원형 라운드로빈: 각자 '다음 k명'의 과제를 받음 → 모든 과제가 정확히 k번씩 배부(완전 균등, 본인 제외·중복 없음)
+  // 원형 라운드로빈: 각자 '다음 k명'의 과제를 받음 → 모든 과제가 정확히 k번씩 배부(완전 균등)
   const k = Math.min(count, Math.max(0, n - 1));
-  const rows: { courseId: string; recipientStudentId: string; assignmentId: string }[] = [];
+  const rows: { courseId: string; recipientStudentId: string; authorStudentId: string; assignmentId: string; assignmentName: string; column: number; status: string }[] = [];
   for (let i = 0; i < n; i++) {
     const recipient = participants[i];
     for (let off = 1; off <= k; off++) {
       const author = participants[(i + off) % n];
-      rows.push({ courseId, recipientStudentId: recipient, assignmentId: byStudent.get(author)![column] });
+      const asg = byStudent.get(author)![column];
+      rows.push({ courseId, recipientStudentId: recipient, authorStudentId: author, assignmentId: asg.id, assignmentName: asg.name, column, status: "active" });
     }
   }
 
   // 이 과제(column)의 기존 배정만 교체 → 다른 과제 배정은 누적 유지
   await prisma.$transaction([
     prisma.mentoringPeerReview.deleteMany({ where: { courseId, recipientStudentId: { in: studentIds }, column } }),
-    ...rows.map((r) => prisma.mentoringPeerReview.create({ data: { ...r, column } })),
+    ...rows.map((r) => prisma.mentoringPeerReview.create({ data: r })),
   ]);
   return { recipients: n, assigned: rows.length, perAssignment: k };
 }
@@ -251,8 +279,9 @@ export async function deleteNotice(id: string): Promise<void> {
 }
 
 /* ── 과제 업로드 ── */
-export async function addAssignment(courseId: string, studentId: string, uploaderId: string, file: { name: string; size: number; mime: string; key: string }): Promise<void> {
-  await prisma.mentoringAssignment.create({ data: { courseId, studentId, uploaderId, name: file.name, size: file.size, mime: file.mime, fileKey: file.key } });
+export async function addAssignment(courseId: string, studentId: string, uploaderId: string, file: { name: string; size: number; mime: string; key: string }): Promise<string> {
+  const a = await prisma.mentoringAssignment.create({ data: { courseId, studentId, uploaderId, name: file.name, size: file.size, mime: file.mime, fileKey: file.key } });
+  return a.id;
 }
 export async function getAssignment(id: string) {
   return prisma.mentoringAssignment.findUnique({ where: { id } });

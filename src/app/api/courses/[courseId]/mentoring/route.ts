@@ -8,11 +8,12 @@ import {
   addTextMessage, addFileMessage, editMessage, deleteMessage, getMessage,
   addNotice, editNotice, deleteNotice, getNotice,
   addAssignment, deleteAssignment, getAssignment, saveSete,
+  markPeerReviewsDeleted, repointPeerReviews,
   FIELD_KEYS, type Book, type Report, type UploadFile,
 } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
 import { pingUser, pingCourseStaff } from "@/lib/inbox-bus";
-import { notifyCourseStaff } from "@/lib/notification-store";
+import { notifyCourseStaff, createNotifications } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FIELD = 20000;
@@ -214,11 +215,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!name || !key || !key.startsWith(`mentoring/${courseId}/${studentId}/assignment/`)) return NextResponse.json({ error: "잘못된 업로드입니다." }, { status: 400 });
       const isPdfOrVideo = mime === "application/pdf" || name.toLowerCase().endsWith(".pdf") || mime.startsWith("video/");
       if (!isPdfOrVideo) return NextResponse.json({ error: "PDF 또는 동영상 파일만 업로드할 수 있습니다." }, { status: 400 });
-      await addAssignment(courseId, studentId, g.session.userId, { name, size, mime, key });
+      const newAssignmentId = await addAssignment(courseId, studentId, g.session.userId, { name, size, mime, key });
       {
         const stu = await prisma.user.findUnique({ where: { id: studentId }, select: { email: true, studentProfile: { select: { realName: true } } } });
         const who = stu?.studentProfile?.realName || stu?.email || "학생";
         await notifyCourseStaff(courseId, g.session.userId, { kind: "assignment", title: `${who} · 과제 업로드`, body: name, href: `/course/${courseId}/status` });
+        // 재제출: 이 학생의 '삭제됨' 피어리뷰를 새 과제로 재연결 → 배정받은 학생들에게 반영·알림
+        const affected = await repointPeerReviews(courseId, studentId, newAssignmentId, name);
+        for (const rid of affected) {
+          try { publishMentoring(courseId, rid, await loadRoom(courseId, rid)); } catch { /* 무시 */ }
+          pingUser(rid);
+        }
+        if (affected.length) {
+          await createNotifications(affected.map((uid) => ({ userId: uid, kind: "peer", title: "배정된 과제가 다시 제출되었어요", body: `${who} 학생이 새 파일을 올렸습니다.`, href: `/course/${courseId}/mentoring` })));
+          await notifyCourseStaff(courseId, g.session.userId, { kind: "peer", title: "피어리뷰 과제 재제출", body: `${who} 학생 과제 재제출 → ${affected.length}명에게 반영`, href: `/course/${courseId}/status` });
+        }
       }
       break;
     }
@@ -228,6 +239,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!a || a.courseId !== courseId || a.studentId !== studentId) return NextResponse.json({ error: "과제를 찾을 수 없습니다." }, { status: 404 });
       if (a.studentId !== g.session.userId && !g.staff) return forbidden("본인이 올린 과제만 삭제할 수 있습니다.");
       await deleteAssignment(id);
+      {
+        // 이 과제를 피어리뷰로 받은 학생들에게 '삭제됨' 반영·알림
+        const affected = await markPeerReviewsDeleted(courseId, id);
+        for (const rid of affected) {
+          try { publishMentoring(courseId, rid, await loadRoom(courseId, rid)); } catch { /* 무시 */ }
+          pingUser(rid);
+        }
+        if (affected.length) {
+          const stu = await prisma.user.findUnique({ where: { id: a.studentId }, select: { email: true, studentProfile: { select: { realName: true } } } });
+          const who = stu?.studentProfile?.realName || stu?.email || "학생";
+          await createNotifications(affected.map((uid) => ({ userId: uid, kind: "peer", title: "배정된 과제가 삭제되었어요", body: "작성자가 과제를 회수했습니다. 다시 업로드될 때까지 기다려주세요.", href: `/course/${courseId}/mentoring` })));
+          await notifyCourseStaff(courseId, g.session.userId, { kind: "peer", title: "피어리뷰 과제 삭제", body: `${who} 학생 과제 삭제 → ${affected.length}명에게 반영`, href: `/course/${courseId}/status` });
+        }
+      }
       break;
     }
     default:

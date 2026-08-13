@@ -36,7 +36,7 @@ type ChatMsg = { id: string; from: "teacher" | "student"; senderId: string; text
 type Book = { book: string; author: string; motive: string; review: string; influence: string };
 type Notice = { id: string; body: string; at: string; updated: boolean };
 type Assignment = { id: string; name: string; size: number; mime: string; at: string };
-type PeerReview = { assignmentId: string; name: string; mime: string };
+type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 type PeerReviewGroup = { column: number; items: PeerReview[] };
 type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[] };
 const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
@@ -632,20 +632,39 @@ export default function MentoringView({
                   {peerReviews.map((g) => (
                     <div key={g.column}>
                       <p className="mb-2 text-[13.5px] font-bold" style={{ color: DEEP }}>과제{g.column + 1}. 상호 피드백</p>
-                      <div className="flex flex-wrap gap-2.5">
+                      <div className="flex flex-col gap-2">
                         {g.items.map((p, i) => (
-                          <a
-                            key={p.assignmentId}
-                            href={`/api/courses/${courseId}/mentoring/assignment/${p.assignmentId}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex max-w-full items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] font-semibold transition hover:border-[#8C6E59] hover:bg-[#FBF8F2]"
-                            style={{ borderColor: LINE, color: DEEP }}
-                            title={p.name}
-                          >
-                            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: BROWN }}>{i + 1}</span>
-                            <span className="truncate">{p.name}</span>
-                          </a>
+                          p.status === "deleted" ? (
+                            <div
+                              key={i}
+                              className="inline-flex max-w-full items-start gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px]"
+                              style={{ borderColor: LINE, background: "#FBF6EC" }}
+                            >
+                              <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: MUTED }}>{i + 1}</span>
+                              <span className="min-w-0">
+                                <span className="block truncate font-semibold line-through" style={{ color: MUTED }}>{p.name}</span>
+                                <span className="mt-0.5 block text-[11.5px] font-bold" style={{ color: "#c2410c" }}>과제가 삭제되었습니다. 다시 업로드할 때까지 기다려주세요.</span>
+                              </span>
+                            </div>
+                          ) : (
+                            <a
+                              key={i}
+                              href={`/api/courses/${courseId}/mentoring/assignment/${p.assignmentId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex max-w-full items-start gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] font-semibold transition hover:border-[#8C6E59] hover:bg-[#FBF8F2]"
+                              style={{ borderColor: LINE, color: DEEP }}
+                              title={p.name}
+                            >
+                              <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: BROWN }}>{i + 1}</span>
+                              <span className="min-w-0">
+                                <span className="block truncate">{p.name}</span>
+                                {p.status === "resubmitted" && p.resubmittedAt ? (
+                                  <span className="mt-0.5 block text-[11.5px] font-bold" style={{ color: "#d97706" }}>{p.resubmittedAt} 파일이 다시 제출되었습니다.</span>
+                                ) : null}
+                              </span>
+                            </a>
+                          )
                         ))}
                       </div>
                     </div>

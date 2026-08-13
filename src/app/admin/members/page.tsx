@@ -239,12 +239,12 @@ export default function AdminMembersPage() {
             value={nameQuery}
             onChange={(e) => setNameQuery(e.target.value)}
             placeholder="이름(실명) 검색"
-            className="h-9 w-48 rounded-md border border-slate-200 bg-[color:var(--surface)] px-3 text-sm"
+            className="h-9 w-full rounded-md border border-slate-200 bg-[color:var(--surface)] px-3 text-sm sm:w-48"
           />
           <select
             value={courseFilter}
             onChange={(e) => setCourseFilter(e.target.value)}
-            className="h-9 max-w-[200px] rounded-md border border-slate-200 bg-[color:var(--surface)] px-2.5 text-sm text-slate-800"
+            className="h-9 min-w-0 flex-1 rounded-md border border-slate-200 bg-[color:var(--surface)] px-2.5 text-sm text-slate-800 sm:max-w-[200px] sm:flex-none"
             aria-label="강좌별 필터"
           >
             <option value="">전체 강좌</option>
@@ -277,7 +277,8 @@ export default function AdminMembersPage() {
           {filteredItems.length === 0 ? (
             <div className="py-8 text-center text-sm text-slate-500">회원 데이터가 없습니다.</div>
           ) : (
-            <div className="relative overflow-visible">
+            <>
+            <div className="relative hidden overflow-visible lg:block">
               <table className="w-full table-fixed border-collapse text-left text-sm text-slate-800">
                 <colgroup>
                   <col style={{ width: "5%" }} />
@@ -418,6 +419,46 @@ export default function AdminMembersPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* 모바일·태블릿: 카드형 목록 */}
+            <ul className="divide-y divide-slate-200/60 lg:hidden">
+              {filteredItems.map((x, i) => (
+                <li key={x.id} className="px-4 py-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-xs text-slate-400">{i + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => setProfileId(x.id)}
+                          className="min-w-0 truncate text-[15px] font-semibold text-sky-700 hover:underline"
+                        >
+                          {x.realName ?? "-"}
+                        </button>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                          {ROLE_KO[x.role] ?? x.role}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-[13px] text-slate-700">{x.email}</p>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                        <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-slate-400">학교</dt><dd className="truncate text-slate-700">{x.schoolName ?? "-"}</dd></div>
+                        <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-slate-400">졸업</dt><dd className="truncate text-slate-700">{x.grade ?? "-"}</dd></div>
+                        <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-slate-400">국가</dt><dd className="truncate text-slate-700">{compactCountry(x.residenceCountry)}</dd></div>
+                        <div className="flex min-w-0 gap-1"><dt className="shrink-0 text-slate-400">가입</dt><dd className="truncate text-slate-700">{formatKstDate(x.createdAt)}</dd></div>
+                      </dl>
+                    </div>
+                    <button
+                      onClick={() => void deleteMember(x.id)}
+                      disabled={processingMemberId === x.id}
+                      className="shrink-0 rounded-md bg-rose-500 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            </>
           )}
         </Card>
 

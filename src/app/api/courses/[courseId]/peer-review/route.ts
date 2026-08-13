@@ -35,6 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const pr = colAsg.size ? await prisma.mentoringPeerReview.findMany({ where: { courseId, assignmentId: { in: [...colAsg.keys()] } }, orderBy: { createdAt: "asc" } }) : [];
   const grouped = new Map<string, { authorName: string; fileName: string; assignmentId: string }[]>();
   for (const r of pr) {
+    if (!r.assignmentId) continue;
     const info = colAsg.get(r.assignmentId);
     if (!info) continue;
     grouped.set(r.recipientStudentId, [...(grouped.get(r.recipientStudentId) ?? []), { authorName: nameOf.get(info.author) ?? "학생", fileName: info.fileName, assignmentId: r.assignmentId }]);

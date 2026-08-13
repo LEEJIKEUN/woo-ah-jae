@@ -310,14 +310,19 @@ model FacilitatorCourse {
 
 /** 상호 피드백(피어 리뷰) 배정 — recipient 학생이 읽어야 할 다른 학생의 과제. */
 model MentoringPeerReview {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   courseId           String
   recipientStudentId String
-  assignmentId       String
-  column             Int      @default(0) // 과제 번호(0=과제1) — 과제별 누적/그룹 표시
-  createdAt          DateTime @default(now())
+  authorStudentId    String    @default("") // 과제 작성자(재제출 매칭 기준)
+  assignmentId       String? // 현재 연결된 과제(삭제 시 null)
+  assignmentName     String    @default("") // 표시용(삭제돼도 이름 표시)
+  column             Int       @default(0) // 과제 번호(0=과제1)
+  status             String    @default("active") // active | deleted | resubmitted
+  resubmittedAt      DateTime?
+  createdAt          DateTime  @default(now())
 
   @@index([courseId, recipientStudentId, createdAt])
+  @@index([courseId, authorStudentId, status])
   @@index([assignmentId])
 }
 
