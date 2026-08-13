@@ -26,7 +26,8 @@ function Badge({ n }: { n: number }) {
   );
 }
 
-export default function HeaderInbox({ userId }: { userId: string }) {
+export default function HeaderInbox({ userId, role }: { userId: string; role?: string }) {
+  const isStaff = role === "ADMIN" || role === "FACILITATOR";
   const router = useRouter();
   const [notifs, setNotifs] = useState<{ items: Notif[]; unread: number }>({ items: [], unread: 0 });
   const [inbox, setInbox] = useState<{ conversations: Conv[]; unread: number }>({ conversations: [], unread: 0 });
@@ -128,7 +129,7 @@ export default function HeaderInbox({ userId }: { userId: string }) {
               ))
             )}
           </div>
-          <Link href="/notifications" onClick={() => setPanel(null)} className="block border-t px-4 py-2.5 text-center text-[12.5px] font-semibold hover:bg-[#FBF8F2]" style={{ borderColor: LINE, color: BROWN }}>알림 전체보기 (더보기)</Link>
+          <Link href="/notifications" onClick={() => setPanel(null)} className="block border-t px-4 py-2.5 text-center text-[12.5px] font-semibold hover:bg-[#FBF8F2]" style={{ borderColor: LINE, color: BROWN }}>알림 더보기</Link>
         </div>
       ) : null}
 
@@ -150,6 +151,9 @@ export default function HeaderInbox({ userId }: { userId: string }) {
               ))
             )}
           </div>
+          {isStaff ? (
+            <Link href="/mentoring" onClick={() => setPanel(null)} className="block border-t px-4 py-2.5 text-center text-[12.5px] font-semibold hover:bg-[#FBF8F2]" style={{ borderColor: LINE, color: BROWN }}>멘토링 더보기</Link>
+          ) : null}
         </div>
       ) : null}
 

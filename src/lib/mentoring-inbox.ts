@@ -78,6 +78,64 @@ export async function getInbox(user: { userId: string; role: string }): Promise<
   return { conversations, unread: unreadTotal };
 }
 
+/**
+ * 멘토링 더보기(그리드) — 스태프가 담당 강좌의 '모든 수강생' 방을 본다(메시지 없어도 포함).
+ * 한 번의 메시지 조회로 방별 최근 메시지·안읽음을 계산.
+ */
+export async function getMentoringRooms(user: { userId: string; role: string }): Promise<{ courses: { id: string; title: string }[]; rooms: Conversation[] }> {
+  if (user.role !== "ADMIN" && user.role !== "FACILITATOR") return { courses: [], rooms: [] };
+  const courseIds =
+    user.role === "ADMIN"
+      ? COURSES.map((c) => c.id)
+      : (await prisma.facilitatorCourse.findMany({ where: { facilitatorUserId: user.userId }, select: { courseId: true } })).map((f) => f.courseId);
+  const courses = courseIds.map((id) => ({ id, title: getCourse(id)?.title ?? id }));
+  if (!courseIds.length) return { courses, rooms: [] };
+
+  const enrs = await prisma.enrollment.findMany({ where: { courseId: { in: courseIds } }, select: { courseId: true, userId: true } });
+  if (!enrs.length) return { courses, rooms: [] };
+
+  const studentIds = [...new Set(enrs.map((e) => e.userId))];
+  const [users, allMsgs, reads] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: studentIds }, lifecycleStatus: "ACTIVE" }, select: { id: true, email: true, studentProfile: { select: { realName: true } } } }),
+    prisma.mentoringMessage.findMany({ where: { courseId: { in: courseIds } }, orderBy: { createdAt: "asc" }, select: { courseId: true, studentId: true, text: true, kind: true, senderRole: true, deletedAt: true, createdAt: true } }),
+    prisma.mentoringRead.findMany({ where: { userId: user.userId } }),
+  ]);
+  const nameOf = new Map(users.map((u) => [u.id, u.studentProfile?.realName || u.email]));
+  const active = new Set(users.map((u) => u.id));
+  const readAt = new Map(reads.map((r) => [`${r.courseId}::${r.roomStudentId}`, r.lastReadAt.getTime()]));
+
+  type M = { text: string; kind: string; senderRole: string; deletedAt: Date | null; createdAt: Date };
+  const byRoom = new Map<string, M[]>();
+  for (const m of allMsgs) {
+    const k = `${m.courseId}::${m.studentId}`;
+    const arr = byRoom.get(k);
+    if (arr) arr.push(m);
+    else byRoom.set(k, [m]);
+  }
+
+  const rooms: Conversation[] = [];
+  for (const e of enrs) {
+    if (!active.has(e.userId)) continue;
+    const k = `${e.courseId}::${e.userId}`;
+    const list = byRoom.get(k) ?? [];
+    const last = list[list.length - 1];
+    const lastRead = readAt.get(k) ?? 0;
+    let unread = 0;
+    for (const m of list) if (m.createdAt.getTime() > lastRead && m.senderRole === "student") unread++;
+    rooms.push({
+      courseId: e.courseId,
+      roomStudentId: e.userId,
+      title: nameOf.get(e.userId) ?? "학생",
+      unread,
+      lastText: last ? (last.deletedAt ? "삭제된 메시지" : last.kind === "file" ? "📎 파일" : last.text) : "",
+      lastAt: last ? last.createdAt.toISOString() : "",
+      canSend: true,
+    });
+  }
+  rooms.sort((a, b) => b.unread - a.unread || a.title.localeCompare(b.title, "ko"));
+  return { courses, rooms };
+}
+
 /** 멘토링 방 읽음 처리 — 안읽음 배지 해제 기준 갱신. */
 export async function markMentoringRead(userId: string, courseId: string, roomStudentId: string): Promise<void> {
   await prisma.mentoringRead.upsert({

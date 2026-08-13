@@ -78,7 +78,7 @@ export default function Header({ session, accountLabel }: Props) {
             </div>
           ) : (
             <div className="relative flex items-center gap-2">
-              <HeaderInbox userId={session.userId} />
+              <HeaderInbox userId={session.userId} role={session.role} />
               <button type="button" onClick={() => setOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-bold text-white" style={{ background: BROWN }} aria-label="계정 메뉴">
                 {accountInitial}
               </button>
