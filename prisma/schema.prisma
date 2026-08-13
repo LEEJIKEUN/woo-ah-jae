@@ -260,6 +260,27 @@ model MentoringNotice {
   @@index([courseId, studentId, createdAt])
 }
 
+/** 레슨(강의)별 관리자 편집 콘텐츠 블록 — 강좌×활동 1개. blocks 는 JSON. DB 영구 보존. */
+model LessonContent {
+  courseId   String
+  activityId String
+  blocks     Json
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@id([courseId, activityId])
+}
+
+/** 회원가입 이메일 인증 6자리 코드(10분 만료·일회성) — 이메일당 1개. DB 저장(배포에도 유지). */
+model EmailVerificationCode {
+  email      String    @id
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
 /** 수강신청 — 강좌별 학생 등록(파일이 아닌 DB에 보존). */
 model Enrollment {
   courseId  String
