@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronDown, ChevronUp, PenLine, X, MessageSquare, Trash2, CornerDownRight, Send, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, PenLine, X, MessageSquare, Trash2, CornerDownRight, Send, Pencil, Heart, Eye, Smile, Paperclip, Download } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 import MentionField, { type Member } from "@/components/course/MentionField";
+import EmojiPicker from "@/components/ui/EmojiPicker";
 
 const BROWN = "#8C6E59";
 const DEEP = "#6B5342";
@@ -27,7 +28,11 @@ type Post = {
   authorName: string;
   authorRole: string;
   commentCount: number;
+  likeCount: number;
+  likedByMe: boolean;
+  viewCount: number;
 };
+type CommentFile = { name: string; size: number; mime: string };
 type Comment = {
   id: string;
   body: string;
@@ -36,6 +41,7 @@ type Comment = {
   authorId: string;
   authorName: string;
   authorRole: string;
+  file: CommentFile | null;
 };
 
 function fmtDate(iso: string) {
@@ -151,18 +157,35 @@ export default function CourseBoard({
   function toggle(postId: string) {
     setOpenId((prev) => {
       const next = prev === postId ? null : postId;
-      if (next && !commentsByPost[postId]) void loadComments(postId);
+      if (next) {
+        if (!commentsByPost[postId]) void loadComments(postId);
+        // 조회수 +1
+        void fetch(`/api/courses/${courseId}/posts/${postId}/view`, { method: "POST" }).catch(() => {});
+        setPosts((ps) => ps.map((p) => (p.id === postId ? { ...p, viewCount: p.viewCount + 1 } : p)));
+      }
       return next;
     });
   }
 
-  async function submitComment(postId: string, body: string, parentCommentId: string | null) {
+  async function likePost(postId: string) {
+    // 낙관적 토글
+    setPosts((ps) => ps.map((p) => (p.id === postId ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) } : p)));
+    try {
+      const res = await fetch(`/api/courses/${courseId}/posts/${postId}/like`, { method: "POST" });
+      const d = (await res.json().catch(() => ({}))) as { liked?: boolean; likeCount?: number };
+      if (res.ok) setPosts((ps) => ps.map((p) => (p.id === postId ? { ...p, likedByMe: !!d.liked, likeCount: d.likeCount ?? p.likeCount } : p)));
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  async function submitComment(postId: string, body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) {
     const t = body.trim();
-    if (!t) return false;
+    if (!t && !file) return false;
     const res = await fetch(`/api/courses/${courseId}/posts/${postId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: t, parentCommentId }),
+      body: JSON.stringify({ body: t, parentCommentId, ...(file ? { file } : {}) }),
     });
     if (res.ok) {
       await loadComments(postId);
@@ -268,21 +291,28 @@ export default function CourseBoard({
                 const badge = roleBadge(p.authorRole);
                 return (
                   <li key={p.id} className="border-b" style={{ borderColor: "#F0EBE0" }}>
-                    <button type="button" onClick={() => toggle(p.id)} className="flex w-full items-center gap-4 py-5 text-left transition hover:opacity-80">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[18px] font-semibold" style={{ color: INK }}>{p.title}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]" style={{ color: SUB }}>
-                          <span className="grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold" style={{ background: CARD, color: BROWN }}>{p.authorName.slice(0, 1)}</span>
-                          <span style={{ color: BODY }}>{p.authorName}</span>
-                          {badge ? <span style={{ color: BROWN }}>{badge}</span> : null}
-                          <span style={{ color: "#ddd" }}>|</span>
-                          <span style={{ color: MUTED }}>{fmtDate(p.createdAt)}</span>
-                          <span style={{ color: "#ddd" }}>|</span>
-                          <span className="inline-flex items-center gap-1"><MessageSquare size={14} style={{ color: MUTED }} /> 댓글 <b style={{ color: INK }}>{p.commentCount}</b></span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => toggle(p.id)} className="flex min-w-0 flex-1 items-center gap-4 py-5 text-left transition hover:opacity-80">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[18px] font-semibold" style={{ color: INK }}>{p.title}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]" style={{ color: SUB }}>
+                            <span className="grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold" style={{ background: CARD, color: BROWN }}>{p.authorName.slice(0, 1)}</span>
+                            <span style={{ color: BODY }}>{p.authorName}</span>
+                            {badge ? <span style={{ color: BROWN }}>{badge}</span> : null}
+                            <span style={{ color: "#ddd" }}>|</span>
+                            <span style={{ color: MUTED }}>{fmtDate(p.createdAt)}</span>
+                            <span style={{ color: "#ddd" }}>|</span>
+                            <span className="inline-flex items-center gap-1"><MessageSquare size={14} style={{ color: MUTED }} /> <b style={{ color: INK }}>{p.commentCount}</b></span>
+                            <span className="inline-flex items-center gap-1"><Eye size={14} style={{ color: MUTED }} /> {p.viewCount}</span>
+                          </div>
                         </div>
-                      </div>
-                      {isOpen ? <ChevronUp size={20} style={{ color: MUTED }} /> : <ChevronDown size={20} style={{ color: MUTED }} />}
-                    </button>
+                        {isOpen ? <ChevronUp size={20} style={{ color: MUTED }} /> : <ChevronDown size={20} style={{ color: MUTED }} />}
+                      </button>
+                      <button type="button" onClick={() => void likePost(p.id)} className="flex shrink-0 flex-col items-center gap-0.5 rounded-[10px] px-2.5 py-1.5 transition hover:bg-[#FBF6EC]" aria-label="좋아요" title="좋아요">
+                        <Heart size={18} style={{ color: p.likedByMe ? "#d1493a" : MUTED }} fill={p.likedByMe ? "#d1493a" : "none"} />
+                        <span className="text-[12px] font-semibold" style={{ color: p.likedByMe ? "#d1493a" : SUB }}>{p.likeCount}</span>
+                      </button>
+                    </div>
 
                     {isOpen ? (
                       <div className="pb-6">
@@ -319,11 +349,13 @@ export default function CourseBoard({
 
                         <CommentsSection
                           comments={commentsByPost[p.id] ?? null}
+                          courseId={courseId}
+                          postId={p.id}
                           members={members}
                           canComment={canComment}
                           canModerate={canModerate}
                           currentUserId={currentUserId}
-                          onSubmit={(body, parentId) => submitComment(p.id, body, parentId)}
+                          onSubmit={(body, parentId, file) => submitComment(p.id, body, parentId, file)}
                           onDelete={(commentId) => deleteComment(p.id, commentId)}
                           onEdit={(commentId, body) => editComment(p.id, commentId, body)}
                         />
@@ -353,8 +385,79 @@ function buildTree(comments: Comment[]): Node[] {
   return roots;
 }
 
+type UpFile = { name: string; size: number; mime: string; dataUrl: string };
+function readAsDataUrl(f: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result));
+    r.onerror = () => rej(new Error("read"));
+    r.readAsDataURL(f);
+  });
+}
+
+/** 이모지·파일첨부(10MB) 지원 댓글/답글 작성칸. onSubmit 성공 시 true 반환. */
+function CommentComposer({ members, onSubmit, placeholder, compact = false }: { members: Member[]; onSubmit: (body: string, file: UpFile | null) => Promise<boolean>; placeholder: string; compact?: boolean }) {
+  const [text, setText] = useState("");
+  const [file, setFile] = useState<UpFile | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const h = compact ? "h-9" : "h-10";
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { setErr("파일이 너무 큽니다. (최대 10MB)"); return; }
+    setErr(null);
+    try {
+      setFile({ name: f.name, size: f.size, mime: f.type, dataUrl: await readAsDataUrl(f) });
+    } catch {
+      setErr("파일을 읽지 못했습니다.");
+    }
+  }
+  async function submit() {
+    if (busy) return;
+    if (!text.trim() && !file) return;
+    setBusy(true);
+    setErr(null);
+    const ok = await onSubmit(text, file);
+    setBusy(false);
+    if (ok) { setText(""); setFile(null); }
+    else setErr("등록에 실패했습니다.");
+  }
+  const iconBtn = `grid ${h} w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]`;
+
+  return (
+    <div className="mt-3">
+      {err ? <p className="mb-1 text-[11.5px] font-semibold" style={{ color: "#a6402c" }}>{err}</p> : null}
+      {file ? (
+        <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-1 text-[11.5px]" style={{ borderColor: LINE, color: DEEP }}>
+          📎 <span className="max-w-[180px] truncate">{file.name}</span>
+          <button type="button" onClick={() => setFile(null)} aria-label="첨부 취소" style={{ color: MUTED }}><X size={12} /></button>
+        </div>
+      ) : null}
+      <div className="flex items-center gap-1.5">
+        <div className="relative">
+          <button type="button" onClick={() => setEmojiOpen((v) => !v)} className={iconBtn} style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={16} /></button>
+          {emojiOpen ? <EmojiPicker onPick={(em) => setText((t) => t + em)} onClose={() => setEmojiOpen(false)} /> : null}
+        </div>
+        <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
+        <button type="button" onClick={() => fileRef.current?.click()} className={iconBtn} style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부"><Paperclip size={15} /></button>
+        <div className="min-w-0 flex-1">
+          <MentionField as="input" value={text} onChange={setText} members={members} onEnter={() => void submit()} placeholder={placeholder} className={`${h} w-full rounded-[8px] border px-3 text-[13.5px] outline-none focus:border-[#8C6E59]`} style={{ borderColor: "#E7E2D6", color: BODY }} />
+        </div>
+        <button type="button" onClick={() => void submit()} disabled={busy} className={`grid ${h} w-9 shrink-0 place-items-center rounded-[8px] text-white disabled:opacity-50`} style={{ background: BROWN }} aria-label="등록"><Send size={compact ? 14 : 16} /></button>
+      </div>
+    </div>
+  );
+}
+
 function CommentsSection({
   comments,
+  courseId,
+  postId,
   members,
   canComment,
   canModerate,
@@ -364,22 +467,18 @@ function CommentsSection({
   onEdit,
 }: {
   comments: Comment[] | null;
+  courseId: string;
+  postId: string;
   members: Member[];
   canComment: boolean;
   canModerate: boolean;
   currentUserId: string;
-  onSubmit: (body: string, parentCommentId: string | null) => Promise<boolean>;
+  onSubmit: (body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
   onEdit: (commentId: string, body: string) => Promise<boolean>;
 }) {
-  const [text, setText] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const tree = comments ? buildTree(comments) : [];
-
-  async function addTop() {
-    const ok = await onSubmit(text, null);
-    if (ok) setText("");
-  }
 
   return (
     <div className="mt-4">
@@ -398,6 +497,8 @@ function CommentsSection({
               key={n.id}
               node={n}
               depth={0}
+              courseId={courseId}
+              postId={postId}
               members={members}
               canComment={canComment}
               canModerate={canModerate}
@@ -413,23 +514,7 @@ function CommentsSection({
       )}
 
       {canComment ? (
-        <div className="mt-3 flex items-center gap-2">
-          <div className="flex-1">
-            <MentionField
-              as="input"
-              value={text}
-              onChange={setText}
-              members={members}
-              onEnter={() => void addTop()}
-              placeholder="댓글을 입력하세요 (@이름 언급 가능)"
-              className="h-10 w-full rounded-[8px] border px-3 text-[13.5px] outline-none focus:border-[#8C6E59]"
-              style={{ borderColor: "#E7E2D6", color: BODY }}
-            />
-          </div>
-          <button type="button" onClick={() => void addTop()} className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="댓글 등록">
-            <Send size={16} />
-          </button>
-        </div>
+        <CommentComposer members={members} placeholder="댓글을 입력하세요 (@이름 언급 가능)" onSubmit={(body, file) => onSubmit(body, null, file)} />
       ) : null}
     </div>
   );
@@ -438,6 +523,8 @@ function CommentsSection({
 function CommentNode({
   node,
   depth,
+  courseId,
+  postId,
   members,
   canComment,
   canModerate,
@@ -450,17 +537,18 @@ function CommentNode({
 }: {
   node: Node;
   depth: number;
+  courseId: string;
+  postId: string;
   members: Member[];
   canComment: boolean;
   canModerate: boolean;
   currentUserId: string;
   replyingTo: string | null;
   setReplyingTo: (id: string | null) => void;
-  onSubmit: (body: string, parentCommentId: string | null) => Promise<boolean>;
+  onSubmit: (body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
   onEdit: (commentId: string, body: string) => Promise<boolean>;
 }) {
-  const [reply, setReply] = useState("");
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(node.body);
   const badge = roleBadge(node.authorRole);
@@ -469,13 +557,6 @@ function CommentNode({
   const isReplying = replyingTo === node.id;
   const indent = Math.min(depth, 4) * 20;
 
-  async function sendReply() {
-    const ok = await onSubmit(reply, node.id);
-    if (ok) {
-      setReply("");
-      setReplyingTo(null);
-    }
-  }
   async function saveEdit() {
     const ok = await onEdit(node.id, editText);
     if (ok) setEditing(false);
@@ -507,7 +588,15 @@ function CommentNode({
             <button type="button" onClick={() => setEditing(false)} className="rounded-[8px] border px-3 py-2 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
           </div>
         ) : (
-          <p className="mt-1 whitespace-pre-line text-[14px] leading-6" style={{ color: BODY }}>{node.body}</p>
+          <>
+            {node.body ? <p className="mt-1 whitespace-pre-line text-[14px] leading-6" style={{ color: BODY }}>{node.body}</p> : null}
+            {node.file ? (
+              <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-[8px] border px-2.5 py-1.5 text-[12.5px]" style={{ borderColor: LINE, color: DEEP }}>
+                <a href={`/api/courses/${courseId}/posts/${postId}/comments/${node.id}/file`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline" title="새 탭에서 보기">📎 <span className="max-w-[220px] truncate">{node.file.name}</span></a>
+                <a href={`/api/courses/${courseId}/posts/${postId}/comments/${node.id}/file?download=1`} className="shrink-0 opacity-80 hover:opacity-100" aria-label="다운로드" title="다운로드"><Download size={13} /></a>
+              </div>
+            ) : null}
+          </>
         )}
         <div className="mt-1.5 flex items-center gap-3 text-[12px]">
           {canComment ? (
@@ -522,23 +611,16 @@ function CommentNode({
         </div>
 
         {isReplying ? (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1">
-              <MentionField
-                as="input"
-                value={reply}
-                onChange={setReply}
-                members={members}
-                onEnter={() => void sendReply()}
-                placeholder="답글을 입력하세요 (@이름 언급 가능)"
-                className="h-9 w-full rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
-                style={{ borderColor: "#E7E2D6", color: BODY }}
-              />
-            </div>
-            <button type="button" onClick={() => void sendReply()} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="답글 등록">
-              <Send size={14} />
-            </button>
-          </div>
+          <CommentComposer
+            compact
+            members={members}
+            placeholder="답글을 입력하세요 (@이름 언급 가능)"
+            onSubmit={async (body, file) => {
+              const ok = await onSubmit(body, node.id, file);
+              if (ok) setReplyingTo(null);
+              return ok;
+            }}
+          />
         ) : null}
       </div>
 
@@ -549,6 +631,8 @@ function CommentNode({
               key={c.id}
               node={c}
               depth={depth + 1}
+              courseId={courseId}
+              postId={postId}
               members={members}
               canComment={canComment}
               canModerate={canModerate}

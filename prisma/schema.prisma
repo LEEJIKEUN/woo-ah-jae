@@ -150,21 +150,40 @@ model CoursePost {
   title     String
   body      String
   pinned    Boolean        @default(false)
+  viewCount Int            @default(0)
   createdAt DateTime       @default(now())
 
   author    User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments  CoursePostComment[]
+  likes     CoursePostLike[]
 
   @@index([courseId, kind, createdAt])
 }
 
-/** 게시글 댓글(+대댓글: parentCommentId 로 무한 중첩). */
+/** 게시글 좋아요 — (게시글, 사용자) 유일. */
+model CoursePostLike {
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      CoursePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([postId])
+}
+
+/** 게시글 댓글(+대댓글: parentCommentId 로 무한 중첩). 파일 첨부 지원(R2 또는 인라인). */
 model CoursePostComment {
   id              String    @id @default(cuid())
   postId          String
   authorId        String
   body            String
   parentCommentId String?
+  fileName        String?
+  fileMime        String?
+  fileSize        Int?
+  fileKey         String?
+  fileData        String?
   createdAt       DateTime  @default(now())
 
   post            CoursePost          @relation(fields: [postId], references: [id], onDelete: Cascade)

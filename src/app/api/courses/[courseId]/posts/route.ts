@@ -41,10 +41,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       title: true,
       body: true,
       pinned: true,
+      viewCount: true,
       createdAt: true,
       authorId: true,
       author: { select: { role: true, studentProfile: { select: { realName: true } } } },
-      _count: { select: { comments: true } },
+      _count: { select: { comments: true, likes: true } },
+      likes: { where: { userId: s.userId }, select: { userId: true } },
     },
   });
 
@@ -59,6 +61,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       authorName: p.author.studentProfile?.realName ?? "사용자",
       authorRole: p.author.role,
       commentCount: p._count.comments,
+      likeCount: p._count.likes,
+      likedByMe: p.likes.length > 0,
+      viewCount: p.viewCount,
     })),
   });
 }

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download, Pencil, Paperclip, Trash2, Megaphone, Check } from "lucide-react";
+import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download, Pencil, Paperclip, Trash2, Megaphone, Check, Smile } from "lucide-react";
+import EmojiPicker from "@/components/ui/EmojiPicker";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 
 /* 우아재 서재 톤 */
@@ -184,6 +185,7 @@ export default function MentoringView({
   const pendingColRef = useRef<number>(0);
   const assignInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState("");
+  const [chatEmojiOpen, setChatEmojiOpen] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [bookDraft, setBookDraft] = useState<Book>(BLANK_BOOK);
   const [editBookIdx, setEditBookIdx] = useState<number | null>(null);
@@ -941,6 +943,10 @@ export default function MentoringView({
               </div>
               {canChat ? (
               <div className="flex items-center gap-2 border-t px-3 py-3" style={{ borderColor: CARD }}>
+                <div className="relative">
+                  <button type="button" onClick={() => setChatEmojiOpen((v) => !v)} className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={16} /></button>
+                  {chatEmojiOpen ? <EmojiPicker onPick={(em) => setDraft((t) => t + em)} onClose={() => setChatEmojiOpen(false)} /> : null}
+                </div>
                 <input ref={chatFileInputRef} type="file" onChange={onChatFile} className="hidden" />
                 <button
                   type="button"

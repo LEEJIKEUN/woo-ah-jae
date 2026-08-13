@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, X, Send, Paperclip, Download } from "lucide-react";
+import { Bell, MessageCircle, X, Send, Paperclip, Download, Smile } from "lucide-react";
+import EmojiPicker from "@/components/ui/EmojiPicker";
 
 const BROWN = "#8c6e59";
 const INK = "#2C2823";
@@ -167,6 +168,7 @@ function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; 
   const [draft, setDraft] = useState("");
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -267,9 +269,13 @@ function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; 
       {conv.canSend ? (
         <div>
           {err ? <p className="px-3 pt-2 text-[11px]" style={{ color: "#a6402c" }}>{err}</p> : null}
-          <div className="flex items-center gap-2 border-t px-3 py-2.5" style={{ borderColor: LINE }}>
+          <div className="flex items-center gap-1.5 border-t px-3 py-2.5" style={{ borderColor: LINE }}>
+            <div className="relative">
+              <button type="button" onClick={() => setEmojiOpen((v) => !v)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={15} /></button>
+              {emojiOpen ? <EmojiPicker onPick={(em) => setDraft((t) => t + em)} onClose={() => setEmojiOpen(false)} /> : null}
+            </div>
             <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59] disabled:opacity-50" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부" title="사진·파일 첨부 (최대 20MB)"><Paperclip size={15} /></button>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59] disabled:opacity-50" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부"><Paperclip size={15} /></button>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

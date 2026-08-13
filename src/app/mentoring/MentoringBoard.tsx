@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Send, Paperclip, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Send, Paperclip, Download, Smile } from "lucide-react";
+import EmojiPicker from "@/components/ui/EmojiPicker";
 
 const BROWN = "#8C6E59";
 const INK = "#2C2823";
@@ -73,6 +74,7 @@ function ChatCell({ courseId, roomStudentId, title, viewerId }: { courseId: stri
   const [draft, setDraft] = useState("");
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -169,7 +171,11 @@ function ChatCell({ courseId, roomStudentId, title, viewerId }: { courseId: stri
       </div>
       <div>
         {err ? <p className="px-3 pt-1.5 text-[11px]" style={{ color: "#a6402c" }}>{err}</p> : null}
-        <div className="flex items-center gap-2 border-t px-2.5 py-2" style={{ borderColor: LINE }}>
+        <div className="flex items-center gap-1.5 border-t px-2.5 py-2" style={{ borderColor: LINE }}>
+          <div className="relative">
+            <button type="button" onClick={() => setEmojiOpen((v) => !v)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={16} /></button>
+            {emojiOpen ? <EmojiPicker onPick={(em) => setDraft((t) => t + em)} onClose={() => setEmojiOpen(false)} /> : null}
+          </div>
           <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59] disabled:opacity-50" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부"><Paperclip size={15} /></button>
           <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }} placeholder="메시지" className="h-9 min-w-0 flex-1 rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
