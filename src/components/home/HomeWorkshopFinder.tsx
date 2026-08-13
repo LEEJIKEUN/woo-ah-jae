@@ -36,6 +36,8 @@ type Row = {
   country: string;
   capacity?: number; // 모집인원(관리자 설정). 미설정 시 20 기본
   applied?: number; // 현재 신청 인원. 미설정 시 0
+  deadline?: string | null; // 마감일 ISO
+  status: string; // private|prep|open|full|ongoing
   href: string;
 };
 
@@ -44,21 +46,28 @@ function capacityFor(format: string, capacity?: number) {
   return format === "자기주도학습" ? 999 : capacity ?? 20;
 }
 
-const ROWS: Row[] = [
-  {
-    id: "ai-linalg",
-    name: "인공지능을 위한 선형대수학",
-    target: "고등학생",
-    format: "실시간수업",
-    mode: "온라인",
-    from: "2026-08-17",
-    to: "2026-11-04",
-    periodLabel: "2026.8.17.(월) ~ 2026.11.4.(수)",
-    country: "싱가포르",
-    capacity: 20,
-    href: "/course/ai-linalg",
-  },
-];
+const STATUS_LABEL: Record<string, string> = { private: "비공개", prep: "오픈 준비중", open: "접수중", full: "마감", ongoing: "진행중" };
+const STATUS_LIST = ["private", "prep", "open", "full", "ongoing"];
+const STATUS_COLOR: Record<string, string> = { private: "#8A8479", prep: "#B58F72", open: "#3E7E5B", full: "#a6402c", ongoing: "#8C6E59" };
+function fmtDeadline(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+  } catch {
+    return "";
+  }
+}
+function toDateInput(iso?: string | null) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  } catch {
+    return "";
+  }
+}
 
 export default function HomeWorkshopFinder() {
   const [targets, setTargets] = useState<string[]>([]);
@@ -69,10 +78,23 @@ export default function HomeWorkshopFinder() {
   const [country, setCountry] = useState("전체");
   const [show, setShow] = useState(false); // 필터 기본 숨김
   const [liveApplied, setLiveApplied] = useState<Record<string, number>>({});
+  const [rows, setRows] = useState<Row[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // 신청 현황 실시간 구독(SSE 푸시)
+  // 카탈로그 로드(강좌 목록 + 관리자 여부, 비공개는 서버에서 필터)
   useEffect(() => {
-    const sources = ROWS.map((r) => {
+    let alive = true;
+    fetch("/api/courses/catalog", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { rows: [], isAdmin: false }))
+      .then((d) => { if (alive) { setRows(Array.isArray(d.rows) ? d.rows : []); setIsAdmin(!!d.isAdmin); } })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // 신청 현황 실시간 구독(SSE 푸시) — 목록 로드 후
+  useEffect(() => {
+    if (!rows.length) return;
+    const sources = rows.map((r) => {
       const es = new EventSource(`/api/courses/${r.id}/enrollment/stream`);
       es.onmessage = (e) => {
         try {
@@ -85,14 +107,30 @@ export default function HomeWorkshopFinder() {
       return es;
     });
     return () => sources.forEach((es) => es.close());
-  }, []);
+  }, [rows]);
+
+  // 관리자 인라인 편집 → 메타 저장
+  async function patchMeta(id: string, patch: Record<string, unknown>) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...normalizePatch(patch) } : r)));
+    try {
+      await fetch(`/api/admin/courses/${id}/meta`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+    } catch {
+      /* 무시 */
+    }
+  }
+  function normalizePatch(patch: Record<string, unknown>): Partial<Row> {
+    const out: Partial<Row> = {};
+    if ("status" in patch) out.status = String(patch.status);
+    if ("deadline" in patch) out.deadline = (patch.deadline as string) || null;
+    return out;
+  }
 
   const toggle = (list: string[], set: (v: string[]) => void, v: string) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const results = useMemo(
     () =>
-      ROWS.filter((r) => {
+      rows.filter((r) => {
         if (targets.length && !targets.includes(r.target)) return false;
         if (formats.length && !formats.includes(r.format)) return false;
         if (modes.length && !modes.includes(r.mode)) return false;
@@ -101,7 +139,7 @@ export default function HomeWorkshopFinder() {
         if (to && r.from > to) return false;
         return true;
       }),
-    [targets, formats, modes, country, from, to]
+    [rows, targets, formats, modes, country, from, to]
   );
 
   const chips: { key: string; label: string; remove: () => void }[] = [
@@ -185,10 +223,10 @@ export default function HomeWorkshopFinder() {
         ) : null}
 
         <div className="mt-8 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left">
+          <table className="w-full min-w-[960px] text-left">
             <thead>
               <tr className="border-b" style={{ borderColor: "#D8CFBD" }}>
-                {["강좌명", "대상", "형식", "방식", "기간", "국가", "신청현황"].map((h) => (
+                {["강좌명", "대상", "형식", "방식", "기간", "국가", "신청현황", "마감", "상태"].map((h) => (
                   <th key={h} className="pb-3 pr-4 text-[14px] font-semibold" style={{ color: INK }}>{h}</th>
                 ))}
               </tr>
@@ -206,7 +244,7 @@ export default function HomeWorkshopFinder() {
                   <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>
                     <span className="inline-flex items-center gap-1.5">{r.country} <MapPin size={14} style={{ color: BROWN }} /></span>
                   </td>
-                  <td className="py-5 text-[14px]" style={{ color: BODY }}>
+                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>
                     {(() => {
                       const applied = liveApplied[r.id] ?? r.applied ?? 0;
                       const cap = capacityFor(r.format, r.capacity);
@@ -221,11 +259,33 @@ export default function HomeWorkshopFinder() {
                       );
                     })()}
                   </td>
+                  {/* 마감 */}
+                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>
+                    {isAdmin ? (
+                      <input type="date" value={toDateInput(r.deadline)} onChange={(e) => patchMeta(r.id, { deadline: e.target.value })} className="rounded-[8px] border bg-white px-2 py-1 text-[13px]" style={{ borderColor: LINE, color: INK }} />
+                    ) : (
+                      <span style={{ color: r.deadline ? BODY : SUB }}>{fmtDeadline(r.deadline) || "-"}</span>
+                    )}
+                  </td>
+                  {/* 상태 */}
+                  <td className="py-5 text-[14px]">
+                    {isAdmin ? (
+                      <select value={r.status} onChange={(e) => patchMeta(r.id, { status: e.target.value })} className="rounded-[8px] border bg-white px-2 py-1 text-[13px] font-semibold" style={{ borderColor: LINE, color: STATUS_COLOR[r.status] ?? INK }}>
+                        {STATUS_LIST.map((s) => (
+                          <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: STATUS_COLOR[r.status] ?? INK }}>
+                        <span style={{ fontSize: 9 }}>●</span>{STATUS_LABEL[r.status] ?? r.status}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {results.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-[15px]" style={{ color: SUB }}>조건에 맞는 강좌가 없습니다.</td>
+                  <td colSpan={9} className="py-16 text-center text-[15px]" style={{ color: SUB }}>조건에 맞는 강좌가 없습니다.</td>
                 </tr>
               ) : null}
             </tbody>

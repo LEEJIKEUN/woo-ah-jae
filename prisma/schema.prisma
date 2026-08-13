@@ -189,6 +189,28 @@ model CourseSummary {
   updatedAt DateTime @updatedAt
 }
 
+/**
+ * 강좌 메타 오버라이드 — 관리자가 홈/상세에서 직접 편집.
+ * null 필드는 하드코딩 기본값을 사용. status=private 이면 비관리자에게 숨김.
+ */
+model CourseMeta {
+  courseId     String    @id
+  programme    String?
+  title        String?
+  subtitle     String?
+  audience     String?
+  classDays    String?
+  periodLabel  String?
+  country      String?
+  summary      String?
+  realtimeInfo String?
+  capacity     Int?
+  deadline     DateTime?
+  status       String    @default("open") // private | prep | open | full | ongoing
+  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+}
+
 /** 탐구 보고서 — 멘토링 방(강좌+학생)별 1개. 9개 서술 필드 + 보고서 PDF. DB 영구 보존. */
 model MentoringReport {
   courseId   String

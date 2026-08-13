@@ -1,5 +1,6 @@
 import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
 import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
+import { getCourseMeta } from "@/lib/course/meta-store";
 import CourseIntro from "./CourseIntro";
 import type { IntroData } from "./CourseIntro";
 
@@ -17,23 +18,29 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   const session = await getSession();
   const authed = !!session;
   const isStaff = !!session && isStaffRole(session.role);
+  const isAdmin = !!session && session.role === "ADMIN";
   const enrolled = await canEnterClassroom(courseId, session);
+  const meta = course ? await getCourseMeta(courseId) : null;
+
+  // 비공개 강좌는 관리자 외에는 접근 불가(목록에서도 숨김)
+  const hiddenPrivate = !!meta && meta.status === "private" && !isAdmin;
 
   let seed: IntroData | null = null;
-  if (course) {
+  if (course && !hiddenPrivate) {
     const activities = course.modules.flatMap((m) => m.blocks).flatMap((b) => b.activities);
     seed = {
       id: course.id,
-      programme: course.programme,
-      title: course.title,
-      subtitle: course.subtitle,
-      audience: course.audience,
+      programme: meta?.programme ?? course.programme,
+      title: meta?.title ?? course.title,
+      subtitle: meta?.subtitle ?? course.subtitle,
+      audience: meta?.audience ?? course.audience,
       deliveryMode: course.deliveryMode,
-      classDays: course.classDays,
+      classDays: meta?.classDays ?? course.classDays,
       timetable: course.timetable,
-      periodLabel: course.periodLabel,
-      country: course.country,
-      summary: course.summary,
+      periodLabel: meta?.periodLabel ?? course.periodLabel,
+      country: meta?.country ?? course.country,
+      summary: meta?.summary ?? course.summary,
+      realtimeInfo: meta?.realtimeInfo ?? undefined,
       instructor: { name: course.instructor.name, initials: course.instructor.initials },
       modules: course.modules.map((m) => ({
         label: m.label,
@@ -49,5 +56,5 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   }
 
   // seed 가 없으면(커스텀 코스) CourseIntro 가 localStorage 에서 해석
-  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} />;
+  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} />;
 }

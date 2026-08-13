@@ -1,0 +1,47 @@
+import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { COURSES } from "@/lib/course/content";
+import { getAllCourseMeta } from "@/lib/course/meta-store";
+
+export const dynamic = "force-dynamic";
+
+// 홈 목록 전용 필드(강좌 콘텐츠에 없는 필터용 값). courseId 별 기본값.
+const LIST_BASE: Record<string, { format: string; mode: string; from: string; to: string }> = {
+  "ai-linalg": { format: "실시간수업", mode: "온라인", from: "2026-08-17", to: "2026-11-04" },
+};
+
+export async function GET(request: NextRequest) {
+  let isAdmin = false;
+  try {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    if (token) {
+      const s = await verifySessionToken(token);
+      isAdmin = s.role === "ADMIN";
+    }
+  } catch {
+    /* 비로그인 → isAdmin=false */
+  }
+
+  const metaMap = await getAllCourseMeta();
+  const rows = COURSES.map((c) => {
+    const m = metaMap.get(c.id) ?? null;
+    const base = LIST_BASE[c.id] ?? { format: c.format ?? "실시간수업", mode: c.deliveryMode ?? "온라인", from: "", to: "" };
+    return {
+      id: c.id,
+      name: m?.title ?? c.title,
+      target: m?.audience ?? c.audience ?? "고등학생",
+      format: base.format,
+      mode: base.mode,
+      from: base.from,
+      to: base.to,
+      periodLabel: m?.periodLabel ?? c.periodLabel ?? "",
+      country: m?.country ?? c.country ?? "한국",
+      capacity: m?.capacity ?? 20,
+      deadline: m?.deadline ?? null,
+      status: m?.status ?? "open",
+      href: `/course/${c.id}`,
+    };
+  }).filter((r) => isAdmin || r.status !== "private");
+
+  return NextResponse.json({ isAdmin, rows });
+}

@@ -30,6 +30,7 @@ export type IntroData = {
   periodLabel?: string;
   country?: string;
   summary: string;
+  realtimeInfo?: string;
   instructor?: { name: string; initials: string };
   modules: IntroModule[];
   firstHref?: string;
@@ -41,9 +42,10 @@ const SECTIONS = [
   { id: "lessons", label: "강좌 차시" },
 ] as const;
 
-export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean }) {
+export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [enrolled, setEnrolled] = useState(enrolledInitial);
   const [status, setStatus] = useState<{ applied: number; capacity: number; full: boolean } | null>(null);
   const [enrolling, setEnrolling] = useState(false);
@@ -123,6 +125,13 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
       {/* ── 히어로 밴드 ── */}
       <section className="w-full" style={{ background: heroGrad }}>
         <div className="mx-auto max-w-[1120px] px-6 py-14">
+          {isAdmin ? (
+            <div className="mb-3 flex justify-end">
+              <button type="button" onClick={() => setEditing(true)} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
+                강좌 정보 편집
+              </button>
+            </div>
+          ) : null}
           <p className="text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.2em", color: NUM }}>{intro.programme}</p>
           <h1 className="mt-3 font-normal" style={{ ...serif, color: INK, fontSize: "clamp(28px, 4vw, 40px)", letterSpacing: "-0.02em" }}>{intro.title}</h1>
           {intro.subtitle ? <p className="mt-3 text-[16px] leading-7" style={{ color: SUB }}>{intro.subtitle}</p> : null}
@@ -239,7 +248,7 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
 
               <div className="mt-6 rounded-[16px] border p-6" style={{ borderColor: LINE }}>
                 <h3 className="text-[16px] font-semibold" style={{ ...serif, color: INK }}>실시간 수업 안내</h3>
-                <p className="mt-2 text-[13.5px] leading-6" style={{ color: SUB }}>이 강좌는 정해진 요일·시간에 화상으로 진행되는 실시간 수업입니다. 강좌 일정을 확인하고 신청해 주세요.</p>
+                <p className="mt-2 whitespace-pre-line text-[13.5px] leading-6" style={{ color: SUB }}>{intro.realtimeInfo || "이 강좌는 정해진 요일·시간에 화상으로 진행되는 실시간 수업입니다. 강좌 일정을 확인하고 신청해 주세요."}</p>
 
                 <p className="mt-5 text-[14px] font-semibold" style={{ color: INK }}>수업 일정</p>
                 <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>{intro.classDays ?? "-"}</p>
@@ -259,6 +268,73 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
               </div>
             </div>
           </aside>
+        </div>
+      </div>
+
+      {editing && isAdmin ? (
+        <CourseEditModal courseId={courseId} intro={intro} onClose={() => setEditing(false)} onSaved={(next) => setIntro((p) => (p ? { ...p, ...next } : p))} />
+      ) : null}
+    </div>
+  );
+}
+
+function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: string; intro: IntroData; onClose: () => void; onSaved: (next: Partial<IntroData>) => void }) {
+  const [f, setF] = useState({
+    programme: intro.programme ?? "",
+    title: intro.title ?? "",
+    subtitle: intro.subtitle ?? "",
+    summary: intro.summary ?? "",
+    audience: intro.audience ?? "",
+    classDays: intro.classDays ?? "",
+    periodLabel: intro.periodLabel ?? "",
+    country: intro.country ?? "",
+    realtimeInfo: intro.realtimeInfo ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const inputCls = "mt-1 w-full rounded-[8px] border bg-white px-3 py-2 text-[14px] outline-none focus:border-[#8C6E59]";
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/courses/${courseId}/meta`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+      if (res.ok) { onSaved(f); onClose(); }
+    } catch {
+      /* 무시 */
+    } finally {
+      setSaving(false);
+    }
+  }
+  const rows: { key: keyof typeof f; label: string; area?: boolean }[] = [
+    { key: "programme", label: "상단 라벨(교육과정 등)" },
+    { key: "title", label: "강좌명" },
+    { key: "subtitle", label: "강좌 목표(부제)" },
+    { key: "summary", label: "강좌 설명", area: true },
+    { key: "audience", label: "수강 대상" },
+    { key: "classDays", label: "수업 일정" },
+    { key: "periodLabel", label: "수강 기간" },
+    { key: "country", label: "국가" },
+    { key: "realtimeInfo", label: "실시간 수업 안내", area: true },
+  ];
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-[16px] bg-white p-6" style={{ border: `1px solid ${LINE}` }} onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-[18px] font-semibold" style={{ ...serif, color: INK }}>강좌 정보 편집</h3>
+        <p className="mt-1 text-[12.5px]" style={{ color: SUB }}>관리자만 보입니다. 마감일·상태는 홈 강좌 목록에서 수정하세요.</p>
+        <div className="mt-4 space-y-3">
+          {rows.map((r) => (
+            <label key={r.key} className="block">
+              <span className="text-[13px] font-semibold" style={{ color: INK }}>{r.label}</span>
+              {r.area ? (
+                <textarea value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} rows={4} className={`${inputCls} resize-y leading-7`} style={{ borderColor: LINE, color: BODY }} />
+              ) : (
+                <input value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} className={inputCls} style={{ borderColor: LINE, color: BODY }} />
+              )}
+            </label>
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[8px] border px-4 py-2 text-[14px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+          <button type="button" onClick={save} disabled={saving} className="rounded-[8px] px-5 py-2 text-[14px] font-bold text-white disabled:opacity-60" style={{ background: BROWN }}>{saving ? "저장 중…" : "저장"}</button>
         </div>
       </div>
     </div>
