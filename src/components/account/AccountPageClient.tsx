@@ -43,13 +43,32 @@ function fmtDay(value: string | null | undefined) {
 
 const inputCls = "h-10 w-full rounded-md border border-slate-200/80 bg-transparent px-3 text-sm text-slate-900";
 const roCls = "rounded-md border border-slate-200/80 bg-white/40 px-3 py-2 text-sm text-slate-600";
+const codeInputCls = "h-10 w-40 rounded-md border border-slate-200/80 bg-transparent px-3 text-sm tracking-[0.3em] text-slate-900";
+const btnSecondary = "rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white disabled:opacity-50";
+const btnDanger = "rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50";
 
 export default function AccountPageClient({ initialMe, childrenLinks = [], facilitatorCourses = [] }: { initialMe: MeResponse; childrenLinks?: ChildLink[]; facilitatorCourses?: { id: string; title: string }[] }) {
   const [me, setMe] = useState(initialMe);
   const [saving, setSaving] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ── 보안: 비밀번호 변경 ──
+  const [pwStep, setPwStep] = useState<"idle" | "sent" | "verified">("idle");
+  const [pwCode, setPwCode] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwMsg, setPwMsg] = useState<string | null>(null);
+  const [pwErr, setPwErr] = useState<string | null>(null);
+
+  // ── 보안: 회원 탈퇴 ──
+  const [wdAgree, setWdAgree] = useState(false);
+  const [wdStep, setWdStep] = useState<"idle" | "sent" | "verified">("idle");
+  const [wdCode, setWdCode] = useState("");
+  const [wdBusy, setWdBusy] = useState(false);
+  const [wdMsg, setWdMsg] = useState<string | null>(null);
+  const [wdErr, setWdErr] = useState<string | null>(null);
 
   const role = me.role;
   const isStudent = role === "STUDENT";
@@ -62,22 +81,78 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
     grade: initialMe.studentProfile?.grade ?? "",
   });
 
+  // 인증코드 발송(비밀번호 변경·탈퇴 공용 엔드포인트)
+  async function sendCode(kind: "pw" | "wd") {
+    const setBusy = kind === "pw" ? setPwBusy : setWdBusy;
+    const setErr = kind === "pw" ? setPwErr : setWdErr;
+    const setMsg = kind === "pw" ? setPwMsg : setWdMsg;
+    const setStep = kind === "pw" ? setPwStep : setWdStep;
+    setBusy(true); setErr(null); setMsg(null);
+    try {
+      const res = await fetch("/api/me/email-code/send", { method: "POST" });
+      const d = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      if (!res.ok) { setErr(d.error ?? "인증코드 발송에 실패했습니다."); return; }
+      setStep("sent");
+      setMsg(d.message ?? "인증코드를 이메일로 보냈습니다.");
+    } catch { setErr("네트워크 오류가 발생했습니다."); }
+    finally { setBusy(false); }
+  }
+
+  // 인증코드 확인
+  async function verifyCode(kind: "pw" | "wd") {
+    const code = kind === "pw" ? pwCode : wdCode;
+    const setBusy = kind === "pw" ? setPwBusy : setWdBusy;
+    const setErr = kind === "pw" ? setPwErr : setWdErr;
+    const setMsg = kind === "pw" ? setPwMsg : setWdMsg;
+    const setStep = kind === "pw" ? setPwStep : setWdStep;
+    if (!/^\d{6}$/.test(code)) { setErr("6자리 숫자 코드를 입력해 주세요."); return; }
+    setBusy(true); setErr(null); setMsg(null);
+    try {
+      const res = await fetch("/api/me/email-code/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) { setErr(d.error ?? "인증에 실패했습니다."); return; }
+      setStep("verified");
+      setMsg(kind === "pw" ? "인증되었습니다. 새 비밀번호를 설정해 주세요." : "인증되었습니다.");
+    } catch { setErr("네트워크 오류가 발생했습니다."); }
+    finally { setBusy(false); }
+  }
+
+  async function onChangePassword() {
+    if (pwNew.length < 8) { setPwErr("비밀번호는 8자 이상이어야 합니다."); return; }
+    if (pwNew !== pwConfirm) { setPwErr("비밀번호가 일치하지 않습니다."); return; }
+    setPwBusy(true); setPwErr(null); setPwMsg(null);
+    try {
+      const res = await fetch("/api/me/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: pwNew }),
+      });
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) { setPwErr(d.error ?? "비밀번호 변경에 실패했습니다."); return; }
+      setPwStep("idle"); setPwCode(""); setPwNew(""); setPwConfirm("");
+      setPwMsg("비밀번호가 변경되었습니다.");
+    } catch { setPwErr("네트워크 오류가 발생했습니다."); }
+    finally { setPwBusy(false); }
+  }
+
   async function onWithdraw() {
-    if (!window.confirm("정말 탈퇴하시겠습니까?\n계정과 관련 데이터가 완전히 삭제되며 복구할 수 없습니다.\n(같은 이메일로 즉시 재가입은 가능합니다.)")) return;
-    setWithdrawing(true);
-    setError(null);
+    setWdBusy(true); setWdErr(null);
     try {
       const res = await fetch("/api/me/withdraw", { method: "POST" });
       if (!res.ok) {
         const d = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(d.error ?? "탈퇴 처리에 실패했습니다.");
+        setWdErr(d.error ?? "탈퇴 처리에 실패했습니다.");
         return;
       }
-      window.location.href = "/";
+      window.location.href = "/withdrawn";
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setWdErr("네트워크 오류가 발생했습니다.");
     } finally {
-      setWithdrawing(false);
+      setWdBusy(false);
     }
   }
 
@@ -198,13 +273,98 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
               </button>
             </div>
           </form>
+        </section>
 
+        {/* 보안 */}
+        <section className="rounded-xl border border-slate-200/70 bg-[color:var(--surface)] p-5">
+          <h2 className="text-xl font-semibold text-slate-900">보안</h2>
+
+          {/* 비밀번호 변경 */}
+          <div className="mt-4">
+            <p className="text-sm font-semibold text-slate-800">비밀번호 변경</p>
+            <p className="mt-1 text-xs text-slate-500">가입한 이메일로 인증코드를 받아 새 비밀번호를 설정합니다.</p>
+
+            {pwMsg ? <p className="mt-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">{pwMsg}</p> : null}
+            {pwErr ? <p className="mt-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-700">{pwErr}</p> : null}
+
+            <div className="mt-3 space-y-2">
+              {pwStep === "idle" ? (
+                <button type="button" onClick={() => void sendCode("pw")} disabled={pwBusy} className={btnSecondary}>
+                  {pwBusy ? "발송 중…" : "인증코드 받기"}
+                </button>
+              ) : null}
+
+              {pwStep === "sent" ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input inputMode="numeric" maxLength={6} value={pwCode} onChange={(e) => setPwCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="인증코드 6자리" className={codeInputCls} />
+                  <button type="button" onClick={() => void verifyCode("pw")} disabled={pwBusy} className={btnSecondary}>{pwBusy ? "확인 중…" : "인증"}</button>
+                  <button type="button" onClick={() => void sendCode("pw")} disabled={pwBusy} className="text-xs text-slate-400 hover:text-slate-600">재발송</button>
+                </div>
+              ) : null}
+
+              {pwStep === "verified" ? (
+                <div className="space-y-2">
+                  <input type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)} placeholder="새 비밀번호 (8자 이상)" className={inputCls} autoComplete="new-password" />
+                  <input type="password" value={pwConfirm} onChange={(e) => setPwConfirm(e.target.value)} placeholder="새 비밀번호 확인" className={inputCls} autoComplete="new-password" />
+                  <button type="button" onClick={() => void onChangePassword()} disabled={pwBusy} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">
+                    {pwBusy ? "변경 중…" : "비밀번호 변경"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 회원 탈퇴 */}
           <div className="mt-6 border-t border-slate-200/70 pt-5">
             <p className="text-sm font-semibold text-rose-600">회원 탈퇴</p>
-            <p className="mt-1 text-xs text-slate-500">탈퇴하면 계정과 관련 데이터가 완전히 삭제됩니다. (같은 이메일로 즉시 재가입 가능)</p>
-            <button type="button" onClick={() => void onWithdraw()} disabled={withdrawing} className="mt-3 rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
-              {withdrawing ? "탈퇴 처리 중…" : "탈퇴하기"}
-            </button>
+
+            {wdMsg ? <p className="mt-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">{wdMsg}</p> : null}
+            {wdErr ? <p className="mt-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-700">{wdErr}</p> : null}
+
+            <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={wdAgree}
+                onChange={(e) => {
+                  setWdAgree(e.target.checked);
+                  if (!e.target.checked) { setWdStep("idle"); setWdCode(""); setWdErr(null); setWdMsg(null); }
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
+              />
+              <span>계정과 관련 데이터가 완전히 삭제됩니다. 복구가 불가능합니다. 동의하십니까?</span>
+            </label>
+
+            {wdAgree ? (
+              <div className="mt-3 space-y-2">
+                {wdStep === "idle" ? (
+                  <button type="button" onClick={() => void sendCode("wd")} disabled={wdBusy} className={btnDanger}>
+                    {wdBusy ? "발송 중…" : "인증코드 받기"}
+                  </button>
+                ) : null}
+
+                {wdStep === "sent" ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input inputMode="numeric" maxLength={6} value={wdCode} onChange={(e) => setWdCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="인증코드 6자리" className={codeInputCls} />
+                    <button type="button" onClick={() => void verifyCode("wd")} disabled={wdBusy} className={btnDanger}>{wdBusy ? "확인 중…" : "인증"}</button>
+                    <button type="button" onClick={() => void sendCode("wd")} disabled={wdBusy} className="text-xs text-slate-400 hover:text-slate-600">재발송</button>
+                  </div>
+                ) : null}
+
+                {wdStep === "verified" ? (
+                  <div className="rounded-md border border-rose-200 bg-rose-50/60 p-3">
+                    <p className="text-sm font-semibold text-rose-700">탈퇴하시겠습니까?</p>
+                    <div className="mt-2 flex gap-2">
+                      <button type="button" onClick={() => void onWithdraw()} disabled={wdBusy} className="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
+                        {wdBusy ? "처리 중…" : "네"}
+                      </button>
+                      <button type="button" onClick={() => { setWdStep("idle"); setWdCode(""); setWdAgree(false); }} disabled={wdBusy} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-white disabled:opacity-50">
+                        아니요
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
       </section>

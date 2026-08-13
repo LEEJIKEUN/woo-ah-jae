@@ -700,11 +700,11 @@ export default function MentoringView({
                       </div>
                     </div>
                   ) : (
-                    <div key={i} className="rounded-[10px] p-3" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
-                      <div className="flex items-start justify-between gap-2">
+                    <div key={i} className="rounded-[10px] border bg-white p-3.5" style={{ borderColor: CARD }}>
+                      <div className="flex items-start justify-between gap-2 border-b pb-2.5" style={{ borderColor: CARD }}>
                         <p className="text-[13.5px] font-bold" style={{ color: INK }}>
                           {b.book || "(제목 없음)"}
-                          {b.author ? <span className="font-normal" style={{ color: SUB }}>({b.author})</span> : null}
+                          {b.author ? <span className="ml-1 font-normal" style={{ color: SUB }}>({b.author})</span> : null}
                         </p>
                         {canEditBooks ? (
                           <div className="flex shrink-0 items-center gap-1.5">
@@ -713,9 +713,26 @@ export default function MentoringView({
                           </div>
                         ) : null}
                       </div>
-                      {b.motive ? <p className="mt-1.5 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>동기</b> {b.motive}</p> : null}
-                      {b.review ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>평가</b> {b.review}</p> : null}
-                      {b.influence ? <p className="mt-1 text-[12.5px] leading-5" style={{ color: BODY }}><b style={{ color: DEEP }}>영향</b> {b.influence}</p> : null}
+                      <div className="mt-2.5 space-y-2.5">
+                        {b.motive ? (
+                          <div>
+                            <p className="text-[12px] font-bold" style={{ color: DEEP }}>동기</p>
+                            <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{b.motive}</p>
+                          </div>
+                        ) : null}
+                        {b.review ? (
+                          <div>
+                            <p className="text-[12px] font-bold" style={{ color: DEEP }}>평가</p>
+                            <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{b.review}</p>
+                          </div>
+                        ) : null}
+                        {b.influence ? (
+                          <div>
+                            <p className="text-[12px] font-bold" style={{ color: DEEP }}>영향</p>
+                            <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{b.influence}</p>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   )
                 )}
