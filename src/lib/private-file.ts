@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { getStorageBackend, putPrivateObject, getPrivateObject } from "@/lib/r2";
+import { getStorageBackend, putPrivateObject, getPrivateObject, deletePrivateObject } from "@/lib/r2";
 
 /**
  * 비공개 업로드(멘토링 보고서·채팅 첨부·강의 콘텐츠 파일) 저장 추상화.
@@ -38,6 +38,16 @@ export async function storeUploadDataUrl(prefix: string, name: string, mime: str
     return { key, data: null };
   }
   return { key: null, data: dataUrl };
+}
+
+/** R2 오브젝트 삭제(있을 때만·best-effort). key 는 raw 키 또는 r2:// 접두 키 모두 허용. */
+export async function deletePrivateKey(key: string | null | undefined) {
+  if (!key || !r2Enabled()) return;
+  try {
+    await deletePrivateObject(key.startsWith("r2://") ? key.slice("r2://".length) : key);
+  } catch {
+    /* 파일 삭제 실패는 무시(고아 파일은 나중에 정리) */
+  }
 }
 
 /** 저장된 파일 바이트 읽기(R2 키 또는 인라인 base64). */

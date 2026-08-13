@@ -38,6 +38,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 
   const download = new URL(request.url).searchParams.get("download") === "1";
-  const signed = await presignGetUrl(a.fileKey, 2 * 3600, download ? a.name : undefined);
+  // 파일명 클릭(기본) = inline 보기(PDF 뷰어·동영상 재생), ?download=1 = 첨부 다운로드
+  const signed = await presignGetUrl(a.fileKey, 2 * 3600, {
+    fileName: a.name,
+    mime: a.mime,
+    disposition: download ? "attachment" : "inline",
+  });
   return NextResponse.redirect(signed, { status: 302, headers: { "Cache-Control": "private, no-store" } });
 }

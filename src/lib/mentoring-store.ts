@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { storeUploadDataUrl } from "@/lib/private-file";
+import { storeUploadDataUrl, deletePrivateKey } from "@/lib/private-file";
 
 /**
  * 탐구활동 멘토링 방(강좌 + 학생). 탐구 보고서·독서활동·1:1 채팅·개별 공지를
@@ -185,5 +185,7 @@ export async function getAssignment(id: string) {
   return prisma.mentoringAssignment.findUnique({ where: { id } });
 }
 export async function deleteAssignment(id: string): Promise<void> {
+  const a = await prisma.mentoringAssignment.findUnique({ where: { id }, select: { fileKey: true } });
+  await deletePrivateKey(a?.fileKey); // R2 파일도 함께 제거 → 삭제 시 R2 용량 회수
   await prisma.mentoringAssignment.delete({ where: { id } });
 }

@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 function isR2Enabled() {
@@ -78,16 +78,32 @@ export async function presignPutUrl(key: string, contentType: string, expiresSec
   return getSignedUrl(client, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType || "application/octet-stream" }), { expiresIn: expiresSec });
 }
 
-/** 재생/보기용 서명된 URL(Range 지원 → 브라우저 <video> 직접 스트리밍). downloadName 주면 첨부 다운로드. */
-export async function presignGetUrl(key: string, expiresSec = 6 * 3600, downloadName?: string) {
+/**
+ * 재생/보기/다운로드용 서명 URL(Range 지원).
+ * opts.disposition="inline" → 브라우저에서 바로 보기(PDF 뷰어·동영상 재생), "attachment" → 다운로드.
+ * opts.mime 로 응답 Content-Type 을 명시해 브라우저가 올바르게 렌더링하도록 강제한다.
+ */
+export async function presignGetUrl(
+  key: string,
+  expiresSec = 6 * 3600,
+  opts?: { fileName?: string; mime?: string; disposition?: "inline" | "attachment" }
+) {
   const client = getClient();
   const bucket = required("R2_BUCKET_PRIVATE");
-  const cmd = new GetObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ...(downloadName ? { ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}` } : {}),
-  });
-  return getSignedUrl(client, cmd, { expiresIn: expiresSec });
+  const extra: { ResponseContentType?: string; ResponseContentDisposition?: string } = {};
+  if (opts?.mime) extra.ResponseContentType = opts.mime;
+  if (opts?.disposition) {
+    const fn = opts.fileName ? `; filename*=UTF-8''${encodeURIComponent(opts.fileName)}` : "";
+    extra.ResponseContentDisposition = `${opts.disposition}${fn}`;
+  }
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key, ...extra }), { expiresIn: expiresSec });
+}
+
+/** 비공개 버킷의 오브젝트 삭제(과제 삭제 시 R2 파일도 함께 제거). */
+export async function deletePrivateObject(key: string) {
+  const client = getClient();
+  const bucket = required("R2_BUCKET_PRIVATE");
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 export async function getPrivateObject(fileKey: string) {
