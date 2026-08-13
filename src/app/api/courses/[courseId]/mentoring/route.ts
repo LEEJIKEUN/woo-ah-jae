@@ -11,6 +11,7 @@ import {
   FIELD_KEYS, type Book, type Report, type UploadFile,
 } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
+import { pingUser, pingCourseStaff } from "@/lib/inbox-bus";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FIELD = 20000;
@@ -228,5 +229,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   publishMentoring(courseId, studentId, await loadRoom(courseId, studentId));
+  // 실시간 배지: 새 채팅 메시지 → 상대에게 신호(교사→학생 / 학생→담당 스태프)
+  if (body.action === "chat" || body.action === "chatFile") {
+    if (senderRole === "teacher") pingUser(studentId);
+    else pingCourseStaff(courseId);
+  }
   return NextResponse.json({ ok: true });
 }

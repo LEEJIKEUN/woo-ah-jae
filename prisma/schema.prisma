@@ -314,6 +314,7 @@ model MentoringPeerReview {
   courseId           String
   recipientStudentId String
   assignmentId       String
+  column             Int      @default(0) // 과제 번호(0=과제1) — 과제별 누적/그룹 표시
   createdAt          DateTime @default(now())
 
   @@index([courseId, recipientStudentId, createdAt])

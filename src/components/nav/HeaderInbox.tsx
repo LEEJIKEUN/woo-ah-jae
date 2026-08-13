@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, X, Send } from "lucide-react";
+import { Bell, MessageCircle, X, Send, Paperclip } from "lucide-react";
 
 const BROWN = "#8c6e59";
 const INK = "#2C2823";
@@ -47,12 +47,22 @@ export default function HeaderInbox({ userId }: { userId: string }) {
 
   useEffect(() => {
     void loadAll();
-    const t = setInterval(loadAll, 45000);
+    const t = setInterval(loadAll, 120000); // 폴백 폴링(실시간 SSE 보조)
     const onFocus = () => void loadAll();
     window.addEventListener("focus", onFocus);
+    const es = new EventSource("/api/inbox/stream");
+    es.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data) as { type?: string };
+        if (d.type === "refresh") void loadAll();
+      } catch {
+        /* 무시 */
+      }
+    };
     return () => {
       clearInterval(t);
       window.removeEventListener("focus", onFocus);
+      es.close();
     };
   }, [loadAll]);
 
@@ -148,7 +158,43 @@ export default function HeaderInbox({ userId }: { userId: string }) {
 function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; onClose: () => void }) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) {
+      setErr("파일이 너무 큽니다. (최대 20MB)");
+      return;
+    }
+    setErr(null);
+    setUploading(true);
+    try {
+      const dataUrl: string = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result));
+        r.onerror = () => rej(new Error("read"));
+        r.readAsDataURL(f);
+      });
+      const resp = await fetch(`/api/courses/${conv.courseId}/mentoring`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "chatFile", file: { name: f.name, size: f.size, mime: f.type, dataUrl }, studentId: conv.roomStudentId }),
+      });
+      if (!resp.ok) {
+        const d = (await resp.json().catch(() => ({}))) as { error?: string };
+        setErr(d.error ?? "업로드에 실패했습니다.");
+      }
+    } catch {
+      setErr("업로드 중 오류가 발생했습니다.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   useEffect(() => {
     const es = new EventSource(`/api/courses/${conv.courseId}/mentoring/stream?studentId=${encodeURIComponent(conv.roomStudentId)}`);
@@ -209,21 +255,26 @@ function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; 
         )}
       </div>
       {conv.canSend ? (
-        <div className="flex items-center gap-2 border-t px-3 py-2.5" style={{ borderColor: LINE }}>
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-            placeholder="메시지 입력 후 Enter"
-            className="h-9 flex-1 rounded-[8px] border px-3 text-[12.5px] outline-none focus:border-[#8C6E59]"
-            style={{ borderColor: "#E7E2D6", color: BODY }}
-          />
-          <button type="button" onClick={() => void send()} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="전송"><Send size={15} /></button>
+        <div>
+          {err ? <p className="px-3 pt-2 text-[11px]" style={{ color: "#a6402c" }}>{err}</p> : null}
+          <div className="flex items-center gap-2 border-t px-3 py-2.5" style={{ borderColor: LINE }}>
+            <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59] disabled:opacity-50" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부" title="사진·파일 첨부 (최대 20MB)"><Paperclip size={15} /></button>
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+              placeholder={uploading ? "파일 업로드 중…" : "메시지 입력 후 Enter"}
+              className="h-9 flex-1 rounded-[8px] border px-3 text-[12.5px] outline-none focus:border-[#8C6E59]"
+              style={{ borderColor: "#E7E2D6", color: BODY }}
+            />
+            <button type="button" onClick={() => void send()} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="전송"><Send size={15} /></button>
+          </div>
         </div>
       ) : (
         <div className="border-t px-3 py-2.5 text-center text-[11px]" style={{ borderColor: LINE, color: MUTED }}>열람 전용 — 메시지를 보낼 수 없습니다.</div>

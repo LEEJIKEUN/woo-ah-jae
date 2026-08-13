@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { pingUser } from "@/lib/inbox-bus";
 
 export type NotificationInput = { userId: string; kind: string; title: string; body?: string; href: string };
 
@@ -8,6 +9,7 @@ export async function createNotifications(rows: NotificationInput[]): Promise<vo
   if (!data.length) return;
   try {
     await prisma.notification.createMany({ data });
+    for (const uid of new Set(data.map((d) => d.userId))) pingUser(uid); // 실시간 배지
   } catch {
     /* 알림 실패는 무시 */
   }

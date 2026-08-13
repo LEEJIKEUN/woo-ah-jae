@@ -29,6 +29,7 @@ export type Book = { book: string; author: string; motive: string; review: strin
 export type Notice = { id: string; body: string; at: string; updated: boolean };
 export type Assignment = { id: string; name: string; size: number; mime: string; at: string };
 export type PeerReview = { assignmentId: string; name: string; mime: string };
+export type PeerReviewGroup = { column: number; items: PeerReview[] };
 export type MentoringRoom = {
   report: Report;
   reportFile: FileMeta | null;
@@ -37,7 +38,7 @@ export type MentoringRoom = {
   notices: Notice[];
   assignments: Assignment[];
   sete: string;
-  peerReviews: PeerReview[];
+  peerReviews: PeerReviewGroup[];
 };
 
 function blankReport(): Report {
@@ -95,13 +96,19 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
   };
 }
 
-/** 이 학생이 상호 피드백으로 읽어야 할 과제 목록(다른 학생의 과제). */
-async function loadPeerReviews(courseId: string, studentId: string): Promise<PeerReview[]> {
-  const peer = await prisma.mentoringPeerReview.findMany({ where: { courseId, recipientStudentId: studentId }, orderBy: { createdAt: "asc" }, select: { assignmentId: true } });
+/** 이 학생이 상호 피드백으로 읽어야 할 과제 — 과제(column)별로 그룹(누적). */
+async function loadPeerReviews(courseId: string, studentId: string): Promise<PeerReviewGroup[]> {
+  const peer = await prisma.mentoringPeerReview.findMany({ where: { courseId, recipientStudentId: studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }], select: { assignmentId: true, column: true } });
   if (!peer.length) return [];
   const asgs = await prisma.mentoringAssignment.findMany({ where: { id: { in: peer.map((p) => p.assignmentId) } }, select: { id: true, name: true, mime: true } });
   const m = new Map(asgs.map((a) => [a.id, a]));
-  return peer.map((p) => m.get(p.assignmentId)).filter((a): a is { id: string; name: string; mime: string } => !!a).map((a) => ({ assignmentId: a.id, name: a.name, mime: a.mime }));
+  const byCol = new Map<number, PeerReview[]>();
+  for (const p of peer) {
+    const a = m.get(p.assignmentId);
+    if (!a) continue;
+    byCol.set(p.column, [...(byCol.get(p.column) ?? []), { assignmentId: a.id, name: a.name, mime: a.mime }]);
+  }
+  return [...byCol.entries()].sort((x, y) => x[0] - y[0]).map(([column, items]) => ({ column, items }));
 }
 
 /** 이 사용자가 해당 과제의 피어 리뷰 대상자인지(과제 열람 권한 근거). */
@@ -138,9 +145,10 @@ export async function distributePeerReview(courseId: string, column: number, stu
     }
   }
 
+  // 이 과제(column)의 기존 배정만 교체 → 다른 과제 배정은 누적 유지
   await prisma.$transaction([
-    prisma.mentoringPeerReview.deleteMany({ where: { courseId, recipientStudentId: { in: studentIds } } }),
-    ...rows.map((r) => prisma.mentoringPeerReview.create({ data: r })),
+    prisma.mentoringPeerReview.deleteMany({ where: { courseId, recipientStudentId: { in: studentIds }, column } }),
+    ...rows.map((r) => prisma.mentoringPeerReview.create({ data: { ...r, column } })),
   ]);
   return { recipients: n, assigned: rows.length, perAssignment: k };
 }
