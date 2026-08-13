@@ -44,24 +44,42 @@ function fmtDay(value: string | null | undefined) {
 const inputCls = "h-10 w-full rounded-md border border-slate-200/80 bg-transparent px-3 text-sm text-slate-900";
 const roCls = "rounded-md border border-slate-200/80 bg-white/40 px-3 py-2 text-sm text-slate-600";
 
-export default function AccountPageClient({ initialMe, childrenLinks = [] }: { initialMe: MeResponse; childrenLinks?: ChildLink[] }) {
+export default function AccountPageClient({ initialMe, childrenLinks = [], facilitatorCourses = [] }: { initialMe: MeResponse; childrenLinks?: ChildLink[]; facilitatorCourses?: { id: string; title: string }[] }) {
   const [me, setMe] = useState(initialMe);
   const [saving, setSaving] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const role = me.role;
   const isStudent = role === "STUDENT";
   const isParent = role === "PARENT";
+  const isFacilitator = role === "FACILITATOR";
 
   const [form, setForm] = useState({
     realName: initialMe.studentProfile?.realName ?? "",
     schoolName: initialMe.studentProfile?.schoolName ?? "",
     grade: initialMe.studentProfile?.grade ?? "",
-    className: initialMe.studentProfile?.className ?? "",
-    number: initialMe.studentProfile?.number ?? "",
-    bio: initialMe.studentProfile?.bio ?? "",
   });
+
+  async function onWithdraw() {
+    if (!window.confirm("정말 탈퇴하시겠습니까?\n계정과 관련 데이터가 완전히 삭제되며 복구할 수 없습니다.\n(같은 이메일로 즉시 재가입은 가능합니다.)")) return;
+    setWithdrawing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me/withdraw", { method: "POST" });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(d.error ?? "탈퇴 처리에 실패했습니다.");
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setWithdrawing(false);
+    }
+  }
 
   async function refreshMe() {
     const res = await fetch("/api/me", { cache: "no-store" });
@@ -135,14 +153,6 @@ export default function AccountPageClient({ initialMe, childrenLinks = [] }: { i
                   <span className="text-sm text-slate-600">졸업 예정 연도 *</span>
                   <input className={inputCls} value={form.grade} onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))} />
                 </label>
-                <label className="space-y-1">
-                  <span className="text-sm text-slate-600">반</span>
-                  <input className={inputCls} value={form.className} onChange={(e) => setForm((f) => ({ ...f, className: e.target.value }))} />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-sm text-slate-600">번호</span>
-                  <input className={inputCls} value={form.number} onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))} />
-                </label>
               </>
             ) : null}
 
@@ -164,10 +174,20 @@ export default function AccountPageClient({ initialMe, childrenLinks = [] }: { i
               </div>
             ) : null}
 
-            <label className="space-y-1 md:col-span-2">
-              <span className="text-sm text-slate-600">소개</span>
-              <textarea className="min-h-24 w-full rounded-md border border-slate-200/80 bg-transparent px-3 py-2 text-sm text-slate-900" value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} />
-            </label>
+            {isFacilitator ? (
+              <div className="space-y-1 md:col-span-2">
+                <span className="text-sm text-slate-600">담당 강좌 (관리자 배정)</span>
+                {facilitatorCourses.length === 0 ? (
+                  <div className={roCls}>아직 배정된 담당 강좌가 없습니다. 관리자가 배정하면 표시됩니다.</div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {facilitatorCourses.map((c) => (
+                      <li key={c.id} className="rounded-md border border-slate-200/80 bg-white/40 px-3 py-2 text-sm text-slate-800">{c.title}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
 
             <div className={roCls}>가입일: {fmtDate(me.createdAt)}</div>
             <div className={roCls}>권한: {ROLE_LABEL[role] ?? "학생"}</div>
@@ -178,6 +198,14 @@ export default function AccountPageClient({ initialMe, childrenLinks = [] }: { i
               </button>
             </div>
           </form>
+
+          <div className="mt-6 border-t border-slate-200/70 pt-5">
+            <p className="text-sm font-semibold text-rose-600">회원 탈퇴</p>
+            <p className="mt-1 text-xs text-slate-500">탈퇴하면 계정과 관련 데이터가 완전히 삭제됩니다. (같은 이메일로 즉시 재가입 가능)</p>
+            <button type="button" onClick={() => void onWithdraw()} disabled={withdrawing} className="mt-3 rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+              {withdrawing ? "탈퇴 처리 중…" : "탈퇴하기"}
+            </button>
+          </div>
         </section>
       </section>
     </main>

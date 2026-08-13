@@ -79,9 +79,6 @@ export async function PATCH(request: NextRequest) {
     const realName = asTrimmedOptionalString(body.realName);
     const schoolName = asTrimmedOptionalString(body.schoolName);
     const grade = asTrimmedOptionalString(body.grade);
-    const className = asTrimmedOptionalString(body.className);
-    const number = asTrimmedOptionalString(body.number);
-    const bio = asTrimmedOptionalString(body.bio);
 
     const me = await prisma.user.findUnique({ where: { id: auth.userId }, select: { role: true } });
     if (!realName) {
@@ -98,17 +95,11 @@ export async function PATCH(request: NextRequest) {
         realName,
         schoolName,
         grade,
-        className,
-        number,
-        bio,
       },
       update: {
         realName,
         schoolName,
         grade,
-        className,
-        number,
-        bio,
       },
       select: {
         realName: true,

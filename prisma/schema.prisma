@@ -274,6 +274,16 @@ model MentoringSete {
   @@id([courseId, studentId])
 }
 
+/** 퍼실리테이터 담당 강좌 — 관리자가 배정. 퍼실 본인은 못 바꿈. */
+model FacilitatorCourse {
+  facilitatorUserId String
+  courseId          String
+  createdAt         DateTime @default(now())
+
+  @@id([facilitatorUserId, courseId])
+  @@index([courseId])
+}
+
 /** 상호 피드백(피어 리뷰) 배정 — recipient 학생이 읽어야 할 다른 학생의 과제. */
 model MentoringPeerReview {
   id                 String   @id @default(cuid())

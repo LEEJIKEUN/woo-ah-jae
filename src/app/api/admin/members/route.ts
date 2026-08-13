@@ -90,6 +90,12 @@ export async function GET(request: NextRequest) {
         prisma.featureFlag.findUnique({ where: { key: "billingEnabled" }, select: { valueBool: true } }),
       ]);
 
+      // 퍼실리테이터 담당 강좌 → courseIds 에 합산(강좌 필터에 퍼실도 포함되게)
+      const facIds = users.filter((u) => u.role === UserRole.FACILITATOR).map((u) => u.id);
+      const facCourses = facIds.length ? await prisma.facilitatorCourse.findMany({ where: { facilitatorUserId: { in: facIds } }, select: { facilitatorUserId: true, courseId: true } }) : [];
+      const facMap = new Map<string, string[]>();
+      for (const f of facCourses) facMap.set(f.facilitatorUserId, [...(facMap.get(f.facilitatorUserId) ?? []), f.courseId]);
+
       const items: MemberItem[] = users.map((u) => ({
         id: u.id,
         email: u.email,
@@ -104,7 +110,7 @@ export async function GET(request: NextRequest) {
         verificationStatus: u.verificationSubmissions[0]?.status ?? VerificationStatus.NOT_SUBMITTED,
         planCode: u.entitlements[0]?.plan.code ?? "FREE",
         entitlementStatus: u.entitlements[0]?.status ?? "NONE",
-        courseIds: u.enrollments.map((e) => e.courseId),
+        courseIds: [...u.enrollments.map((e) => e.courseId), ...(facMap.get(u.id) ?? [])],
         createdAt: u.createdAt.toISOString(),
       }));
 

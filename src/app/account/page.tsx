@@ -1,5 +1,6 @@
 import AccountPageClient from "@/components/account/AccountPageClient";
 import { requireUser } from "@/lib/auth";
+import { getCourse } from "@/lib/course/content";
 import { prisma } from "@/lib/prisma";
 
 export default async function AccountPage() {
@@ -35,5 +36,12 @@ export default async function AccountPage() {
     childrenLinks = links.map((l) => ({ name: l.child.studentProfile?.realName ?? "", email: l.child.email, status: l.status }));
   }
 
-  return <AccountPageClient initialMe={initialMe} childrenLinks={childrenLinks} />;
+  // 퍼실리테이터: 관리자가 배정한 담당 강좌(읽기 전용)
+  let facilitatorCourses: { id: string; title: string }[] = [];
+  if (user.role === "FACILITATOR") {
+    const fc = await prisma.facilitatorCourse.findMany({ where: { facilitatorUserId: user.id }, select: { courseId: true } });
+    facilitatorCourses = fc.map((f) => ({ id: f.courseId, title: getCourse(f.courseId)?.title ?? f.courseId }));
+  }
+
+  return <AccountPageClient initialMe={initialMe} childrenLinks={childrenLinks} facilitatorCourses={facilitatorCourses} />;
 }
