@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown, Paperclip, Link2, Type, Heading, Minus, Download, Pencil, X } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Paperclip, Link2, Type, Heading, Minus, Download, Pencil, X, Video } from "lucide-react";
 
 /* 우아재 서재 톤 */
 const BROWN = "#8C6E59";
@@ -19,8 +19,35 @@ type Block =
   | { id: string; type: "heading"; text: string }
   | { id: string; type: "text"; text: string }
   | { id: string; type: "file"; name: string; size: number; dataUrl: string }
+  | { id: string; type: "video"; name: string; size: number; videoKey?: string }
   | { id: string; type: "link"; title: string; url: string; desc: string }
   | { id: string; type: "divider" };
+
+/** 강의 동영상 업로드 — presign 받아 브라우저에서 R2 로 직접 PUT(진행률 콜백). */
+async function uploadVideo(courseId: string, activityId: string, file: File, onProgress: (pct: number) => void): Promise<{ name: string; size: number; videoKey: string }> {
+  const res = await fetch(`/api/courses/${courseId}/lessons/${activityId}/video/presign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, contentType: file.type, size: file.size }),
+  });
+  if (!res.ok) {
+    const d = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(d.error ?? "업로드 준비에 실패했습니다.");
+  }
+  const { url, key } = (await res.json()) as { url: string; key: string };
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`업로드 실패 (${xhr.status})`)));
+    xhr.onerror = () => reject(new Error("네트워크 오류(업로드). R2 CORS 설정을 확인하세요."));
+    xhr.send(file);
+  });
+  return { name: file.name, size: file.size, videoKey: key };
+}
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
 function newId() {
@@ -108,6 +135,7 @@ export default function LessonBlocks({ courseId, activityId, isAdmin }: { course
       type === "heading" ? { id: newId(), type: "heading", text: "" }
       : type === "text" ? { id: newId(), type: "text", text: "" }
       : type === "file" ? { id: newId(), type: "file", name: "", size: 0, dataUrl: "" }
+      : type === "video" ? { id: newId(), type: "video", name: "", size: 0 }
       : type === "link" ? { id: newId(), type: "link", title: "", url: "", desc: "" }
       : { id: newId(), type: "divider" };
     setDraft((d) => [...d, base]);
@@ -178,9 +206,9 @@ export default function LessonBlocks({ courseId, activityId, isAdmin }: { course
       ) : (
         <div className="space-y-4">
           {list.map((b) => (editing ? (
-            <BlockEditor key={b.id} block={b} onPatch={(p) => patch(b.id, p)} onRemove={() => remove(b.id)} onUp={() => move(b.id, -1)} onDown={() => move(b.id, 1)} onFile={(e) => onPickFile(b.id, e)} />
+            <BlockEditor key={b.id} courseId={courseId} activityId={activityId} block={b} onPatch={(p) => patch(b.id, p)} onRemove={() => remove(b.id)} onUp={() => move(b.id, -1)} onDown={() => move(b.id, 1)} onFile={(e) => onPickFile(b.id, e)} />
           ) : (
-            <BlockView key={b.id} block={b} />
+            <BlockView key={b.id} courseId={courseId} activityId={activityId} block={b} />
           )))}
         </div>
       )}
@@ -192,10 +220,71 @@ export default function LessonBlocks({ courseId, activityId, isAdmin }: { course
           <AddBtn onClick={() => addBlock("heading")} icon={<Heading size={14} />} label="제목" />
           <AddBtn onClick={() => addBlock("text")} icon={<Type size={14} />} label="텍스트" />
           <AddBtn onClick={() => addBlock("file")} icon={<Paperclip size={14} />} label="파일" />
+          <AddBtn onClick={() => addBlock("video")} icon={<Video size={14} />} label="동영상" />
           <AddBtn onClick={() => addBlock("link")} icon={<Link2 size={14} />} label="링크" />
           <AddBtn onClick={() => addBlock("divider")} icon={<Minus size={14} />} label="구분선" />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/* ── 동영상 블록 편집(업로드) ── */
+function VideoBlockEditor({ courseId, activityId, block, onPatch }: { courseId: string; activityId: string; block: Extract<Block, { type: "video" }>; onPatch: (p: Partial<Block>) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [pct, setPct] = useState(0);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    setErr(null);
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (!f.type.startsWith("video/")) {
+      setErr("동영상 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    setUploading(true);
+    setPct(0);
+    try {
+      const meta = await uploadVideo(courseId, activityId, f, setPct);
+      onPatch({ name: meta.name, size: meta.size, videoKey: meta.videoKey } as Partial<Block>);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div>
+      {block.videoKey ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 rounded-[8px] border px-3 py-2" style={{ borderColor: LINE, background: PANEL }}>
+            <Video size={15} style={{ color: BROWN }} />
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold" style={{ color: DEEP }}>{block.name || "동영상"}</span>
+            <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{block.size ? fmtSize(block.size) : ""}</span>
+            <label className="shrink-0 cursor-pointer text-[12px] font-semibold" style={{ color: BROWN }}>
+              교체<input type="file" accept="video/*" onChange={pick} className="hidden" disabled={uploading} />
+            </label>
+          </div>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video controls preload="metadata" className="w-full rounded-[8px]" style={{ maxHeight: 300, background: "#000" }} src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`} />
+        </div>
+      ) : uploading ? (
+        <div className="rounded-[8px] border px-3 py-3" style={{ borderColor: LINE }}>
+          <p className="mb-1.5 text-[12.5px] font-semibold" style={{ color: DEEP }}>업로드 중… {pct}% (닫지 마세요)</p>
+          <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: BROWN }} />
+          </div>
+        </div>
+      ) : (
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-dashed py-4 text-[13px]" style={{ borderColor: LINE, color: SUB }}>
+          <Video size={16} /> 동영상 업로드 (최대 5GB · R2로 직접 전송)
+          <input type="file" accept="video/*" onChange={pick} className="hidden" />
+        </label>
+      )}
+      {err ? <p className="mt-1.5 text-[12px]" style={{ color: "#a6402c" }}>{err}</p> : null}
     </div>
   );
 }
@@ -209,10 +298,19 @@ function AddBtn({ onClick, icon, label }: { onClick: () => void; icon: React.Rea
 }
 
 /* ── 뷰 ── */
-function BlockView({ block }: { block: Block }) {
+function BlockView({ block, courseId, activityId }: { block: Block; courseId: string; activityId: string }) {
   if (block.type === "heading") return <h3 className="pt-2 text-[19px] font-bold" style={{ ...serif, color: BROWN }}>{block.text || "제목"}</h3>;
   if (block.type === "text") return <p className="whitespace-pre-line text-[15px] leading-8" style={{ color: BODY }}>{block.text}</p>;
   if (block.type === "divider") return <hr style={{ borderColor: CARD }} />;
+  if (block.type === "video")
+    return block.videoKey ? (
+      <div className="overflow-hidden rounded-[10px] border" style={{ borderColor: LINE, background: "#000" }}>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video controls preload="metadata" className="w-full" style={{ maxHeight: 520 }} src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`} />
+      </div>
+    ) : (
+      <p className="rounded-[10px] py-3 text-center text-[13px]" style={{ background: PANEL, color: SUB }}>동영상이 아직 업로드되지 않았습니다.</p>
+    );
   if (block.type === "file")
     return (
       <button type="button" onClick={() => block.dataUrl && download(block.name, block.dataUrl)} className="flex items-center gap-3 rounded-[10px] border px-4 py-3 text-left transition hover:border-[#8C6E59]" style={{ borderColor: LINE, background: PANEL }}>
@@ -237,15 +335,17 @@ function BlockView({ block }: { block: Block }) {
 }
 
 /* ── 편집 ── */
-function BlockEditor({ block, onPatch, onRemove, onUp, onDown, onFile }: {
+function BlockEditor({ block, courseId, activityId, onPatch, onRemove, onUp, onDown, onFile }: {
   block: Block;
+  courseId: string;
+  activityId: string;
   onPatch: (p: Partial<Block>) => void;
   onRemove: () => void;
   onUp: () => void;
   onDown: () => void;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  const typeLabel = { heading: "제목", text: "텍스트", file: "파일", link: "링크", divider: "구분선" }[block.type];
+  const typeLabel = { heading: "제목", text: "텍스트", file: "파일", video: "동영상", link: "링크", divider: "구분선" }[block.type];
   const inputCls = "w-full rounded-[8px] border px-3 py-2 text-[14px] outline-none focus:border-[#8C6E59]";
   const inputStyle = { borderColor: "#E7E2D6", color: BODY } as const;
   return (
@@ -287,6 +387,9 @@ function BlockEditor({ block, onPatch, onRemove, onUp, onDown, onFile }: {
             </label>
           )}
         </div>
+      ) : null}
+      {block.type === "video" ? (
+        <VideoBlockEditor courseId={courseId} activityId={activityId} block={block} onPatch={onPatch} />
       ) : null}
       {block.type === "link" ? (
         <div className="space-y-2">

@@ -11,6 +11,7 @@ import { r2Enabled, decodeDataUrl, storeUploadDataUrl } from "@/lib/private-file
 export type Block =
   | { id: string; type: "heading"; text: string }
   | { id: string; type: "file"; name: string; size: number; dataUrl: string; fileKey?: string; fileMime?: string }
+  | { id: string; type: "video"; name: string; size: number; videoKey?: string }
   | { id: string; type: "text"; text: string }
   | { id: string; type: "link"; title: string; url: string; desc: string }
   | { id: string; type: "divider" };
@@ -82,4 +83,11 @@ export async function getLessonFileRef(courseId: string, activityId: string, blo
   const b = blocks.find((x) => x.id === blockId && x.type === "file") as Extract<Block, { type: "file" }> | undefined;
   if (!b || !b.fileKey) return null;
   return { name: b.name || "file", mime: b.fileMime || "application/octet-stream", key: b.fileKey };
+}
+
+/** 강의 동영상 블록의 R2 키 조회 — 재생(서명 URL) 라우트용. */
+export async function getLessonVideoKey(courseId: string, activityId: string, blockId: string): Promise<string | null> {
+  const blocks = await getBlocks(courseId, activityId);
+  const b = blocks.find((x) => x.id === blockId && x.type === "video") as Extract<Block, { type: "video" }> | undefined;
+  return b?.videoKey ?? null;
 }

@@ -6,7 +6,7 @@ import { isUserEnrolled } from "@/lib/enrollment-store";
 import { getBlocks, setBlocks, type Block } from "@/lib/lesson-content-store";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 저장 페이로드 상한(파일 포함)
-const VALID_TYPES = new Set(["heading", "text", "file", "link", "divider"]);
+const VALID_TYPES = new Set(["heading", "text", "file", "video", "link", "divider"]);
 
 async function sessionFromReq(request: NextRequest) {
   try {
