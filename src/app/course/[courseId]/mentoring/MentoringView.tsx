@@ -36,7 +36,8 @@ type ChatMsg = { id: string; from: "teacher" | "student"; senderId: string; text
 type Book = { book: string; author: string; motive: string; review: string; influence: string };
 type Notice = { id: string; body: string; at: string; updated: boolean };
 type Assignment = { id: string; name: string; size: number; mime: string; at: string };
-type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string };
+type PeerReview = { assignmentId: string; name: string; mime: string };
+type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReview[] };
 const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
@@ -122,6 +123,7 @@ export default function MentoringView({
   const [books, setBooks] = useState<Book[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [peerReviews, setPeerReviews] = useState<PeerReview[]>([]);
   const [assignErr, setAssignErr] = useState<string | null>(null);
   const [assignPct, setAssignPct] = useState<number | null>(null);
   const assignInputRef = useRef<HTMLInputElement | null>(null);
@@ -160,6 +162,7 @@ export default function MentoringView({
     setBooks([]);
     setNotices([]);
     setAssignments([]);
+    setPeerReviews([]);
     setSete("");
     setEditingSete(false);
     seteDirtyRef.current = false;
@@ -173,6 +176,7 @@ export default function MentoringView({
         setBooks(Array.isArray(room.books) ? room.books : []);
         setNotices(Array.isArray(room.notices) ? room.notices : []);
         setAssignments(Array.isArray(room.assignments) ? room.assignments : []);
+        setPeerReviews(Array.isArray(room.peerReviews) ? room.peerReviews : []);
         if (!seteDirtyRef.current) setSete(typeof room.sete === "string" ? room.sete : "");
         setReportFile(room.reportFile ?? null);
         if (!dirtyRef.current) setReport({ ...blankReport(), ...(room.report ?? {}) });
@@ -505,8 +509,9 @@ export default function MentoringView({
             ))}
           </div>
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-          {/* 중: 학생 탐구 보고서 */}
-          <section className={`rounded-[14px] bg-white ${vis("report")}`} style={{ border: `1px solid ${CARD}` }}>
+          {/* 중: 학생 탐구 보고서 + 상호 피드백 */}
+          <div className={`space-y-4 ${vis("report")}`}>
+          <section className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-4" style={{ borderColor: CARD }}>
               <h2 className="text-[18px] font-bold" style={{ color: INK }}>학생 탐구 보고서</h2>
               <div className="flex items-center gap-3">
@@ -575,6 +580,39 @@ export default function MentoringView({
             </div>
             ) : null}
           </section>
+
+          {/* 상호 피드백 — 배정된 다른 학생 과제를 읽고 토론 게시판에 댓글로 피드백 */}
+          {peerReviews.length > 0 ? (
+            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+              <div className="border-b px-6 py-4" style={{ borderColor: CARD }}>
+                <h2 className="text-[16px] font-bold" style={{ color: INK }}>상호 피드백</h2>
+                <p className="mt-1 text-[12.5px] leading-5" style={{ color: SUB }}>상호 피드백 활동은 학생들의 협업능력과 나눔과 배려, 공동체 역량을 키웁니다.</p>
+              </div>
+              <div className="px-6 py-5">
+                <p className="text-[13.5px] leading-6" style={{ color: BODY }}>
+                  다음 학생들의 과제를 읽고(또는 학습하고) 느낀점을 정리하고, 피드백을 <b style={{ color: DEEP }}>수강생 토론 게시판</b>에 댓글로 제출하세요.
+                  평가나 조언, 비판적인 의견보다는 <b style={{ color: DEEP }}>긍정적인 의견과 더 발전할 수 있는 방향·아이디어</b>를 중심으로 성심성의껏 작성해 주세요.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2.5">
+                  {peerReviews.map((p, i) => (
+                    <a
+                      key={p.assignmentId}
+                      href={`/api/courses/${courseId}/mentoring/assignment/${p.assignmentId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex max-w-full items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] font-semibold transition hover:border-[#8C6E59] hover:bg-[#FBF8F2]"
+                      style={{ borderColor: LINE, color: DEEP }}
+                      title={p.name}
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: BROWN }}>{i + 1}</span>
+                      <span className="truncate">{p.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+          </div>
 
           {/* 우: 독서활동상황 → 작성 가이드 → 1:1 멘토링 → 미니 드라이브 → 개별 공지 */}
           <aside className="space-y-4">

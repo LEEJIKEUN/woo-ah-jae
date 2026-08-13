@@ -28,6 +28,7 @@ export type ChatMsg = {
 export type Book = { book: string; author: string; motive: string; review: string; influence: string };
 export type Notice = { id: string; body: string; at: string; updated: boolean };
 export type Assignment = { id: string; name: string; size: number; mime: string; at: string };
+export type PeerReview = { assignmentId: string; name: string; mime: string };
 export type MentoringRoom = {
   report: Report;
   reportFile: FileMeta | null;
@@ -36,13 +37,14 @@ export type MentoringRoom = {
   notices: Notice[];
   assignments: Assignment[];
   sete: string;
+  peerReviews: PeerReview[];
 };
 
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
 }
 export function emptyRoom(): MentoringRoom {
-  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [], assignments: [], sete: "" };
+  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [], assignments: [], sete: "", peerReviews: [] };
 }
 
 function fmtAt(d: Date): string {
@@ -89,7 +91,55 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
     notices: notices.map((n) => ({ id: n.id, body: n.body, at: fmtAt(n.createdAt), updated: n.updatedAt.getTime() - n.createdAt.getTime() > 1000 })),
     assignments: assignments.map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime, at: fmtAt(a.createdAt) })),
     sete: sete?.body ?? "",
+    peerReviews: await loadPeerReviews(courseId, studentId),
   };
+}
+
+/** 이 학생이 상호 피드백으로 읽어야 할 과제 목록(다른 학생의 과제). */
+async function loadPeerReviews(courseId: string, studentId: string): Promise<PeerReview[]> {
+  const peer = await prisma.mentoringPeerReview.findMany({ where: { courseId, recipientStudentId: studentId }, orderBy: { createdAt: "asc" }, select: { assignmentId: true } });
+  if (!peer.length) return [];
+  const asgs = await prisma.mentoringAssignment.findMany({ where: { id: { in: peer.map((p) => p.assignmentId) } }, select: { id: true, name: true, mime: true } });
+  const m = new Map(asgs.map((a) => [a.id, a]));
+  return peer.map((p) => m.get(p.assignmentId)).filter((a): a is { id: string; name: string; mime: string } => !!a).map((a) => ({ assignmentId: a.id, name: a.name, mime: a.mime }));
+}
+
+/** 이 사용자가 해당 과제의 피어 리뷰 대상자인지(과제 열람 권한 근거). */
+export async function isPeerReviewer(courseId: string, userId: string, assignmentId: string): Promise<boolean> {
+  const r = await prisma.mentoringPeerReview.findFirst({ where: { courseId, recipientStudentId: userId, assignmentId }, select: { id: true } });
+  return !!r;
+}
+
+/**
+ * 상호 피드백 배포 — 선택 학생들의 column 번째 과제를 pool 로, 각 학생(recipient)에게
+ * 본인 제외 랜덤 count 개를 배정. 선택된 학생들의 기존 배정은 교체한다.
+ */
+export async function distributePeerReview(courseId: string, column: number, studentIds: string[], count: number): Promise<{ recipients: number; assigned: number }> {
+  const all = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: studentIds } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true } });
+  const byStudent = new Map<string, string[]>();
+  for (const a of all) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), a.id]);
+
+  const pool: { studentId: string; assignmentId: string }[] = [];
+  for (const sid of studentIds) {
+    const list = byStudent.get(sid) ?? [];
+    if (list[column]) pool.push({ studentId: sid, assignmentId: list[column] });
+  }
+
+  const rows: { courseId: string; recipientStudentId: string; assignmentId: string }[] = [];
+  for (const recipient of studentIds) {
+    const candidates = pool.filter((p) => p.studentId !== recipient);
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    for (const p of candidates.slice(0, Math.max(0, count))) rows.push({ courseId, recipientStudentId: recipient, assignmentId: p.assignmentId });
+  }
+
+  await prisma.$transaction([
+    prisma.mentoringPeerReview.deleteMany({ where: { courseId, recipientStudentId: { in: studentIds } } }),
+    ...rows.map((r) => prisma.mentoringPeerReview.create({ data: r })),
+  ]);
+  return { recipients: studentIds.length, assigned: rows.length };
 }
 
 /** 세특(과목별 세부능력 특기사항) 저장 — 관리자·퍼실. */

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
-import { getAssignment } from "@/lib/mentoring-store";
+import { getAssignment, isPeerReviewer } from "@/lib/mentoring-store";
 import { presignGetUrl } from "@/lib/r2";
 import { prisma } from "@/lib/prisma";
 
@@ -34,6 +34,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!allowed && s.role === "PARENT") {
     const link = await prisma.parentChildLink.findFirst({ where: { parentUserId: s.userId, childUserId: a.studentId, status: "APPROVED" }, select: { id: true } });
     allowed = !!link;
+  }
+  // 상호 피드백으로 이 과제를 배정받은 학생도 열람 허용
+  if (!allowed && s.role === "STUDENT") {
+    allowed = await isPeerReviewer(courseId, s.userId, assignmentId);
   }
   if (!allowed) return new NextResponse("Forbidden", { status: 403 });
 

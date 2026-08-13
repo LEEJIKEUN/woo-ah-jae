@@ -274,6 +274,18 @@ model MentoringSete {
   @@id([courseId, studentId])
 }
 
+/** 상호 피드백(피어 리뷰) 배정 — recipient 학생이 읽어야 할 다른 학생의 과제. */
+model MentoringPeerReview {
+  id                 String   @id @default(cuid())
+  courseId           String
+  recipientStudentId String
+  assignmentId       String
+  createdAt          DateTime @default(now())
+
+  @@index([courseId, recipientStudentId, createdAt])
+  @@index([assignmentId])
+}
+
 /** 학생 과제 업로드(멘토링 방별) — PDF·동영상. 파일 바이트는 R2, DB엔 키만. */
 model MentoringAssignment {
   id         String   @id @default(cuid())

@@ -6,6 +6,7 @@ import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { getCourse } from "@/lib/course/content";
 import { prisma } from "@/lib/prisma";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
+import PeerReviewButton from "./PeerReviewButton";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -63,6 +64,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  const studentsForClient = rows.map((r) => ({ id: r.id, name: r.name }));
 
   const th = "whitespace-nowrap border-b px-3 py-2.5 text-left text-[12.5px] font-bold";
   const td = "border-b px-3 py-2.5 align-top text-[13px]";
@@ -90,7 +92,12 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
                 <th className={th} style={{ borderColor: CARD, width: 64 }}>byte</th>
                 <th className={th} style={{ borderColor: CARD, minWidth: 200 }}>독서활동상황</th>
                 {Array.from({ length: MAX_ASSIGN_COLS }, (_, i) => (
-                  <th key={i} className={th} style={{ borderColor: CARD, minWidth: 120 }}>과제{i + 1}</th>
+                  <th key={i} className={th} style={{ borderColor: CARD, minWidth: 120 }}>
+                    <span className="inline-flex items-center gap-1.5">
+                      과제{i + 1}
+                      <PeerReviewButton courseId={courseId} column={i} label={`과제${i + 1}`} students={studentsForClient} />
+                    </span>
+                  </th>
                 ))}
               </tr>
             </thead>
