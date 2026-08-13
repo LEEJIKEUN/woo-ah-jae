@@ -12,6 +12,7 @@ import {
 } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
 import { pingUser, pingCourseStaff } from "@/lib/inbox-bus";
+import { notifyCourseStaff } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FIELD = 20000;
@@ -214,6 +215,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const isPdfOrVideo = mime === "application/pdf" || name.toLowerCase().endsWith(".pdf") || mime.startsWith("video/");
       if (!isPdfOrVideo) return NextResponse.json({ error: "PDF 또는 동영상 파일만 업로드할 수 있습니다." }, { status: 400 });
       await addAssignment(courseId, studentId, g.session.userId, { name, size, mime, key });
+      {
+        const stu = await prisma.user.findUnique({ where: { id: studentId }, select: { email: true, studentProfile: { select: { realName: true } } } });
+        const who = stu?.studentProfile?.realName || stu?.email || "학생";
+        await notifyCourseStaff(courseId, g.session.userId, { kind: "assignment", title: `${who} · 과제 업로드`, body: name, href: `/course/${courseId}/status` });
+      }
       break;
     }
     case "assignmentDelete": {

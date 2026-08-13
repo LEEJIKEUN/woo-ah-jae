@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { canEnterClassroom, isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled, getEnrolledUserIds } from "@/lib/enrollment-store";
-import { createNotifications } from "@/lib/notification-store";
+import { createNotifications, notifyCourseStaff } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -85,12 +85,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const post = await prisma.coursePost.create({ data: { courseId, kind, authorId: s.userId, title, body } });
 
-  // 공지 작성 → 수강생에게 알림
+  // 공지 작성 → 수강생에게 알림 / 토론 글 → 스태프에게 알림
   if (kind === "NOTICE") {
     const ids = await getEnrolledUserIds(courseId);
     await createNotifications(
       ids.filter((id) => id !== s.userId).map((uid) => ({ userId: uid, kind: "notice", title: `새 공지 · ${getCourse(courseId)?.title ?? ""}`, body: title, href: `/course/${courseId}/notices` }))
     );
+  } else {
+    await notifyCourseStaff(courseId, s.userId, { kind: "post", title: `새 토론글 · ${title}`, body, href: `/course/${courseId}/board` });
   }
 
   return NextResponse.json({ ok: true, id: post.id }, { status: 201 });

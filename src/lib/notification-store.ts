@@ -16,8 +16,23 @@ export async function createNotifications(rows: NotificationInput[]): Promise<vo
 }
 
 export async function listNotifications(userId: string, limit = 30) {
-  const items = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: limit });
+  const items = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: Math.min(Math.max(1, limit), 300) });
   return items.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body, href: n.href, read: !!n.readAt, at: n.createdAt.toISOString() }));
+}
+
+/** 강좌 스태프(관리자 전원 + 해당 강좌 담당 퍼실) userId 목록. */
+export async function courseStaffIds(courseId: string): Promise<string[]> {
+  const [admins, facs] = await Promise.all([
+    prisma.user.findMany({ where: { role: "ADMIN", lifecycleStatus: "ACTIVE" }, select: { id: true } }),
+    prisma.facilitatorCourse.findMany({ where: { courseId }, select: { facilitatorUserId: true } }),
+  ]);
+  return [...new Set([...admins.map((a) => a.id), ...facs.map((f) => f.facilitatorUserId)])];
+}
+
+/** 강좌 스태프에게 알림(구성원 변동 감지용). 행위자는 제외. */
+export async function notifyCourseStaff(courseId: string, actorUserId: string, n: { kind: string; title: string; body?: string; href: string }): Promise<void> {
+  const ids = (await courseStaffIds(courseId)).filter((id) => id !== actorUserId);
+  await createNotifications(ids.map((uid) => ({ userId: uid, ...n })));
 }
 
 export async function unreadNotificationCount(userId: string): Promise<number> {

@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { canEnterClassroom, isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
-import { createNotifications, type NotificationInput } from "@/lib/notification-store";
+import { createNotifications, courseStaffIds, type NotificationInput } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -83,11 +83,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const c = await prisma.coursePostComment.create({ data: { postId, authorId: s.userId, body: text, parentCommentId } });
 
-  // 알림: 글쓴이(+답글이면 부모 댓글 작성자)에게 — 본인 제외, 중복 제외
+  // 알림: 글쓴이(+답글이면 부모 댓글 작성자) + 강좌 스태프 전원 — 본인 제외, 중복 제외
   const href = `/course/${courseId}/${post.kind === "NOTICE" ? "notices" : "board"}`;
   const notify: NotificationInput[] = [];
-  if (post.authorId !== s.userId) notify.push({ userId: post.authorId, kind: "comment", title: `내 글에 새 댓글 · ${post.title}`, body: text, href });
-  if (parentAuthorId && parentAuthorId !== s.userId && parentAuthorId !== post.authorId) notify.push({ userId: parentAuthorId, kind: "comment", title: "내 댓글에 답글이 달렸어요", body: text, href });
+  const done = new Set<string>([s.userId]);
+  const add = (uid: string | null | undefined, title: string) => {
+    if (uid && !done.has(uid)) {
+      done.add(uid);
+      notify.push({ userId: uid, kind: "comment", title, body: text, href });
+    }
+  };
+  add(post.authorId, `내 글에 새 댓글 · ${post.title}`);
+  add(parentAuthorId, "내 댓글에 답글이 달렸어요");
+  for (const st of await courseStaffIds(courseId)) add(st, `새 댓글 · ${post.title}`);
   await createNotifications(notify);
 
   return NextResponse.json({ ok: true, id: c.id }, { status: 201 });

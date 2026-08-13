@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthFromRequest(request);
-    const [items, unread] = await Promise.all([listNotifications(auth.userId), unreadNotificationCount(auth.userId)]);
+    const limit = Number(new URL(request.url).searchParams.get("limit") ?? "30") || 30;
+    const [items, unread] = await Promise.all([listNotifications(auth.userId, limit), unreadNotificationCount(auth.userId)]);
     return NextResponse.json({ items, unread });
   } catch (error) {
     return jsonError(error);

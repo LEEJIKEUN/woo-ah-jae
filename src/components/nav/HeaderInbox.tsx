@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, MessageCircle, X, Send, Paperclip } from "lucide-react";
 
@@ -126,6 +128,7 @@ export default function HeaderInbox({ userId }: { userId: string }) {
               ))
             )}
           </div>
+          <Link href="/notifications" onClick={() => setPanel(null)} className="block border-t px-4 py-2.5 text-center text-[12.5px] font-semibold hover:bg-[#FBF8F2]" style={{ borderColor: LINE, color: BROWN }}>알림 전체보기 (더보기)</Link>
         </div>
       ) : null}
 
@@ -150,7 +153,7 @@ export default function HeaderInbox({ userId }: { userId: string }) {
         </div>
       ) : null}
 
-      {chat ? <ChatPopup conv={chat} viewerId={userId} onClose={() => { setChat(null); void loadAll(); }} /> : null}
+      {chat ? createPortal(<ChatPopup conv={chat} viewerId={userId} onClose={() => { setChat(null); void loadAll(); }} />, document.body) : null}
     </div>
   );
 }
