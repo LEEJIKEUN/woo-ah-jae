@@ -7,6 +7,7 @@ import {
   loadRoom, saveReport, setReportFile, saveBooks,
   addTextMessage, addFileMessage, editMessage, deleteMessage, getMessage,
   addNotice, editNotice, deleteNotice, getNotice,
+  addAssignment, deleteAssignment, getAssignment,
   FIELD_KEYS, type Book, type Report, type UploadFile,
 } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const body = (await request.json()) as {
     action?: string; report?: unknown; text?: string; books?: unknown; file?: unknown; studentId?: unknown; id?: unknown; body?: unknown;
+    name?: unknown; size?: unknown; mime?: unknown; key?: unknown;
   };
   const r = await resolveStudent(courseId, g, body.studentId);
   if ("error" in r) return r.error;
@@ -191,6 +193,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const n = id ? await getNotice(id) : null;
       if (!n || n.courseId !== courseId || n.studentId !== studentId) return NextResponse.json({ error: "공지를 찾을 수 없습니다." }, { status: 404 });
       await deleteNotice(id);
+      break;
+    }
+    /* 과제 업로드 — 등록은 학생 본인만(R2 업로드 후 메타 등록), 삭제는 본인 또는 스태프 */
+    case "assignmentAdd": {
+      if (!isOwnerStudent) return forbidden("과제는 학생 본인만 업로드할 수 있습니다.");
+      const name = typeof body.name === "string" ? body.name.slice(0, 200) : "";
+      const size = typeof body.size === "number" ? body.size : 0;
+      const mime = typeof body.mime === "string" ? body.mime.slice(0, 120) : "";
+      const key = typeof body.key === "string" ? body.key : "";
+      if (!name || !key || !key.startsWith(`mentoring/${courseId}/${studentId}/assignment/`)) return NextResponse.json({ error: "잘못된 업로드입니다." }, { status: 400 });
+      const isPdfOrVideo = mime === "application/pdf" || name.toLowerCase().endsWith(".pdf") || mime.startsWith("video/");
+      if (!isPdfOrVideo) return NextResponse.json({ error: "PDF 또는 동영상 파일만 업로드할 수 있습니다." }, { status: 400 });
+      await addAssignment(courseId, studentId, g.session.userId, { name, size, mime, key });
+      break;
+    }
+    case "assignmentDelete": {
+      const id = typeof body.id === "string" ? body.id : "";
+      const a = id ? await getAssignment(id) : null;
+      if (!a || a.courseId !== courseId || a.studentId !== studentId) return NextResponse.json({ error: "과제를 찾을 수 없습니다." }, { status: 404 });
+      if (a.studentId !== g.session.userId && !g.staff) return forbidden("본인이 올린 과제만 삭제할 수 있습니다.");
+      await deleteAssignment(id);
       break;
     }
     default:

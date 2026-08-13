@@ -263,6 +263,21 @@ model MentoringNotice {
   @@index([courseId, studentId, createdAt])
 }
 
+/** 학생 과제 업로드(멘토링 방별) — PDF·동영상. 파일 바이트는 R2, DB엔 키만. */
+model MentoringAssignment {
+  id         String   @id @default(cuid())
+  courseId   String
+  studentId  String
+  uploaderId String
+  name       String
+  size       Int
+  mime       String
+  fileKey    String   // R2 오브젝트 키
+  createdAt  DateTime @default(now())
+
+  @@index([courseId, studentId, createdAt])
+}
+
 /** 레슨(강의)별 관리자 편집 콘텐츠 블록 — 강좌×활동 1개. blocks 는 JSON. DB 영구 보존. */
 model LessonContent {
   courseId   String

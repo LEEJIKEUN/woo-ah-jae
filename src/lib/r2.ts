@@ -78,11 +78,16 @@ export async function presignPutUrl(key: string, contentType: string, expiresSec
   return getSignedUrl(client, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType || "application/octet-stream" }), { expiresIn: expiresSec });
 }
 
-/** 재생용 서명된 다운로드 URL 발급(Range 지원 → 브라우저 <video> 로 직접 스트리밍). */
-export async function presignGetUrl(key: string, expiresSec = 6 * 3600) {
+/** 재생/보기용 서명된 URL(Range 지원 → 브라우저 <video> 직접 스트리밍). downloadName 주면 첨부 다운로드. */
+export async function presignGetUrl(key: string, expiresSec = 6 * 3600, downloadName?: string) {
   const client = getClient();
   const bucket = required("R2_BUCKET_PRIVATE");
-  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: expiresSec });
+  const cmd = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ...(downloadName ? { ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}` } : {}),
+  });
+  return getSignedUrl(client, cmd, { expiresIn: expiresSec });
 }
 
 export async function getPrivateObject(fileKey: string) {

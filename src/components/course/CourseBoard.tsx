@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronDown, ChevronUp, PenLine, X, MessageSquare, Trash2, CornerDownRight, Send } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronUp, PenLine, X, MessageSquare, Trash2, CornerDownRight, Send, Pencil } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 
 const BROWN = "#8C6E59";
@@ -77,6 +77,9 @@ export default function CourseBoard({
   const [pBody, setPBody] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [commentsByPost, setCommentsByPost] = useState<Record<string, Comment[]>>({});
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editPostTitle, setEditPostTitle] = useState("");
+  const [editPostBody, setEditPostBody] = useState("");
 
   const loadPosts = useCallback(async () => {
     try {
@@ -166,6 +169,45 @@ export default function CourseBoard({
     if (res.ok) await loadComments(postId);
   }
 
+  function startEditPost(p: Post) {
+    setEditingPostId(p.id);
+    setEditPostTitle(p.title);
+    setEditPostBody(p.body);
+  }
+  async function saveEditPost(id: string) {
+    const t = editPostTitle.trim();
+    if (!t) return;
+    const res = await fetch(`/api/courses/${courseId}/posts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: t, body: editPostBody }),
+    });
+    if (res.ok) {
+      setEditingPostId(null);
+      await loadPosts();
+    } else {
+      const d = (await res.json()) as { error?: string };
+      alert(d.error ?? "수정에 실패했습니다.");
+    }
+  }
+
+  async function editComment(postId: string, commentId: string, body: string) {
+    const t = body.trim();
+    if (!t) return false;
+    const res = await fetch(`/api/courses/${courseId}/posts/${postId}/comments/${commentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: t }),
+    });
+    if (res.ok) {
+      await loadComments(postId);
+      return true;
+    }
+    const d = (await res.json()) as { error?: string };
+    alert(d.error ?? "댓글 수정에 실패했습니다.");
+    return false;
+  }
+
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
       <ClassroomSidebar courseId={courseId} isStaff={isStaff} isParent={isParent} />
@@ -211,6 +253,7 @@ export default function CourseBoard({
               posts.map((p) => {
                 const isOpen = openId === p.id;
                 const canDeletePost = canModerate || p.authorId === currentUserId;
+                const canEditPost = p.authorId === currentUserId;
                 const badge = roleBadge(p.authorRole);
                 return (
                   <li key={p.id} className="border-b" style={{ borderColor: "#F0EBE0" }}>
@@ -232,16 +275,36 @@ export default function CourseBoard({
 
                     {isOpen ? (
                       <div className="pb-6">
-                        <div className="rounded-[12px] px-5 py-4 text-[15px] leading-8 whitespace-pre-line" style={{ background: PANEL, color: BODY }}>
-                          {p.body || <span style={{ color: MUTED }}>(내용 없음)</span>}
-                        </div>
-                        {canDeletePost ? (
-                          <div className="mt-2 flex justify-end">
-                            <button type="button" onClick={() => deletePost(p.id)} className="inline-flex items-center gap-1 text-[12.5px]" style={{ color: "#a6402c" }}>
-                              <Trash2 size={13} /> 삭제
-                            </button>
+                        {editingPostId === p.id ? (
+                          <div className="space-y-2 rounded-[12px] p-4" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
+                            <input value={editPostTitle} onChange={(e) => setEditPostTitle(e.target.value)} placeholder="제목" className="w-full rounded-[8px] border bg-white px-3.5 py-2.5 text-[15px] outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: INK }} />
+                            <textarea value={editPostBody} onChange={(e) => setEditPostBody(e.target.value)} rows={5} placeholder="내용을 입력하세요." className="w-full resize-y rounded-[8px] border bg-white px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+                            <div className="flex justify-end gap-2">
+                              <button type="button" onClick={() => setEditingPostId(null)} className="rounded-[8px] border px-4 py-2 text-[13px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                              <button type="button" onClick={() => void saveEditPost(p.id)} className="rounded-[8px] px-5 py-2 text-[13px] font-bold text-white" style={{ background: BROWN }}>저장</button>
+                            </div>
                           </div>
-                        ) : null}
+                        ) : (
+                          <>
+                            <div className="rounded-[12px] px-5 py-4 text-[15px] leading-8 whitespace-pre-line" style={{ background: PANEL, color: BODY }}>
+                              {p.body || <span style={{ color: MUTED }}>(내용 없음)</span>}
+                            </div>
+                            {canEditPost || canDeletePost ? (
+                              <div className="mt-2 flex justify-end gap-3">
+                                {canEditPost ? (
+                                  <button type="button" onClick={() => startEditPost(p)} className="inline-flex items-center gap-1 text-[12.5px]" style={{ color: DEEP }}>
+                                    <Pencil size={13} /> 수정
+                                  </button>
+                                ) : null}
+                                {canDeletePost ? (
+                                  <button type="button" onClick={() => deletePost(p.id)} className="inline-flex items-center gap-1 text-[12.5px]" style={{ color: "#a6402c" }}>
+                                    <Trash2 size={13} /> 삭제
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
 
                         <CommentsSection
                           comments={commentsByPost[p.id] ?? null}
@@ -250,6 +313,7 @@ export default function CourseBoard({
                           currentUserId={currentUserId}
                           onSubmit={(body, parentId) => submitComment(p.id, body, parentId)}
                           onDelete={(commentId) => deleteComment(p.id, commentId)}
+                          onEdit={(commentId, body) => editComment(p.id, commentId, body)}
                         />
                       </div>
                     ) : null}
@@ -284,6 +348,7 @@ function CommentsSection({
   currentUserId,
   onSubmit,
   onDelete,
+  onEdit,
 }: {
   comments: Comment[] | null;
   canComment: boolean;
@@ -291,6 +356,7 @@ function CommentsSection({
   currentUserId: string;
   onSubmit: (body: string, parentCommentId: string | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
+  onEdit: (commentId: string, body: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -325,6 +391,7 @@ function CommentsSection({
               setReplyingTo={setReplyingTo}
               onSubmit={onSubmit}
               onDelete={onDelete}
+              onEdit={onEdit}
             />
           ))}
         </ul>
@@ -364,6 +431,7 @@ function CommentNode({
   setReplyingTo,
   onSubmit,
   onDelete,
+  onEdit,
 }: {
   node: Node;
   depth: number;
@@ -374,10 +442,14 @@ function CommentNode({
   setReplyingTo: (id: string | null) => void;
   onSubmit: (body: string, parentCommentId: string | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
+  onEdit: (commentId: string, body: string) => Promise<boolean>;
 }) {
   const [reply, setReply] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(node.body);
   const badge = roleBadge(node.authorRole);
   const canDelete = canModerate || node.authorId === currentUserId;
+  const canEdit = node.authorId === currentUserId;
   const isReplying = replyingTo === node.id;
   const indent = Math.min(depth, 4) * 20;
 
@@ -387,6 +459,10 @@ function CommentNode({
       setReply("");
       setReplyingTo(null);
     }
+  }
+  async function saveEdit() {
+    const ok = await onEdit(node.id, editText);
+    if (ok) setEditing(false);
   }
 
   return (
@@ -398,10 +474,31 @@ function CommentNode({
           {badge ? <span style={{ color: BROWN }}>{badge}</span> : null}
           <span style={{ color: MUTED }}>· {fmtDate(node.createdAt)}</span>
         </div>
-        <p className="mt-1 whitespace-pre-line text-[14px] leading-6" style={{ color: BODY }}>{node.body}</p>
+        {editing ? (
+          <div className="mt-1.5 flex items-center gap-2">
+            <input
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); void saveEdit(); }
+                if (e.key === "Escape") setEditing(false);
+              }}
+              className="h-9 flex-1 rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
+              style={{ borderColor: BROWN, color: BODY }}
+              autoFocus
+            />
+            <button type="button" onClick={() => void saveEdit()} className="rounded-[8px] px-3 py-2 text-[12px] font-bold text-white" style={{ background: BROWN }}>저장</button>
+            <button type="button" onClick={() => setEditing(false)} className="rounded-[8px] border px-3 py-2 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+          </div>
+        ) : (
+          <p className="mt-1 whitespace-pre-line text-[14px] leading-6" style={{ color: BODY }}>{node.body}</p>
+        )}
         <div className="mt-1.5 flex items-center gap-3 text-[12px]">
           {canComment ? (
             <button type="button" onClick={() => setReplyingTo(isReplying ? null : node.id)} style={{ color: DEEP }}>답글</button>
+          ) : null}
+          {canEdit && !editing ? (
+            <button type="button" onClick={() => { setEditText(node.body); setEditing(true); }} style={{ color: DEEP }}>수정</button>
           ) : null}
           {canDelete ? (
             <button type="button" onClick={() => onDelete(node.id)} style={{ color: "#a6402c" }}>삭제</button>
@@ -445,6 +542,7 @@ function CommentNode({
               setReplyingTo={setReplyingTo}
               onSubmit={onSubmit}
               onDelete={onDelete}
+              onEdit={onEdit}
             />
           ))}
         </ul>
