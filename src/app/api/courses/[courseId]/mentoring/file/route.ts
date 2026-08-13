@@ -4,6 +4,7 @@ import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { getReportFileData, getMessageFileData } from "@/lib/mentoring-store";
+import { readUpload } from "@/lib/private-file";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -16,18 +17,6 @@ async function sessionFromReq(request: NextRequest) {
   } catch {
     return null;
   }
-}
-
-/** dataUrl(data:mime;base64,....) → { mime, buffer }. */
-function decodeDataUrl(dataUrl: string): { mime: string; buffer: Buffer } | null {
-  const comma = dataUrl.indexOf(",");
-  if (!dataUrl.startsWith("data:") || comma < 0) return null;
-  const header = dataUrl.slice(5, comma); // 예: "image/png;base64"
-  const data = dataUrl.slice(comma + 1);
-  const isBase64 = /;base64$/i.test(header);
-  const mime = header.replace(/;base64$/i, "") || "application/octet-stream";
-  const buffer = isBase64 ? Buffer.from(data, "base64") : Buffer.from(decodeURIComponent(data), "utf8");
-  return { mime, buffer };
 }
 
 /** 멘토링 파일(보고서 PDF / 채팅 첨부) 원본 바이트 — 이미지 미리보기 <img> + 다운로드용. */
@@ -69,13 +58,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!m || m.courseId !== courseId || m.studentId !== studentId) return new NextResponse("Forbidden", { status: 403 });
   }
 
-  const decoded = decodeDataUrl(file.dataUrl);
-  if (!decoded) return new NextResponse("Not found", { status: 404 });
+  let buffer: Buffer | null = null;
+  try {
+    buffer = await readUpload({ key: file.key, data: file.data });
+  } catch {
+    return new NextResponse("Not found", { status: 404 });
+  }
+  if (!buffer) return new NextResponse("Not found", { status: 404 });
 
-  const mime = "mime" in file && (file as { mime?: string }).mime ? (file as { mime: string }).mime : decoded.mime;
-  return new NextResponse(new Uint8Array(decoded.buffer), {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": mime,
+      "Content-Type": file.mime || "application/octet-stream",
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
       "Cache-Control": "private, max-age=60",
     },

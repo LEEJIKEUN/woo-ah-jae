@@ -204,7 +204,9 @@ model MentoringReport {
   references String   @default("")
   fileName   String?
   fileSize   Int?
-  fileData   String?  // dataUrl(base64)
+  fileMime   String?
+  fileData   String?  // dataUrl(base64) — R2 미사용(로컬 폴백) 시
+  fileKey    String?  // R2 오브젝트 키(r2://...) — R2 사용 시
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())
 
@@ -239,7 +241,8 @@ model MentoringMessage {
   fileName   String?
   fileSize   Int?
   fileMime   String?
-  fileData   String?   // dataUrl(base64)
+  fileData   String?   // dataUrl(base64) — R2 미사용(로컬 폴백) 시
+  fileKey    String?   // R2 오브젝트 키(r2://...) — R2 사용 시
   editedAt   DateTime?
   deletedAt  DateTime?
   createdAt  DateTime  @default(now())

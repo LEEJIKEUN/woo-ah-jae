@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { storeUploadDataUrl } from "@/lib/private-file";
 
 /**
  * 탐구활동 멘토링 방(강좌 + 학생). 탐구 보고서·독서활동·1:1 채팅·개별 공지를
@@ -96,7 +97,13 @@ export async function saveReport(courseId: string, studentId: string, report: Re
 export type UploadFile = { name: string; size: number; mime: string; dataUrl: string };
 
 export async function setReportFile(courseId: string, studentId: string, file: UploadFile | null): Promise<void> {
-  const data = file ? { fileName: file.name, fileSize: file.size, fileData: file.dataUrl } : { fileName: null, fileSize: null, fileData: null };
+  let data;
+  if (file) {
+    const ref = await storeUploadDataUrl(`mentoring/${courseId}/${studentId}/report`, file.name, file.mime, file.dataUrl);
+    data = { fileName: file.name, fileSize: file.size, fileMime: file.mime, fileData: ref.data, fileKey: ref.key };
+  } else {
+    data = { fileName: null, fileSize: null, fileMime: null, fileData: null, fileKey: null };
+  }
   await prisma.mentoringReport.upsert({
     where: { courseId_studentId: { courseId, studentId } },
     create: { courseId, studentId, ...blankReport(), ...data },
@@ -104,10 +111,12 @@ export async function setReportFile(courseId: string, studentId: string, file: U
   });
 }
 
-export async function getReportFileData(courseId: string, studentId: string): Promise<{ name: string; dataUrl: string } | null> {
-  const rep = await prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } }, select: { fileName: true, fileData: true } });
-  if (!rep?.fileData || !rep.fileName) return null;
-  return { name: rep.fileName, dataUrl: rep.fileData };
+export type FileBytesRef = { name: string; mime: string; key: string | null; data: string | null };
+
+export async function getReportFileData(courseId: string, studentId: string): Promise<FileBytesRef | null> {
+  const rep = await prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } }, select: { fileName: true, fileMime: true, fileData: true, fileKey: true } });
+  if (!rep?.fileName || (!rep.fileData && !rep.fileKey)) return null;
+  return { name: rep.fileName, mime: rep.fileMime ?? "application/pdf", key: rep.fileKey, data: rep.fileData };
 }
 
 /* ── 독서활동상황 ── */
@@ -125,8 +134,9 @@ export async function addTextMessage(courseId: string, studentId: string, sender
 }
 
 export async function addFileMessage(courseId: string, studentId: string, senderId: string, senderRole: "teacher" | "student", file: UploadFile, caption = ""): Promise<void> {
+  const ref = await storeUploadDataUrl(`mentoring/${courseId}/${studentId}/chat`, file.name, file.mime, file.dataUrl);
   await prisma.mentoringMessage.create({
-    data: { courseId, studentId, senderId, senderRole, kind: "file", text: caption, fileName: file.name, fileSize: file.size, fileMime: file.mime, fileData: file.dataUrl },
+    data: { courseId, studentId, senderId, senderRole, kind: "file", text: caption, fileName: file.name, fileSize: file.size, fileMime: file.mime, fileData: ref.data, fileKey: ref.key },
   });
 }
 
@@ -143,10 +153,10 @@ export async function deleteMessage(id: string): Promise<void> {
   await prisma.mentoringMessage.update({ where: { id }, data: { deletedAt: new Date(), fileData: null } });
 }
 
-export async function getMessageFileData(id: string): Promise<{ name: string; mime: string; dataUrl: string } | null> {
-  const m = await prisma.mentoringMessage.findUnique({ where: { id }, select: { kind: true, deletedAt: true, fileName: true, fileMime: true, fileData: true } });
-  if (!m || m.kind !== "file" || m.deletedAt || !m.fileData || !m.fileName) return null;
-  return { name: m.fileName, mime: m.fileMime ?? "application/octet-stream", dataUrl: m.fileData };
+export async function getMessageFileData(id: string): Promise<FileBytesRef | null> {
+  const m = await prisma.mentoringMessage.findUnique({ where: { id }, select: { kind: true, deletedAt: true, fileName: true, fileMime: true, fileData: true, fileKey: true } });
+  if (!m || m.kind !== "file" || m.deletedAt || !m.fileName || (!m.fileData && !m.fileKey)) return null;
+  return { name: m.fileName, mime: m.fileMime ?? "application/octet-stream", key: m.fileKey, data: m.fileData };
 }
 
 /* ── 개별 공지 ── */
