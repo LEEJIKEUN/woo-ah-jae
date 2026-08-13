@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, SESSION_COOKIE } from "@/lib/auth";
 import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { clearEmailCode, isEmailVerified } from "@/lib/email-code-store";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
     await prisma.user.update({ where: { id: auth.userId }, data: { passwordHash } });
     await clearEmailCode(user.email);
 
-    return NextResponse.json({ ok: true, message: "비밀번호가 변경되었습니다." });
+    // 비밀번호 변경 후 기존 세션 무효화 → 새 비밀번호로 재로그인
+    const res = NextResponse.json({ ok: true, message: "비밀번호가 변경되었습니다." });
+    res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0, sameSite: "lax" });
+    return res;
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid input" }, { status: 400 });

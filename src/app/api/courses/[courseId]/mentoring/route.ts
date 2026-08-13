@@ -240,8 +240,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (a.studentId !== g.session.userId && !g.staff) return forbidden("본인이 올린 과제만 삭제할 수 있습니다.");
       await deleteAssignment(id);
       {
-        // 이 과제를 피어리뷰로 받은 학생들에게 '삭제됨' 반영·알림
-        const affected = await markPeerReviewsDeleted(courseId, id);
+        // 이 과제를 피어리뷰로 받은 학생들에게 '삭제됨' 반영·알림 (작성자·파일명 스탬프 → 재업로드 매칭 보장)
+        const affected = await markPeerReviewsDeleted(courseId, id, a.studentId, a.name);
         for (const rid of affected) {
           try { publishMentoring(courseId, rid, await loadRoom(courseId, rid)); } catch { /* 무시 */ }
           pingUser(rid);

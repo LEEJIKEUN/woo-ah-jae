@@ -61,6 +61,7 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
   const [pwBusy, setPwBusy] = useState(false);
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwErr, setPwErr] = useState<string | null>(null);
+  const [pwDone, setPwDone] = useState(false);
 
   // ── 보안: 회원 탈퇴 ──
   const [wdAgree, setWdAgree] = useState(false);
@@ -133,8 +134,8 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
       });
       const d = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) { setPwErr(d.error ?? "비밀번호 변경에 실패했습니다."); return; }
-      setPwStep("idle"); setPwCode(""); setPwNew(""); setPwConfirm("");
-      setPwMsg("비밀번호가 변경되었습니다.");
+      setPwCode(""); setPwNew(""); setPwConfirm(""); setPwErr(null); setPwMsg(null);
+      setPwDone(true);
     } catch { setPwErr("네트워크 오류가 발생했습니다."); }
     finally { setPwBusy(false); }
   }
@@ -284,6 +285,15 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
             <p className="text-sm font-semibold text-slate-800">비밀번호 변경</p>
             <p className="mt-1 text-xs text-slate-500">가입한 이메일로 인증코드를 받아 새 비밀번호를 설정합니다.</p>
 
+            {pwDone ? (
+              <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-4">
+                <p className="text-sm font-semibold text-emerald-800">비밀번호가 변경되었습니다.</p>
+                <a href="/login" className="mt-3 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                  로그인 페이지로 이동
+                </a>
+              </div>
+            ) : (
+            <>
             {pwMsg ? <p className="mt-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">{pwMsg}</p> : null}
             {pwErr ? <p className="mt-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-700">{pwErr}</p> : null}
 
@@ -312,6 +322,8 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
                 </div>
               ) : null}
             </div>
+            </>
+            )}
           </div>
 
           {/* 회원 탈퇴 */}

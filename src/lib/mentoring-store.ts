@@ -113,21 +113,40 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
 async function loadPeerReviews(courseId: string, studentId: string): Promise<PeerReviewGroup[]> {
   const peer = await prisma.mentoringPeerReview.findMany({ where: { courseId, recipientStudentId: studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }] });
   if (!peer.length) return [];
+  // 실제 파일명은 과제 테이블에서 조회(비정규화 저장값이 비어도 항상 파일명 표시)
+  const ids = [...new Set(peer.map((p) => p.assignmentId).filter((v): v is string => !!v))];
+  const asgs = ids.length ? await prisma.mentoringAssignment.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const nameById = new Map(asgs.map((a) => [a.id, a.name]));
   const byCol = new Map<number, PeerReview[]>();
   for (const p of peer) {
+    const liveName = p.assignmentId ? nameById.get(p.assignmentId) : null;
+    // active/재제출인데 실제 과제가 사라졌으면(삭제) 삭제 상태로 표시 → 끊긴 링크 방지
+    const status = p.status !== "deleted" && p.assignmentId && !liveName ? "deleted" : p.status;
+    const deleted = status === "deleted";
     byCol.set(p.column, [
       ...(byCol.get(p.column) ?? []),
-      { assignmentId: p.status === "deleted" ? null : p.assignmentId, name: p.assignmentName || "과제", status: p.status, resubmittedAt: p.resubmittedAt ? fmtStamp(p.resubmittedAt) : null },
+      { assignmentId: deleted ? null : p.assignmentId, name: liveName || p.assignmentName || "과제", status, resubmittedAt: p.resubmittedAt ? fmtStamp(p.resubmittedAt) : null },
     ]);
   }
   return [...byCol.entries()].sort((x, y) => x[0] - y[0]).map(([column, items]) => ({ column, items }));
 }
 
-/** 과제 삭제 → 이 과제를 피어리뷰로 받은 학생들에게 '삭제됨' 표시. 영향받은 recipient 목록 반환. */
-export async function markPeerReviewsDeleted(courseId: string, assignmentId: string): Promise<string[]> {
+/**
+ * 과제 삭제 → 이 과제를 피어리뷰로 받은 학생들에게 '삭제됨' 표시. 영향받은 recipient 목록 반환.
+ * authorStudentId·assignmentName 을 함께 스탬프 → 이후 재업로드 시 작성자 매칭·삭제선 파일명 표시가 정확해진다.
+ */
+export async function markPeerReviewsDeleted(courseId: string, assignmentId: string, authorStudentId?: string, assignmentName?: string): Promise<string[]> {
   const affected = await prisma.mentoringPeerReview.findMany({ where: { courseId, assignmentId, status: { not: "deleted" } }, select: { recipientStudentId: true } });
   if (!affected.length) return [];
-  await prisma.mentoringPeerReview.updateMany({ where: { courseId, assignmentId }, data: { status: "deleted", assignmentId: null } });
+  await prisma.mentoringPeerReview.updateMany({
+    where: { courseId, assignmentId },
+    data: {
+      status: "deleted",
+      assignmentId: null,
+      ...(authorStudentId ? { authorStudentId } : {}),
+      ...(assignmentName ? { assignmentName } : {}),
+    },
+  });
   return [...new Set(affected.map((a) => a.recipientStudentId))];
 }
 
