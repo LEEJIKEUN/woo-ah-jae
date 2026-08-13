@@ -45,6 +45,17 @@ function blankReport(): Report {
 const MAX_BOOKS = 5;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
+// 모바일에서 한 번에 한 섹션씩 볼 수 있게 하는 필터 목록
+const SECTIONS = [
+  { key: "report", label: "탐구 보고서" },
+  { key: "books", label: "독서활동" },
+  { key: "sete", label: "세특(참고)" },
+  { key: "chat", label: "1:1 멘토링" },
+  { key: "drive", label: "자료함" },
+  { key: "notice", label: "개별 공지" },
+  { key: "assignment", label: "과제" },
+] as const;
+
 function byteLen(s: string) {
   try {
     return new TextEncoder().encode(s).length;
@@ -103,6 +114,8 @@ export default function MentoringView({
   const noStudent = (isStaff || isParent) && !initialStudentId;
 
   const [studentId, setStudentId] = useState(initialStudentId);
+  const [mobileSection, setMobileSection] = useState<string>("report"); // 모바일 섹션 필터
+  const vis = (key: string) => (mobileSection === key ? "" : "hidden xl:block"); // 데스크톱은 항상 표시
   const [report, setReport] = useState<Report>(blankReport());
   const [reportFile, setReportFile] = useState<FileMeta | null>(null);
   const [chat, setChat] = useState<ChatMsg[]>([]);
@@ -485,9 +498,18 @@ export default function MentoringView({
             {isParent ? "연결된 자녀가 이 강좌를 수강하고 있지 않습니다." : "수강 중인 학생이 없습니다. 학생이 수강신청하면 학생을 선택해 멘토링을 진행할 수 있습니다."}
           </div>
         ) : (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <>
+          {/* 모바일: 섹션 필터 (좁은 화면에서 한 섹션씩 보기) */}
+          <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 xl:hidden">
+            {SECTIONS.map((s) => (
+              <button key={s.key} type="button" onClick={() => setMobileSection(s.key)} className="shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition" style={mobileSection === s.key ? { background: BROWN, color: "#fff", borderColor: BROWN } : { borderColor: LINE, color: SUB, background: "#fff" }}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           {/* 중: 학생 탐구 보고서 */}
-          <section className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+          <section className={`rounded-[14px] bg-white ${vis("report")}`} style={{ border: `1px solid ${CARD}` }}>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-4" style={{ borderColor: CARD }}>
               <h2 className="text-[18px] font-bold" style={{ color: INK }}>학생 탐구 보고서</h2>
               <div className="flex items-center gap-3">
@@ -560,7 +582,7 @@ export default function MentoringView({
           {/* 우: 독서활동상황 → 작성 가이드 → 1:1 멘토링 → 미니 드라이브 → 개별 공지 */}
           <aside className="space-y-4">
             {/* 독서활동상황 */}
-            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className={`rounded-[14px] bg-white ${vis("books")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>독서활동상황</p>
                 <span className="text-[12px]" style={{ color: MUTED }}>{books.length} / {MAX_BOOKS}</span>
@@ -622,7 +644,7 @@ export default function MentoringView({
             </div>
 
             {/* 과목별 세부능력 특기사항(세특) — 학생별, 관리자·퍼실 작성 */}
-            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className={`rounded-[14px] bg-white ${vis("sete")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   과목별 세부능력 특기사항(참고)
@@ -655,7 +677,7 @@ export default function MentoringView({
 
 
             {/* 1:1 멘토링 (실시간, 카카오톡식) */}
-            <div className="flex flex-col rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className={`flex-col rounded-[14px] bg-white ${mobileSection === "chat" ? "flex xl:flex" : "hidden xl:flex"}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>1:1 멘토링</p>
               </div>
@@ -761,7 +783,7 @@ export default function MentoringView({
             </div>
 
             {/* 미니 드라이브 — 채팅에 업로드된 파일 모음 */}
-            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className={`rounded-[14px] bg-white ${vis("drive")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>자료함</p>
                 <span className="text-[12px]" style={{ color: MUTED }}>{driveFiles.length}개</span>
@@ -797,7 +819,7 @@ export default function MentoringView({
             </div>
 
             {/* 개별 공지 — 관리자가 학생에게 */}
-            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className={`rounded-[14px] bg-white ${vis("notice")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   <Megaphone size={14} style={{ color: BROWN }} /> 개별 공지
@@ -854,7 +876,7 @@ export default function MentoringView({
             </div>
 
             {/* 과제 업로드 — 학생 제출(PDF·동영상) */}
-            <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+            <div className={`rounded-[14px] bg-white ${vis("assignment")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   <Upload size={14} style={{ color: BROWN }} /> 과제 업로드
@@ -908,7 +930,8 @@ export default function MentoringView({
               </div>
             </div>
           </aside>
-        </div>
+          </div>
+        </>
         )}
       </main>
     </div>

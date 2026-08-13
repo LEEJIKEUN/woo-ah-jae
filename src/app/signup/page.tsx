@@ -137,7 +137,7 @@ export default function SignupPage() {
         {/* 가입 유형 */}
         <div className="space-y-1.5">
           <span className="text-sm font-medium">가입 유형</span>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {([
               { key: "student", label: "학생", desc: "강의 수강" },
               { key: "parent", label: "학부모", desc: "자녀 진도 열람" },
