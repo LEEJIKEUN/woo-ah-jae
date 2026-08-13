@@ -18,6 +18,7 @@ type MemberItem = {
   verificationStatus: VerificationStatus | "UNKNOWN";
   planCode: string;
   entitlementStatus: EntitlementStatus | "NONE";
+  courseIds: string[];
   createdAt: string;
 };
 
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
                 plan: { select: { code: true } },
               },
             },
+            enrollments: { select: { courseId: true } },
           },
           orderBy: { createdAt: "asc" },
         }),
@@ -102,6 +104,7 @@ export async function GET(request: NextRequest) {
         verificationStatus: u.verificationSubmissions[0]?.status ?? VerificationStatus.NOT_SUBMITTED,
         planCode: u.entitlements[0]?.plan.code ?? "FREE",
         entitlementStatus: u.entitlements[0]?.status ?? "NONE",
+        courseIds: u.enrollments.map((e) => e.courseId),
         createdAt: u.createdAt.toISOString(),
       }));
 
@@ -149,6 +152,7 @@ export async function GET(request: NextRequest) {
         verificationStatus: x.status,
         planCode: "FREE",
         entitlementStatus: "NONE",
+        courseIds: [],
         createdAt: x.submittedAt,
       }));
 

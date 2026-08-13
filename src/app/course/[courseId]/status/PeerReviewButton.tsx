@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Send, X, Shuffle } from "lucide-react";
+import { Send, X, Shuffle, Users } from "lucide-react";
 
 const BROWN = "#8C6E59";
 const INK = "#2C2823";
@@ -20,6 +20,24 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
   const [count, setCount] = useState(3);
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // 배정 현황 팝업
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusRows, setStatusRows] = useState<{ recipientId: string; recipientName: string; items: { authorName: string; fileName: string; assignmentId: string }[] }[]>([]);
+  async function openStatus() {
+    setStatusOpen(true);
+    setStatusLoading(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/peer-review?column=${column}`, { cache: "no-store" });
+      const d = (await res.json()) as { rows?: typeof statusRows };
+      setStatusRows(Array.isArray(d.rows) ? d.rows : []);
+    } catch {
+      setStatusRows([]);
+    } finally {
+      setStatusLoading(false);
+    }
+  }
 
   const canReview = (s: Student) => s.assignmentCount > column; // 이 과제(column)를 제출했는지
   const submitters = students.filter(canReview);
@@ -81,6 +99,16 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
         aria-label={`${label} 상호 피드백 보내기`}
       >
         <Send size={13} />
+      </button>
+      <button
+        type="button"
+        onClick={() => void openStatus()}
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-full transition hover:bg-[#EFEBE1]"
+        style={{ color: BROWN }}
+        title={`${label} 배정 현황 보기`}
+        aria-label={`${label} 배정 현황`}
+      >
+        <Users size={13} />
       </button>
 
       {open ? (
@@ -158,6 +186,55 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
                   {sending ? "보내는 중…" : "보내기"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {statusOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setStatusOpen(false)}>
+          <div className="flex max-h-[85vh] w-full max-w-[520px] flex-col rounded-[16px] bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: CARD }}>
+              <div className="flex items-center gap-2">
+                <span className="grid h-8 w-8 place-items-center rounded-full text-white" style={{ background: BROWN }}><Users size={15} /></span>
+                <div>
+                  <p className="text-[15px] font-bold" style={{ color: INK }}>배정 현황</p>
+                  <p className="text-[12px]" style={{ color: SUB }}>{label} · 누가 누구의 과제를 받았는지</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setStatusOpen(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="닫기"><X size={18} /></button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
+              {statusLoading ? (
+                <p className="py-6 text-center text-[13px]" style={{ color: MUTED }}>불러오는 중…</p>
+              ) : statusRows.length === 0 ? (
+                <p className="py-6 text-center text-[13px]" style={{ color: SUB }}>아직 배정된 내역이 없습니다. 종이비행기로 먼저 배포하세요.</p>
+              ) : (
+                statusRows.map((r) => (
+                  <div key={r.recipientId} className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
+                    <p className="mb-2 text-[13px]" style={{ color: INK }}>
+                      <b>{r.recipientName}</b> 학생이 받은 과제 <span style={{ color: MUTED }}>({r.items.length})</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {r.items.map((it, i) => (
+                        <a
+                          key={it.assignmentId + i}
+                          href={`/api/courses/${courseId}/mentoring/assignment/${it.assignmentId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-[8px] border bg-white px-2.5 py-1.5 text-[12px] font-medium transition hover:border-[#8C6E59]"
+                          style={{ borderColor: LINE, color: INK }}
+                          title={`${it.authorName} · ${it.fileName}`}
+                        >
+                          <span className="shrink-0 font-bold" style={{ color: BROWN }}>{i + 1}.</span>
+                          <span className="shrink-0" style={{ color: SUB }}>{it.authorName}</span>
+                          <span className="truncate" style={{ color: MUTED }}>· {it.fileName}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

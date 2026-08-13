@@ -5,8 +5,44 @@ import { isStaffRole } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { distributePeerReview, loadRoom } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+/** 배정 현황 — 관리자·퍼실만. ?column=N 의 과제(N번째 제출물) 기준 누가 누구 것을 받았는지. */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
+  const { courseId } = await params;
+  if (!getCourse(courseId)) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
+  const s = await sessionFromReq(request);
+  if (!s) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  if (!isStaffRole(s.role)) return NextResponse.json({ error: "관리자·퍼실리테이터만 볼 수 있습니다." }, { status: 403 });
+
+  const column = Math.max(0, Math.min(4, Number(new URL(request.url).searchParams.get("column") ?? "0") || 0));
+  const ids = await getEnrolledUserIds(courseId);
+  const users = ids.length ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, studentProfile: { select: { realName: true } } } }) : [];
+  const nameOf = new Map(users.map((u) => [u.id, u.studentProfile?.realName || u.email]));
+
+  const asgs = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: ids } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true, name: true } });
+  const byStudent = new Map<string, { id: string; name: string }[]>();
+  for (const a of asgs) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), { id: a.id, name: a.name }]);
+  const colAsg = new Map<string, { author: string; fileName: string }>();
+  for (const [sid, list] of byStudent) {
+    const a = list[column];
+    if (a) colAsg.set(a.id, { author: sid, fileName: a.name });
+  }
+
+  const pr = colAsg.size ? await prisma.mentoringPeerReview.findMany({ where: { courseId, assignmentId: { in: [...colAsg.keys()] } }, orderBy: { createdAt: "asc" } }) : [];
+  const grouped = new Map<string, { authorName: string; fileName: string; assignmentId: string }[]>();
+  for (const r of pr) {
+    const info = colAsg.get(r.assignmentId);
+    if (!info) continue;
+    grouped.set(r.recipientStudentId, [...(grouped.get(r.recipientStudentId) ?? []), { authorName: nameOf.get(info.author) ?? "학생", fileName: info.fileName, assignmentId: r.assignmentId }]);
+  }
+  const rows = [...grouped.entries()]
+    .map(([rid, items]) => ({ recipientId: rid, recipientName: nameOf.get(rid) ?? "학생", items }))
+    .sort((a, b) => a.recipientName.localeCompare(b.recipientName, "ko"));
+  return NextResponse.json({ rows });
+}
 
 async function sessionFromReq(request: NextRequest) {
   try {

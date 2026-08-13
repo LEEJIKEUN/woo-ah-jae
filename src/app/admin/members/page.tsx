@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Card from "@/components/ui/Card";
 import { formatKstDate } from "@/lib/date-format";
+import { COURSES } from "@/lib/course/content";
+import MemberProfileModal from "./MemberProfileModal";
 
 type MemberItem = {
   id: string;
@@ -12,6 +14,7 @@ type MemberItem = {
   schoolName: string | null;
   grade: string | null;
   residenceCountry: string | null;
+  courseIds: string[];
   createdAt: string;
 };
 
@@ -37,6 +40,8 @@ function compactCountry(value: string | null) {
 export default function AdminMembersPage() {
   const [items, setItems] = useState<MemberItem[]>([]);
   const [nameQuery, setNameQuery] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processingMemberId, setProcessingMemberId] = useState<string | null>(null);
@@ -112,12 +117,14 @@ export default function AdminMembersPage() {
   );
 
   const filteredItems = useMemo(() => {
-    const list = items.filter((x) =>
-      (Object.keys(columnFilters) as ColumnFilterKey[]).every((key) => {
-        const selected = columnFilters[key];
-        if (!selected.length) return true;
-        return selected.includes(getFilterRawValue(x, key));
-      })
+    const list = items.filter(
+      (x) =>
+        (!courseFilter || x.courseIds.includes(courseFilter)) &&
+        (Object.keys(columnFilters) as ColumnFilterKey[]).every((key) => {
+          const selected = columnFilters[key];
+          if (!selected.length) return true;
+          return selected.includes(getFilterRawValue(x, key));
+        })
     );
 
     const collator = new Intl.Collator("ko");
@@ -141,7 +148,7 @@ export default function AdminMembersPage() {
           : collator.compare(String(aValue), String(bValue));
       return sortDirection === "asc" ? compared : -compared;
     });
-  }, [columnFilters, getFilterRawValue, items, sortDirection, sortKey]);
+  }, [columnFilters, courseFilter, getFilterRawValue, items, sortDirection, sortKey]);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -232,12 +239,24 @@ export default function AdminMembersPage() {
             value={nameQuery}
             onChange={(e) => setNameQuery(e.target.value)}
             placeholder="이름(실명) 검색"
-            className="h-9 min-w-[220px] flex-1 rounded-md border border-slate-200 bg-[color:var(--surface)] px-3 text-sm"
+            className="h-9 w-48 rounded-md border border-slate-200 bg-[color:var(--surface)] px-3 text-sm"
           />
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="h-9 max-w-[200px] rounded-md border border-slate-200 bg-[color:var(--surface)] px-2.5 text-sm text-slate-800"
+            aria-label="강좌별 필터"
+          >
+            <option value="">전체 강좌</option>
+            {COURSES.map((c) => (
+              <option key={c.id} value={c.id}>{c.title}</option>
+            ))}
+          </select>
           <button onClick={() => void load()} className="h-9 rounded-md border border-slate-300 px-3 text-sm text-slate-800">새로고침</button>
           <button
             onClick={() => {
               setNameQuery("");
+              setCourseFilter("");
               setColumnFilters({ role: [], schoolName: [], grade: [], residenceCountry: [] });
               setDraftFilterValues([]);
               setFilterOptionQuery("");
@@ -261,17 +280,19 @@ export default function AdminMembersPage() {
             <div className="relative overflow-visible">
               <table className="w-full table-fixed border-collapse text-left text-sm text-slate-800">
                 <colgroup>
+                  <col style={{ width: "5%" }} />
                   <col style={{ width: "10%" }} />
-                  <col style={{ width: "23%" }} />
+                  <col style={{ width: "22%" }} />
                   <col style={{ width: "8%" }} />
-                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "16%" }} />
                   <col style={{ width: "12%" }} />
-                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "6%" }} />
                   <col style={{ width: "11%" }} />
-                  <col style={{ width: "11%" }} />
+                  <col style={{ width: "10%" }} />
                 </colgroup>
                 <thead className="sticky top-0 z-10 bg-white text-xs uppercase tracking-wide text-slate-600">
                   <tr>
+                    <th className="whitespace-nowrap px-3 py-3 text-slate-400">#</th>
                     <th className="whitespace-nowrap px-3 py-3">
                       <button onClick={() => toggleSort("realName")} className="inline-flex items-center gap-1 hover:text-slate-900">
                         이름 {sortIndicator("realName")}
@@ -371,9 +392,12 @@ export default function AdminMembersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((x) => (
+                  {filteredItems.map((x, i) => (
                     <tr key={x.id} className="border-t border-slate-200/60 odd:bg-white/20 hover:bg-slate-100/40">
-                      <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-600">{x.realName ?? "-"}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-400">{i + 1}</td>
+                      <td className="truncate whitespace-nowrap px-3 py-3 text-xs">
+                        <button type="button" onClick={() => setProfileId(x.id)} className="font-semibold text-sky-700 hover:underline">{x.realName ?? "-"}</button>
+                      </td>
                       <td className="truncate whitespace-nowrap px-4 py-3 font-medium text-slate-900">{x.email}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs text-slate-600">{ROLE_KO[x.role] ?? x.role}</td>
                       <td className="truncate whitespace-nowrap px-3 py-3 text-xs text-slate-600">{x.schoolName ?? "-"}</td>
@@ -396,6 +420,8 @@ export default function AdminMembersPage() {
             </div>
           )}
         </Card>
+
+        {profileId ? <MemberProfileModal id={profileId} onClose={() => setProfileId(null)} onSaved={() => void load()} /> : null}
       </section>
     </main>
   );
