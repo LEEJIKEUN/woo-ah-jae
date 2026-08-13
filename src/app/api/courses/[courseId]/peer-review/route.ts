@@ -5,6 +5,7 @@ import { isStaffRole } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { distributePeerReview, loadRoom } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
+import { createNotifications } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +85,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } catch {
       /* 무시 */
     }
+  }
+
+  // 알림: 배정받은 학생들에게
+  if (result.assigned > 0) {
+    await createNotifications(studentIds.map((uid) => ({ userId: uid, kind: "peer", title: "상호 피드백 과제가 배정되었어요", body: "탐구활동 멘토링의 탐구 보고서 아래에서 확인하세요.", href: `/course/${courseId}/mentoring` })));
   }
 
   if (result.assigned === 0) return NextResponse.json({ ok: true, ...result, warn: "이 과제를 제출한 학생이 2명 이상이어야 배포할 수 있습니다. (제출한 학생만 배부·수신에 참여)" });

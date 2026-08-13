@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/nav/Logo";
+import HeaderInbox from "@/components/nav/HeaderInbox";
 
 type HeaderSession = {
   userId: string;
@@ -77,6 +78,7 @@ export default function Header({ session, accountLabel }: Props) {
             </div>
           ) : (
             <div className="relative flex items-center gap-2">
+              <HeaderInbox userId={session.userId} />
               <button type="button" onClick={() => setOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-bold text-white" style={{ background: BROWN }} aria-label="계정 메뉴">
                 {accountInitial}
               </button>

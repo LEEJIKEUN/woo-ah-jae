@@ -3,6 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { canEnterClassroom, isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
+import { createNotifications, type NotificationInput } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "댓글 작성 권한이 없습니다." }, { status: 403 });
   }
 
-  const post = await prisma.coursePost.findFirst({ where: { id: postId, courseId }, select: { id: true } });
+  const post = await prisma.coursePost.findFirst({ where: { id: postId, courseId }, select: { id: true, authorId: true, kind: true, title: true } });
   if (!post) return NextResponse.json({ error: "게시글을 찾을 수 없습니다." }, { status: 404 });
 
   const raw = (await request.json().catch(() => null)) as { body?: unknown; parentCommentId?: unknown } | null;
@@ -73,11 +74,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!text) return NextResponse.json({ error: "내용을 입력해 주세요." }, { status: 400 });
 
   let parentCommentId = typeof raw?.parentCommentId === "string" ? raw.parentCommentId : null;
+  let parentAuthorId: string | null = null;
   if (parentCommentId) {
-    const parent = await prisma.coursePostComment.findFirst({ where: { id: parentCommentId, postId }, select: { id: true } });
+    const parent = await prisma.coursePostComment.findFirst({ where: { id: parentCommentId, postId }, select: { id: true, authorId: true } });
     if (!parent) parentCommentId = null;
+    else parentAuthorId = parent.authorId;
   }
 
   const c = await prisma.coursePostComment.create({ data: { postId, authorId: s.userId, body: text, parentCommentId } });
+
+  // 알림: 글쓴이(+답글이면 부모 댓글 작성자)에게 — 본인 제외, 중복 제외
+  const href = `/course/${courseId}/${post.kind === "NOTICE" ? "notices" : "board"}`;
+  const notify: NotificationInput[] = [];
+  if (post.authorId !== s.userId) notify.push({ userId: post.authorId, kind: "comment", title: `내 글에 새 댓글 · ${post.title}`, body: text, href });
+  if (parentAuthorId && parentAuthorId !== s.userId && parentAuthorId !== post.authorId) notify.push({ userId: parentAuthorId, kind: "comment", title: "내 댓글에 답글이 달렸어요", body: text, href });
+  await createNotifications(notify);
+
   return NextResponse.json({ ok: true, id: c.id }, { status: 201 });
 }

@@ -274,6 +274,30 @@ model MentoringSete {
   @@id([courseId, studentId])
 }
 
+/** 알림 — 수강 강좌 공지·내 글 댓글·과제(피어리뷰) 배정 등 변동 시 수신자에게 생성. */
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String    // "notice" | "comment" | "peer"
+  title     String
+  body      String    @default("")
+  href      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/** 멘토링 방 읽음 마커 — 사용자가 (강좌+방주인) 방을 마지막으로 읽은 시각. 안읽음 계산 기준. */
+model MentoringRead {
+  userId        String
+  courseId      String
+  roomStudentId String
+  lastReadAt    DateTime @default(now())
+
+  @@id([userId, courseId, roomStudentId])
+}
+
 /** 퍼실리테이터 담당 강좌 — 관리자가 배정. 퍼실 본인은 못 바꿈. */
 model FacilitatorCourse {
   facilitatorUserId String
