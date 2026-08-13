@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChevronUp } from "lucide-react";
 import Logo from "@/components/nav/Logo";
 
@@ -27,7 +26,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]" style={{ color: SUB }}>
-          <Link href="/course" className="hover:opacity-60" style={{ color: BROWN }}>서재</Link>
+          <span style={{ color: BROWN }}>서재</span>
           <span style={{ color: LINE }}>|</span>
           <span>이용약관</span>
           <span style={{ color: LINE }}>|</span>
