@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isStaffRole } from "@/lib/course/access";
+import { getEnrolledUserIds } from "@/lib/enrollment-store";
+import { createNotifications } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 async function sessionFromReq(request: NextRequest) {
@@ -19,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const s = await sessionFromReq(request);
   if (!s) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
 
-  const post = await prisma.coursePost.findFirst({ where: { id: postId, courseId }, select: { authorId: true } });
+  const post = await prisma.coursePost.findFirst({ where: { id: postId, courseId }, select: { authorId: true, kind: true } });
   if (!post) return NextResponse.json({ error: "게시글을 찾을 수 없습니다." }, { status: 404 });
   if (post.authorId !== s.userId) return NextResponse.json({ error: "본인이 작성한 글만 수정할 수 있습니다." }, { status: 403 });
 
@@ -34,6 +36,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "수정할 내용이 없습니다." }, { status: 400 });
 
   const updated = await prisma.coursePost.update({ where: { id: postId }, data, select: { id: true, title: true, body: true } });
+
+  // 스태프(관리자·퍼실)가 공지/글을 수정 → 수강생에게 알림
+  if (isStaffRole(s.role)) {
+    const ids = await getEnrolledUserIds(courseId);
+    const label = post.kind === "NOTICE" ? "공지 수정" : "글 수정";
+    const href = post.kind === "NOTICE" ? `/course/${courseId}/notices` : `/course/${courseId}/board`;
+    await createNotifications(
+      ids.filter((id) => id !== s.userId).map((uid) => ({ userId: uid, kind: post.kind === "NOTICE" ? "notice" : "post", title: `${label} · ${updated.title}`, body: updated.body.slice(0, 200), href }))
+    );
+  }
+
   return NextResponse.json({ ok: true, post: updated });
 }
 

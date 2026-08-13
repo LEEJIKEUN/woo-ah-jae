@@ -85,11 +85,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const post = await prisma.coursePost.create({ data: { courseId, kind, authorId: s.userId, title, body } });
 
-  // 공지 작성 → 수강생에게 알림 / 토론 글 → 스태프에게 알림
-  if (kind === "NOTICE") {
+  // 스태프(관리자·퍼실)가 올린 공지/글 → 수강생 알림 / 학생이 올린 토론글 → 스태프 알림
+  if (staff) {
     const ids = await getEnrolledUserIds(courseId);
+    const label = kind === "NOTICE" ? "새 공지" : "새 글";
+    const href = kind === "NOTICE" ? `/course/${courseId}/notices` : `/course/${courseId}/board`;
     await createNotifications(
-      ids.filter((id) => id !== s.userId).map((uid) => ({ userId: uid, kind: "notice", title: `새 공지 · ${getCourse(courseId)?.title ?? ""}`, body: title, href: `/course/${courseId}/notices` }))
+      ids.filter((id) => id !== s.userId).map((uid) => ({ userId: uid, kind: kind === "NOTICE" ? "notice" : "post", title: `${label} · ${title}`, body, href }))
     );
   } else {
     await notifyCourseStaff(courseId, s.userId, { kind: "post", title: `새 토론글 · ${title}`, body, href: `/course/${courseId}/board` });
