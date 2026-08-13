@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Lock, ClipboardCheck } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, ClipboardCheck, Menu, X } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, type Course } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
@@ -77,19 +77,64 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
 }
 
 function SidebarInner({ room, isStaff = false, isParent = false }: { room: Classroom; isStaff?: boolean; isParent?: boolean }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <>
+      {/* 데스크톱(lg+): 좌측 고정 사이드바 */}
+      <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
+        <SidebarContent room={room} isStaff={isStaff} isParent={isParent} />
+      </aside>
+
+      {/* 모바일: 좌하단 '강의 메뉴' 토글 버튼 */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="fixed bottom-5 left-4 z-40 flex items-center gap-1.5 rounded-full px-4 py-3 text-[13px] font-bold text-white shadow-lg lg:hidden"
+        style={{ background: BROWN }}
+        aria-label="강의 메뉴 열기"
+      >
+        <Menu size={16} /> 강의 메뉴
+      </button>
+
+      {/* 모바일: 배경 오버레이 */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden={!mobileOpen}
+      />
+
+      {/* 모바일: 좌측 슬라이드 드로어 */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-[86%] max-w-[340px] transform overflow-y-auto bg-white shadow-2xl transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="강의 메뉴"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-4 py-3" style={{ borderColor: LINE }}>
+          <span className="text-[14px] font-bold" style={{ color: INK }}>강의 메뉴</span>
+          <button type="button" onClick={() => setMobileOpen(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-[#F0EBE0]" style={{ color: SUB }} aria-label="닫기"><X size={18} /></button>
+        </div>
+        <SidebarContent room={room} isStaff={isStaff} isParent={isParent} onNavigate={() => setMobileOpen(false)} />
+      </div>
+    </>
+  );
+}
+
+function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }: { room: Classroom; isStaff?: boolean; isParent?: boolean; onNavigate?: () => void }) {
   const { done } = useCompletion();
   const completable = room.modules.flatMap((m) => m.completableIds);
   const pct = completable.length ? Math.round((completable.filter((id) => done.has(id)).length / completable.length) * 100) : 0;
   const [open, setOpen] = useState<number>(0);
 
   return (
-    <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
+    <>
       <div className="flex items-center gap-2 px-5 py-6 text-white" style={{ background: heroGrad }}>
         <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
         {isParent ? (
           <ParentProgressDonut courseId={room.id} />
         ) : isStaff ? (
-          <Link href={`/course/${room.id}/attendance`} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
+          <Link href={`/course/${room.id}/attendance`} onClick={onNavigate} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
         ) : (
           <Donut percent={pct} />
         )}
@@ -99,9 +144,9 @@ function SidebarInner({ room, isStaff = false, isParent = false }: { room: Class
         <CourseSummaryBox courseId={room.id} initialSummary={room.summary} isStaff={isStaff} />
 
         <div className="mt-5 space-y-2">
-          <SideBox label="공지사항" href={`/course/${room.id}/notices`} />
-          <SideBox label="수강생 토론 게시판" href={`/course/${room.id}/board`} />
-          <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} />
+          <SideBox label="공지사항" href={`/course/${room.id}/notices`} onNavigate={onNavigate} />
+          <SideBox label="수강생 토론 게시판" href={`/course/${room.id}/board`} onNavigate={onNavigate} />
+          <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} onNavigate={onNavigate} />
         </div>
 
         <div className="my-4 border-t" style={{ borderColor: LINE }} />
@@ -139,7 +184,7 @@ function SidebarInner({ room, isStaff = false, isParent = false }: { room: Class
                             {isParent ? (
                               <span className="flex cursor-default items-start gap-2 text-[12.5px] leading-5" style={{ color: SUB }}>{inner}</span>
                             ) : (
-                              <Link href={`/course/${room.id}/a/${l.id}`} className="flex items-start gap-2 text-[12.5px] leading-5 hover:underline" style={{ color: SUB }}>{inner}</Link>
+                              <Link href={`/course/${room.id}/a/${l.id}`} onClick={onNavigate} className="flex items-start gap-2 text-[12.5px] leading-5 hover:underline" style={{ color: SUB }}>{inner}</Link>
                             )}
                           </li>
                         );
@@ -152,7 +197,7 @@ function SidebarInner({ room, isStaff = false, isParent = false }: { room: Class
           })}
         </div>
       </div>
-    </aside>
+    </>
   );
 }
 
@@ -166,7 +211,7 @@ function Donut({ percent }: { percent: number }) {
     </svg>
   );
 }
-function SideBox({ label, href, icon }: { label: string; href?: string; icon?: ReactNode }) {
+function SideBox({ label, href, icon, onNavigate }: { label: string; href?: string; icon?: ReactNode; onNavigate?: () => void }) {
   const cls = "flex h-11 w-full items-center gap-2 rounded-[8px] border px-4 text-left text-[13.5px] font-bold transition hover:border-[#8C6E59]";
   const st = { borderColor: LINE, color: INK } as const;
   const inner = (
@@ -175,6 +220,6 @@ function SideBox({ label, href, icon }: { label: string; href?: string; icon?: R
       {label}
     </>
   );
-  if (href) return <Link href={href} className={cls} style={st}>{inner}</Link>;
+  if (href) return <Link href={href} onClick={onNavigate} className={cls} style={st}>{inner}</Link>;
   return <button type="button" className={cls} style={st}>{inner}</button>;
 }
