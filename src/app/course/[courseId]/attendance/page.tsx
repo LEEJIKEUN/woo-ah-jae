@@ -6,6 +6,7 @@ import { getCourse, allActivities } from "@/lib/course/content";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { prisma } from "@/lib/prisma";
 import AttendanceGrid from "./AttendanceGrid";
+import AchievementStandardsManager from "./AchievementStandardsManager";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "출석·이수 관리 · 우아재" };
@@ -72,6 +73,8 @@ export default async function AttendancePage({ params }: { params: Promise<{ cou
       </p>
 
       <AttendanceGrid courseId={courseId} sessions={sessions} students={students} initialDone={initialDone} />
+
+      <AchievementStandardsManager courseId={courseId} />
     </main>
   );
 }

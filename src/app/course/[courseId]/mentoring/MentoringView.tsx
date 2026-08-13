@@ -29,6 +29,12 @@ const FIELDS: { key: FieldKey; label: string; rows: number }[] = [
   { key: "standard", label: "성취기준", rows: 2 },
   { key: "references", label: "참고문헌", rows: 2 },
 ];
+// 필드별 제한 바이트(성취기준은 선택형이라 제외). 실제 입력은 +10%까지 허용.
+const FIELD_LIMITS: Partial<Record<FieldKey, number>> = {
+  topic: 90, motive: 300, process: 600, result: 300, difficulty: 240, overcome: 360, learned: 300, references: 300,
+};
+const BOOK_LIMITS = { motive: 90, review: 260, influence: 260 } as const;
+const OVER_RED = "#dc2626";
 
 type Report = Record<FieldKey, string>;
 type FileMeta = { name: string; size: number };
@@ -63,6 +69,29 @@ function byteLen(s: string) {
     return new TextEncoder().encode(s).length;
   } catch {
     return s.length;
+  }
+}
+// UTF-8 바이트 기준으로 잘라내기(제한+10% 초과분은 입력 차단).
+function truncateToBytes(s: string, maxBytes: number): string {
+  const enc = new TextEncoder();
+  if (enc.encode(s).length <= maxBytes) return s;
+  let out = "";
+  let bytes = 0;
+  for (const ch of s) {
+    const b = enc.encode(ch).length;
+    if (bytes + b > maxBytes) break;
+    out += ch;
+    bytes += b;
+  }
+  return out;
+}
+type StdItem = { id?: string; area?: string; code: string; content: string };
+function parseStandards(v: string): { code: string; content: string }[] {
+  try {
+    const a = JSON.parse(v);
+    return Array.isArray(a) ? a.filter((x) => x && typeof x.content === "string").map((x) => ({ code: String(x.code ?? ""), content: String(x.content) })) : [];
+  } catch {
+    return [];
   }
 }
 function fmtSize(bytes: number) {
@@ -125,6 +154,7 @@ export default function MentoringView({
   const [notices, setNotices] = useState<Notice[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [peerReviews, setPeerReviews] = useState<PeerReviewGroup[]>([]);
+  const [standards, setStandards] = useState<StdItem[]>([]);
   const [assignErr, setAssignErr] = useState<string | null>(null);
   const [assignPct, setAssignPct] = useState<number | null>(null);
   const assignInputRef = useRef<HTMLInputElement | null>(null);
@@ -195,6 +225,16 @@ export default function MentoringView({
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat]);
+
+  // 강좌 성취기준 목록(관리자가 엑셀로 등록) — 탐구보고서 성취기준 선택에 사용
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/courses/${courseId}/achievement-standards`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d) => { if (alive) setStandards(Array.isArray(d.items) ? d.items : []); })
+      .catch(() => { /* 무시 */ });
+    return () => { alive = false; };
+  }, [courseId]);
 
   function startEditSete() {
     setSeteDraft(sete);
@@ -549,23 +589,45 @@ export default function MentoringView({
             </div>
 
             <div className="space-y-5 px-6 py-5">
-              {FIELDS.map((f) => (
-                <div key={f.key}>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="text-[13.5px] font-bold" style={{ color: INK }}>{f.label}</label>
-                    <span className="text-[11px]" style={{ color: MUTED }}>{byteLen(report[f.key])} byte</span>
+              {FIELDS.map((f) => {
+                if (f.key === "standard") {
+                  return (
+                    <StandardField
+                      key="standard"
+                      value={report.standard}
+                      onChange={(v) => setField("standard", v)}
+                      standards={standards}
+                      readOnly={!canEditReport}
+                    />
+                  );
+                }
+                const limit = FIELD_LIMITS[f.key];
+                const used = byteLen(report[f.key]);
+                const over = limit != null && used > limit;
+                return (
+                  <div key={f.key}>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-[13.5px] font-bold" style={{ color: INK }}>{f.label}</label>
+                      {limit != null ? (
+                        <span className="text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
+                          <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{limit}byte</b>
+                        </span>
+                      ) : (
+                        <span className="text-[11px]" style={{ color: MUTED }}>{used} byte</span>
+                      )}
+                    </div>
+                    <textarea
+                      value={report[f.key]}
+                      onChange={(e) => setField(f.key, limit != null ? truncateToBytes(e.target.value, Math.floor(limit * 1.1)) : e.target.value)}
+                      rows={f.rows}
+                      readOnly={!canEditReport}
+                      placeholder={!canEditReport ? "" : `${f.label}을(를) 입력하세요.`}
+                      className="w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]"
+                      style={{ borderColor: over ? OVER_RED : "#E7E2D6", color: BODY, background: "#fff" }}
+                    />
                   </div>
-                  <textarea
-                    value={report[f.key]}
-                    onChange={(e) => setField(f.key, e.target.value)}
-                    rows={f.rows}
-                    readOnly={!canEditReport}
-                    placeholder={!canEditReport ? "" : `${f.label}을(를) 입력하세요.`}
-                    className="w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]"
-                    style={{ borderColor: "#E7E2D6", color: BODY, background: "#fff" }}
-                  />
-                </div>
-              ))}
+                );
+              })}
 
               {/* 보고서 파일 (PDF) 업로드 */}
               <div>
@@ -691,9 +753,9 @@ export default function MentoringView({
                         <BookInput label="책" value={editBook.book} onChange={(v) => setEditBook((p) => ({ ...p, book: v }))} />
                         <BookInput label="저자" value={editBook.author} onChange={(v) => setEditBook((p) => ({ ...p, author: v }))} />
                       </div>
-                      <BookArea label="읽게 된 동기" value={editBook.motive} onChange={(v) => setEditBook((p) => ({ ...p, motive: v }))} />
-                      <BookArea label="책에 대한 평가" value={editBook.review} onChange={(v) => setEditBook((p) => ({ ...p, review: v }))} />
-                      <BookArea label="자신에게 준 영향" value={editBook.influence} onChange={(v) => setEditBook((p) => ({ ...p, influence: v }))} />
+                      <BookArea label="읽게 된 동기" value={editBook.motive} onChange={(v) => setEditBook((p) => ({ ...p, motive: v }))} limit={BOOK_LIMITS.motive} />
+                      <BookArea label="책에 대한 평가" value={editBook.review} onChange={(v) => setEditBook((p) => ({ ...p, review: v }))} limit={BOOK_LIMITS.review} />
+                      <BookArea label="자신에게 준 영향" value={editBook.influence} onChange={(v) => setEditBook((p) => ({ ...p, influence: v }))} limit={BOOK_LIMITS.influence} />
                       <div className="flex gap-2">
                         <button type="button" onClick={saveEditBook} className="flex-1 rounded-[8px] py-2 text-[13px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
                         <button type="button" onClick={cancelEditBook} className="rounded-[8px] border px-3 py-2 text-[13px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
@@ -743,9 +805,9 @@ export default function MentoringView({
                       <BookInput label="책" value={bookDraft.book} onChange={(v) => setBookDraft((p) => ({ ...p, book: v }))} />
                       <BookInput label="저자" value={bookDraft.author} onChange={(v) => setBookDraft((p) => ({ ...p, author: v }))} />
                     </div>
-                    <BookArea label="읽게 된 동기" value={bookDraft.motive} onChange={(v) => setBookDraft((p) => ({ ...p, motive: v }))} />
-                    <BookArea label="책에 대한 평가" value={bookDraft.review} onChange={(v) => setBookDraft((p) => ({ ...p, review: v }))} />
-                    <BookArea label="자신에게 준 영향" value={bookDraft.influence} onChange={(v) => setBookDraft((p) => ({ ...p, influence: v }))} />
+                    <BookArea label="읽게 된 동기" value={bookDraft.motive} onChange={(v) => setBookDraft((p) => ({ ...p, motive: v }))} limit={BOOK_LIMITS.motive} />
+                    <BookArea label="책에 대한 평가" value={bookDraft.review} onChange={(v) => setBookDraft((p) => ({ ...p, review: v }))} limit={BOOK_LIMITS.review} />
+                    <BookArea label="자신에게 준 영향" value={bookDraft.influence} onChange={(v) => setBookDraft((p) => ({ ...p, influence: v }))} limit={BOOK_LIMITS.influence} />
                     <button type="button" onClick={addBook} className="flex w-full items-center justify-center gap-1.5 rounded-[8px] py-2.5 text-[13.5px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>
                       <Plus size={15} /> 추가
                     </button>
@@ -1085,11 +1147,107 @@ function BookInput({ label, value, onChange }: { label: string; value: string; o
     </label>
   );
 }
-function BookArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function BookArea({ label, value, onChange, limit }: { label: string; value: string; onChange: (v: string) => void; limit?: number }) {
+  const used = byteLen(value);
+  const over = limit != null && used > limit;
   return (
     <label className="block">
-      <span className="mb-1 block text-[12px] font-bold" style={{ color: INK }}>{label}</span>
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} className="w-full resize-y rounded-[8px] border px-2.5 py-2 text-[13px] leading-6 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+      <span className="mb-1 flex items-center justify-between">
+        <span className="text-[12px] font-bold" style={{ color: INK }}>{label}</span>
+        {limit != null ? (
+          <span className="text-[10.5px]" style={{ color: over ? OVER_RED : MUTED }}>
+            <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{limit}byte</b>
+          </span>
+        ) : null}
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(limit != null ? truncateToBytes(e.target.value, Math.floor(limit * 1.1)) : e.target.value)}
+        rows={2}
+        className="w-full resize-y rounded-[8px] border px-2.5 py-2 text-[13px] leading-6 outline-none focus:border-[#8C6E59]"
+        style={{ borderColor: over ? OVER_RED : "#E7E2D6", color: BODY }}
+      />
     </label>
+  );
+}
+
+/** 성취기준 선택 — 관리자가 등록한 목록에서 중복 선택(최대 5, 안내 문구 없음). */
+function StandardField({ value, onChange, standards, readOnly }: { value: string; onChange: (v: string) => void; standards: StdItem[]; readOnly: boolean }) {
+  const [open, setOpen] = useState(false);
+  const selected = parseStandards(value);
+  const sameAs = (a: { code: string; content: string }, b: { code: string; content: string }) => a.content === b.content && a.code === b.code;
+  const isSel = (s: StdItem) => selected.some((x) => sameAs(x, { code: s.code ?? "", content: s.content }));
+  const commit = (next: { code: string; content: string }[]) => onChange(next.length ? JSON.stringify(next) : "");
+  const toggle = (s: StdItem) => {
+    const item = { code: s.code ?? "", content: s.content };
+    if (isSel(s)) commit(selected.filter((x) => !sameAs(x, item)));
+    else {
+      if (selected.length >= 5) return; // 최대 5개(안내 없이 조용히 제한)
+      commit([...selected, item]);
+    }
+  };
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <label className="text-[13.5px] font-bold" style={{ color: INK }}>성취기준</label>
+        {!readOnly ? (
+          <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-[12px] font-semibold" style={{ color: BROWN }}>
+            <Plus size={13} /> 성취기준 선택
+          </button>
+        ) : null}
+      </div>
+      {selected.length ? (
+        <ul className="space-y-1.5">
+          {selected.map((s, i) => (
+            <li key={i} className="flex items-start justify-between gap-2 rounded-[10px] border px-3 py-2 text-[13px]" style={{ borderColor: "#E7E2D6", background: "#fff" }}>
+              <span className="min-w-0 leading-6">
+                {s.code ? <b style={{ color: BROWN }}>{s.code}</b> : null} <span style={{ color: BODY }}>{s.content}</span>
+              </span>
+              {!readOnly ? <button type="button" onClick={() => commit(selected.filter((x) => !sameAs(x, s)))} aria-label="삭제" className="mt-0.5 shrink-0" style={{ color: MUTED }}><X size={14} /></button> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="rounded-[10px] border px-3 py-2.5 text-[13px]" style={{ borderColor: "#E7E2D6", color: SUB, background: "#fff" }}>
+          {readOnly ? "선택된 성취기준이 없습니다." : "‘성취기준 선택’을 눌러 해당하는 성취기준을 고르세요."}
+        </p>
+      )}
+
+      {open ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+          <div className="flex max-h-[82vh] w-full max-w-lg flex-col overflow-hidden rounded-[14px] bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
+              <p className="text-[15px] font-bold" style={{ color: INK }}>성취기준 선택</p>
+              <button type="button" onClick={() => setOpen(false)} style={{ color: MUTED }}><X size={18} /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              {standards.length === 0 ? (
+                <p className="py-10 text-center text-[13px]" style={{ color: SUB }}>아직 등록된 성취기준이 없습니다.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {standards.map((s, i) => {
+                    const on = isSel(s);
+                    const disabled = !on && selected.length >= 5;
+                    return (
+                      <li key={s.id ?? i}>
+                        <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border px-3 py-2.5" style={{ borderColor: on ? BROWN : "#E7E2D6", background: on ? "#FBF6EC" : "#fff", opacity: disabled ? 0.4 : 1 }}>
+                          <input type="checkbox" checked={on} disabled={disabled} onChange={() => toggle(s)} className="mt-1 h-4 w-4 shrink-0 accent-[#8C6E59]" />
+                          <span className="min-w-0 text-[13px] leading-6">
+                            {s.code ? <b style={{ color: BROWN }}>{s.code}</b> : null} <span style={{ color: BODY }}>{s.content}</span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="flex items-center justify-end border-t px-4 py-3" style={{ borderColor: CARD }}>
+              <button type="button" onClick={() => setOpen(false)} className="rounded-[9px] px-5 py-2 text-[13px] font-bold text-white" style={{ background: BROWN }}>완료</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

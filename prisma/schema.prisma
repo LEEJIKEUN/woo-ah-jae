@@ -326,6 +326,19 @@ model MentoringPeerReview {
   @@index([assignmentId])
 }
 
+/** 강좌별 성취기준 목록 — 관리자가 엑셀 업로드로 관리, 학생이 탐구보고서에서 선택. */
+model MentoringAchievementStandard {
+  id        String   @id @default(cuid())
+  courseId  String
+  sort      Int      @default(0)
+  area      String   @default("") // 영역/과목(선택)
+  code      String   @default("") // 성취기준 코드
+  content   String // 성취기준 내용
+  createdAt DateTime @default(now())
+
+  @@index([courseId, sort])
+}
+
 /** 학생 과제 업로드(멘토링 방별) — PDF·동영상. 파일 바이트는 R2, DB엔 키만. */
 model MentoringAssignment {
   id         String   @id @default(cuid())
