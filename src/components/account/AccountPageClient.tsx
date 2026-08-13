@@ -192,7 +192,7 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--foreground)]">
       <section className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-6">
         <div>
-          <h1 className="text-3xl font-bold">계정정보</h1>
+          <h1 className="text-3xl font-bold">프로필 수정</h1>
           <p className="mt-1 text-sm text-slate-500">{ROLE_LABEL[role]} 계정 · 가입 시 입력한 정보를 확인·수정할 수 있습니다.</p>
         </div>
 

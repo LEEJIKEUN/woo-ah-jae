@@ -3,6 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { canEnterClassroom } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
+import { courseStaffIds } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!s) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   if (!(await canEnterClassroom(courseId, s))) return NextResponse.json({ error: "접근 권한이 없습니다." }, { status: 403 });
 
-  const ids = await getEnrolledUserIds(courseId);
+  // 수강생 + 스태프(관리자·담당 퍼실) → @멘션 대상 후보
+  const [enrolledIds, staffIds] = await Promise.all([getEnrolledUserIds(courseId), courseStaffIds(courseId)]);
+  const ids = [...new Set([...enrolledIds, ...staffIds])];
   const users = ids.length
     ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, studentProfile: { select: { realName: true } } } })
     : [];

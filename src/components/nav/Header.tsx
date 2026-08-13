@@ -87,7 +87,7 @@ export default function Header({ session, accountLabel }: Props) {
               </button>
               {open ? (
                 <div className="absolute right-0 top-11 z-50 w-44 rounded-[4px] border bg-white p-1.5 shadow-lg" style={{ borderColor: LINE }}>
-                  <Link href="/account" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>내정보</Link>
+                  <Link href="/account" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>프로필 수정</Link>
                   {session.role === "ADMIN" ? (
                     <>
                       <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>강좌 관리</Link>
@@ -102,7 +102,7 @@ export default function Header({ session, accountLabel }: Props) {
                     <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>내 강의실</Link>
                   )}
                   <button type="button" disabled={loading} onClick={logout} className="mt-0.5 block w-full rounded-[2px] px-3 py-2 text-left text-[14px] hover:bg-[#f6f3ef] disabled:opacity-60" style={{ color: "#a6402c" }}>
-                    {loading ? "나가는 중..." : "나가기"}
+                    {loading ? "로그아웃 중..." : "로그아웃"}
                   </button>
                 </div>
               ) : null}

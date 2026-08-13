@@ -37,8 +37,8 @@ export async function notifyCourseStaff(courseId: string, actorUserId: string, n
 }
 
 /**
- * 본문에서 @이름 멘션을 찾아 해당 수강생과 승인된 학부모에게 알림.
- * 이름은 강좌 수강생 실명과 정확히 일치(@ 접두)해야 매칭. 행위자 본인은 제외.
+ * 본문에서 @이름 멘션을 찾아 해당 수강생·스태프(관리자·담당 퍼실)와 승인된 학부모에게 알림.
+ * 이름은 실명과 정확히 일치(@ 접두)해야 매칭. 행위자 본인은 제외.
  */
 export async function notifyMentions(
   courseId: string,
@@ -46,10 +46,11 @@ export async function notifyMentions(
   opts: { actorUserId: string; href: string; context: string }
 ): Promise<void> {
   if (!text || !text.includes("@")) return;
-  const ids = await getEnrolledUserIds(courseId);
-  if (!ids.length) return;
+  const [enrolledIds, staffIds] = await Promise.all([getEnrolledUserIds(courseId), courseStaffIds(courseId)]);
+  const candidateIds = [...new Set([...enrolledIds, ...staffIds])];
+  if (!candidateIds.length) return;
   const users = await prisma.user.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: candidateIds } },
     select: { id: true, studentProfile: { select: { realName: true } } },
   });
   // @이름 뒤에 다른 글자가 붙지 않는 경계 매칭 → "홍길"이 "@홍길동"에 오탐되지 않게
@@ -94,4 +95,17 @@ export async function unreadNotificationCount(userId: string): Promise<number> {
 
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   await prisma.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } });
+}
+
+/** 선택한 알림 삭제(본인 것만). */
+export async function deleteNotifications(userId: string, ids: string[]): Promise<number> {
+  if (!ids.length) return 0;
+  const r = await prisma.notification.deleteMany({ where: { userId, id: { in: ids } } });
+  return r.count;
+}
+
+/** 본인 알림 전체 삭제. */
+export async function deleteAllNotifications(userId: string): Promise<number> {
+  const r = await prisma.notification.deleteMany({ where: { userId } });
+  return r.count;
 }
