@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, X, Send, Paperclip } from "lucide-react";
+import { Bell, MessageCircle, X, Send, Paperclip, Download } from "lucide-react";
 
 const BROWN = "#8c6e59";
 const INK = "#2C2823";
@@ -245,7 +245,10 @@ function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; 
                   {!mine ? <p className="mb-0.5 text-[10px]" style={{ color: MUTED }}>{m.from === "teacher" ? "교사" : "학생"}</p> : null}
                   <div className="rounded-[12px] px-3 py-1.5 text-[12.5px] leading-5" style={m.deleted ? { background: "#F3F1EC", color: MUTED, fontStyle: "italic" } : mine ? { background: BROWN, color: "#fff" } : { background: PANEL, color: BODY, border: `1px solid ${LINE}` }}>
                     {m.deleted ? "삭제된 메시지입니다." : m.kind === "file" && m.file ? (
-                      <a href={`/api/courses/${conv.courseId}/mentoring/file?studentId=${encodeURIComponent(conv.roomStudentId)}&id=${m.id}`} target="_blank" rel="noreferrer" className="underline">📎 {m.file.name}</a>
+                      <span className="inline-flex items-center gap-1.5">
+                        <a href={`/api/courses/${conv.courseId}/mentoring/file?studentId=${encodeURIComponent(conv.roomStudentId)}&id=${m.id}`} target="_blank" rel="noreferrer" className="underline" title="새 탭에서 보기">📎 {m.file.name}</a>
+                        <a href={`/api/courses/${conv.courseId}/mentoring/file?studentId=${encodeURIComponent(conv.roomStudentId)}&id=${m.id}&download=1`} className="shrink-0 opacity-90 hover:opacity-100" aria-label="다운로드" title="다운로드"><Download size={12} /></a>
+                      </span>
                     ) : (
                       m.text
                     )}

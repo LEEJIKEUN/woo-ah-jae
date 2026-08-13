@@ -843,17 +843,19 @@ export default function MentoringView({
                     const mine = m.senderId === viewerId;
                     return (
                       <div key={m.id} className="flex items-center gap-2.5 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "#E7E2D6", background: PANEL }}>
-                        {isImg ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={fileUrl(m.id)} alt={m.file!.name} className="h-10 w-10 shrink-0 rounded-[8px] object-cover" />
-                        ) : (
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }}><FileText size={16} /></span>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-semibold" style={{ color: DEEP }}>{m.file!.name}</p>
-                          <p className="text-[11px]" style={{ color: MUTED }}>{fmtSize(m.file!.size)} · {m.from === "teacher" ? "교사" : "학생"}</p>
-                        </div>
-                        <a href={fileUrl(m.id)} download={m.file!.name} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={15} /></a>
+                        <a href={fileUrl(m.id)} target="_blank" rel="noreferrer" className="shrink-0" title="새 탭에서 보기">
+                          {isImg ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={fileUrl(m.id)} alt={m.file!.name} className="h-10 w-10 rounded-[8px] object-cover" />
+                          ) : (
+                            <span className="grid h-10 w-10 place-items-center rounded-[8px] text-white" style={{ background: BROWN }}><FileText size={16} /></span>
+                          )}
+                        </a>
+                        <a href={fileUrl(m.id)} target="_blank" rel="noreferrer" className="min-w-0 flex-1" title="새 탭에서 보기">
+                          <span className="block truncate text-[13px] font-semibold hover:underline" style={{ color: DEEP }}>{m.file!.name}</span>
+                          <span className="block text-[11px]" style={{ color: MUTED }}>{fmtSize(m.file!.size)} · {m.from === "teacher" ? "교사" : "학생"}</span>
+                        </a>
+                        <a href={`${fileUrl(m.id)}&download=1`} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드" title="다운로드"><Download size={15} /></a>
                         {mine || isStaff ? (
                           <button type="button" onClick={() => void deleteMsg(m.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={15} /></button>
                         ) : null}
@@ -994,14 +996,14 @@ function ChatFileBubble({ url, name, size, mime, caption, mine }: { url: string;
           <img src={url} alt={name} className="max-h-52 max-w-full rounded-[8px] object-cover" />
         </a>
       ) : (
-        <a href={url} download={name} className="flex items-center gap-2 rounded-[8px] px-1 py-0.5" style={{ color: mine ? "#fff" : DEEP }}>
-          <FileText size={16} />
-          <span className="min-w-0">
-            <span className="block max-w-[180px] truncate text-[12.5px] font-semibold underline">{name}</span>
+        <div className="flex items-center gap-2 rounded-[8px] px-1 py-0.5" style={{ color: mine ? "#fff" : DEEP }}>
+          <FileText size={16} className="shrink-0" />
+          <a href={url} target="_blank" rel="noreferrer" className="min-w-0" title="새 탭에서 보기">
+            <span className="block max-w-[160px] truncate text-[12.5px] font-semibold underline">{name}</span>
             <span className="text-[10.5px] opacity-80">{fmtSize(size)}</span>
-          </span>
-          <Download size={14} />
-        </a>
+          </a>
+          <a href={`${url}&download=1`} className="shrink-0 opacity-90 hover:opacity-100" aria-label="다운로드" title="다운로드"><Download size={14} /></a>
+        </div>
       )}
       {caption ? <p className="text-[12.5px] leading-5">{caption}</p> : null}
     </div>
