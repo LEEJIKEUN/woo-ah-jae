@@ -55,6 +55,16 @@ function checkAssignmentFile(name: string, mime: string): { ok: boolean; isVideo
   const isVideo = VIDEO_EXTS.includes(ext) || VIDEO_MIMES.includes(mime);
   return { ok: isPdf || isVideo, isVideo };
 }
+function isVideoName(name: string) {
+  const l = name.toLowerCase();
+  return VIDEO_EXTS.some((e) => l.endsWith("." + e));
+}
+// 과제 열기 링크 — 동영상은 다운로드 차단 뷰어로, 그 외(PDF)는 파일 API(새 탭)로.
+function assignmentOpenHref(courseId: string, id: string, name: string) {
+  return isVideoName(name)
+    ? `/course/${courseId}/mentoring/watch/${id}`
+    : `/api/courses/${courseId}/mentoring/assignment/${id}`;
+}
 type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 type PeerReviewGroup = { column: number; items: PeerReview[] };
 type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[] };
@@ -69,11 +79,11 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024;
 // 모바일에서 한 번에 한 섹션씩 볼 수 있게 하는 필터 목록
 const SECTIONS = [
   { key: "report", label: "탐구 보고서" },
-  { key: "books", label: "독서활동" },
+  { key: "notice", label: "개별 공지" },
   { key: "sete", label: "세특(참고)" },
   { key: "chat", label: "1:1 멘토링" },
   { key: "drive", label: "자료함" },
-  { key: "notice", label: "개별 공지" },
+  { key: "books", label: "독서활동" },
   { key: "assignment", label: "과제" },
 ] as const;
 
@@ -735,7 +745,7 @@ export default function MentoringView({
                           ) : (
                             <a
                               key={i}
-                              href={`/api/courses/${courseId}/mentoring/assignment/${p.assignmentId}`}
+                              href={assignmentOpenHref(courseId, p.assignmentId!, p.name)}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex max-w-full items-start gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] font-semibold transition hover:border-[#8C6E59] hover:bg-[#FBF8F2]"
@@ -761,10 +771,10 @@ export default function MentoringView({
           </div>
           </div>
 
-          {/* 우: 독서활동상황 → 작성 가이드 → 1:1 멘토링 → 미니 드라이브 → 개별 공지 */}
-          <aside className="space-y-4">
+          {/* 우: 개별공지 → 세특 → 1:1 멘토링 → 자료함 → 독서활동상황 → 과제 업로드 (flex order로 정렬) */}
+          <aside className="flex flex-col gap-4">
             {/* 독서활동상황 */}
-            <div className={`rounded-[14px] bg-white ${vis("books")}`} style={{ border: `1px solid ${CARD}` }}>
+            <div className={`order-5 rounded-[14px] bg-white ${vis("books")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>독서활동상황</p>
                 <span className="text-[12px]" style={{ color: MUTED }}>{books.length} / {MAX_BOOKS}</span>
@@ -800,24 +810,9 @@ export default function MentoringView({
                         ) : null}
                       </div>
                       <div className="mt-2.5 space-y-2.5">
-                        {b.motive ? (
-                          <div>
-                            <p className="text-[12px] font-bold" style={{ color: DEEP }}>동기</p>
-                            <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{b.motive}</p>
-                          </div>
-                        ) : null}
-                        {b.review ? (
-                          <div>
-                            <p className="text-[12px] font-bold" style={{ color: DEEP }}>평가</p>
-                            <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{b.review}</p>
-                          </div>
-                        ) : null}
-                        {b.influence ? (
-                          <div>
-                            <p className="text-[12px] font-bold" style={{ color: DEEP }}>영향</p>
-                            <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{b.influence}</p>
-                          </div>
-                        ) : null}
+                        {b.motive ? <BookReadField label="읽게 된 동기" value={b.motive} limit={BOOK_LIMITS.motive} /> : null}
+                        {b.review ? <BookReadField label="책에 대한 평가" value={b.review} limit={BOOK_LIMITS.review} /> : null}
+                        {b.influence ? <BookReadField label="자신에게 준 영향" value={b.influence} limit={BOOK_LIMITS.influence} /> : null}
                       </div>
                     </div>
                   )
@@ -843,7 +838,7 @@ export default function MentoringView({
             </div>
 
             {/* 과목별 세부능력 특기사항(세특) — 학생별, 관리자·퍼실 작성 */}
-            <div className={`rounded-[14px] bg-white ${vis("sete")}`} style={{ border: `1px solid ${CARD}` }}>
+            <div className={`order-2 rounded-[14px] bg-white ${vis("sete")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   과목별 세부능력 특기사항(참고)
@@ -876,7 +871,7 @@ export default function MentoringView({
 
 
             {/* 1:1 멘토링 (실시간, 카카오톡식) */}
-            <div className={`flex-col rounded-[14px] bg-white ${mobileSection === "chat" ? "flex xl:flex" : "hidden xl:flex"}`} style={{ border: `1px solid ${CARD}` }}>
+            <div className={`order-3 flex-col rounded-[14px] bg-white ${mobileSection === "chat" ? "flex xl:flex" : "hidden xl:flex"}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>1:1 멘토링</p>
               </div>
@@ -982,7 +977,7 @@ export default function MentoringView({
             </div>
 
             {/* 미니 드라이브 — 채팅에 업로드된 파일 모음 */}
-            <div className={`rounded-[14px] bg-white ${vis("drive")}`} style={{ border: `1px solid ${CARD}` }}>
+            <div className={`order-4 rounded-[14px] bg-white ${vis("drive")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="text-[14px] font-bold" style={{ color: INK }}>자료함</p>
                 <span className="text-[12px]" style={{ color: MUTED }}>{driveFiles.length}개</span>
@@ -1020,7 +1015,7 @@ export default function MentoringView({
             </div>
 
             {/* 개별 공지 — 관리자가 학생에게 */}
-            <div className={`rounded-[14px] bg-white ${vis("notice")}`} style={{ border: `1px solid ${CARD}` }}>
+            <div className={`order-1 rounded-[14px] bg-white ${vis("notice")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   <Megaphone size={14} style={{ color: BROWN }} /> 개별 공지
@@ -1077,7 +1072,7 @@ export default function MentoringView({
             </div>
 
             {/* 과제 업로드 — 학생 제출(PDF·동영상) */}
-            <div className={`rounded-[14px] bg-white ${vis("assignment")}`} style={{ border: `1px solid ${CARD}` }}>
+            <div className={`order-6 rounded-[14px] bg-white ${vis("assignment")}`} style={{ border: `1px solid ${CARD}` }}>
               <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
                 <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
                   <Upload size={14} style={{ color: BROWN }} /> 과제 업로드
@@ -1090,6 +1085,7 @@ export default function MentoringView({
                   const uploadingHere = isStudent && assignPct !== null && uploadCol === col;
                   const isVid = a ? (a.mime || "").startsWith("video/") : false;
                   const url = a ? `/api/courses/${courseId}/mentoring/assignment/${a.id}` : "";
+                  const openHref = a ? assignmentOpenHref(courseId, a.id, a.name) : "";
                   return (
                     <div key={col}>
                       <p className="mb-1.5 text-[12.5px] font-bold" style={{ color: DEEP }}>과제{col + 1}</p>
@@ -1102,7 +1098,7 @@ export default function MentoringView({
                         </div>
                       ) : a ? (
                         <div className="flex items-center gap-2 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "#E7E2D6", background: PANEL }}>
-                          <a href={url} target="_blank" rel="noreferrer" className="min-w-0 flex-1" title="열기">
+                          <a href={openHref} target="_blank" rel="noreferrer" className="min-w-0 flex-1" title="열기">
                             <span className="block truncate text-[13px] font-semibold hover:underline" style={{ color: DEEP }}>{a.name}</span>
                             <span className="text-[11px]" style={{ color: MUTED }}>{a.at} · {fmtSize(a.size)} · {isVid ? "동영상" : "PDF"}</span>
                           </a>
@@ -1200,6 +1196,23 @@ function BookArea({ label, value, onChange, limit }: { label: string; value: str
         style={{ borderColor: over ? OVER_RED : "#E7E2D6", color: BODY }}
       />
     </label>
+  );
+}
+
+/** 독서활동상황 읽기뷰 필드 — 입력폼과 동일하게 풀네임 라벨 + 바이트/제한 표기. */
+function BookReadField({ label, value, limit }: { label: string; value: string; limit: number }) {
+  const used = byteLen(value);
+  const over = used > limit;
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-[12px] font-bold" style={{ color: DEEP }}>{label}</p>
+        <span className="text-[10.5px]" style={{ color: over ? OVER_RED : MUTED }}>
+          <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{limit}byte</b>
+        </span>
+      </div>
+      <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{value}</p>
+    </div>
   );
 }
 
