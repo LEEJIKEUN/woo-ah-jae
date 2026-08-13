@@ -64,7 +64,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-  const studentsForClient = rows.map((r) => ({ id: r.id, name: r.name }));
+  const studentsForClient = rows.map((r) => ({ id: r.id, name: r.name, assignmentCount: r.assignments.length }));
 
   const th = "whitespace-nowrap border-b px-3 py-2.5 text-left text-[12.5px] font-bold";
   const td = "border-b px-3 py-2.5 align-top text-[13px]";

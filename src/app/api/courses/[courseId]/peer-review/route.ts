@@ -50,6 +50,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
   }
 
-  if (result.assigned === 0) return NextResponse.json({ ok: true, ...result, warn: "배정된 과제가 없습니다. 선택한 학생들이 해당 과제를 제출했는지 확인하세요." });
+  if (result.assigned === 0) return NextResponse.json({ ok: true, ...result, warn: "이 과제를 제출한 학생이 2명 이상이어야 배포할 수 있습니다. (제출한 학생만 배부·수신에 참여)" });
   return NextResponse.json({ ok: true, ...result });
 }

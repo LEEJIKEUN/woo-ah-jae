@@ -114,32 +114,35 @@ export async function isPeerReviewer(courseId: string, userId: string, assignmen
  * 상호 피드백 배포 — 선택 학생들의 column 번째 과제를 pool 로, 각 학생(recipient)에게
  * 본인 제외 랜덤 count 개를 배정. 선택된 학생들의 기존 배정은 교체한다.
  */
-export async function distributePeerReview(courseId: string, column: number, studentIds: string[], count: number): Promise<{ recipients: number; assigned: number }> {
+export async function distributePeerReview(courseId: string, column: number, studentIds: string[], count: number): Promise<{ recipients: number; assigned: number; perAssignment: number }> {
   const all = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId: { in: studentIds } }, orderBy: { createdAt: "asc" }, select: { id: true, studentId: true } });
   const byStudent = new Map<string, string[]>();
   for (const a of all) byStudent.set(a.studentId, [...(byStudent.get(a.studentId) ?? []), a.id]);
 
-  const pool: { studentId: string; assignmentId: string }[] = [];
-  for (const sid of studentIds) {
-    const list = byStudent.get(sid) ?? [];
-    if (list[column]) pool.push({ studentId: sid, assignmentId: list[column] });
+  // 이 과제(column)를 실제로 제출한 학생만 참여 — 미제출자는 배부·수신에서 제외
+  const participants = studentIds.filter((sid) => !!byStudent.get(sid)?.[column]);
+  const n = participants.length;
+  // 무작위 순서로 섞기
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [participants[i], participants[j]] = [participants[j], participants[i]];
   }
-
+  // 원형 라운드로빈: 각자 '다음 k명'의 과제를 받음 → 모든 과제가 정확히 k번씩 배부(완전 균등, 본인 제외·중복 없음)
+  const k = Math.min(count, Math.max(0, n - 1));
   const rows: { courseId: string; recipientStudentId: string; assignmentId: string }[] = [];
-  for (const recipient of studentIds) {
-    const candidates = pool.filter((p) => p.studentId !== recipient);
-    for (let i = candidates.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  for (let i = 0; i < n; i++) {
+    const recipient = participants[i];
+    for (let off = 1; off <= k; off++) {
+      const author = participants[(i + off) % n];
+      rows.push({ courseId, recipientStudentId: recipient, assignmentId: byStudent.get(author)![column] });
     }
-    for (const p of candidates.slice(0, Math.max(0, count))) rows.push({ courseId, recipientStudentId: recipient, assignmentId: p.assignmentId });
   }
 
   await prisma.$transaction([
     prisma.mentoringPeerReview.deleteMany({ where: { courseId, recipientStudentId: { in: studentIds } } }),
     ...rows.map((r) => prisma.mentoringPeerReview.create({ data: r })),
   ]);
-  return { recipients: studentIds.length, assigned: rows.length };
+  return { recipients: n, assigned: rows.length, perAssignment: k };
 }
 
 /** 세특(과목별 세부능력 특기사항) 저장 — 관리자·퍼실. */

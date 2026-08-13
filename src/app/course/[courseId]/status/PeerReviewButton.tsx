@@ -11,7 +11,7 @@ const LINE = "#E4DBC7";
 const CARD = "#EFEBE1";
 const PANEL = "#FBF8F2";
 
-type Student = { id: string; name: string };
+type Student = { id: string; name: string; assignmentCount: number };
 
 /** 과제 헤더의 종이비행기 버튼 → '과제 보내기'(상호 피드백 배포) 모달. */
 export default function PeerReviewButton({ courseId, column, label, students }: { courseId: string; column: number; label: string; students: Student[] }) {
@@ -21,8 +21,12 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const allSelected = students.length > 0 && selected.size === students.length;
+  const canReview = (s: Student) => s.assignmentCount > column; // 이 과제(column)를 제출했는지
+  const submitters = students.filter(canReview);
+  const allSelected = submitters.length > 0 && selected.size === submitters.length;
   function toggle(id: string) {
+    const s = students.find((x) => x.id === id);
+    if (!s || !canReview(s)) return; // 미제출자는 선택 불가
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -31,7 +35,7 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
     });
   }
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(students.map((s) => s.id)));
+    setSelected(allSelected ? new Set() : new Set(submitters.map((s) => s.id)));
   }
   function close() {
     setOpen(false);
@@ -51,13 +55,13 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ column, studentIds: [...selected], count }),
       });
-      const d = (await res.json()) as { error?: string; assigned?: number; recipients?: number; warn?: string };
+      const d = (await res.json()) as { error?: string; assigned?: number; recipients?: number; perAssignment?: number; warn?: string };
       if (!res.ok) {
         setMsg({ ok: false, text: d.error ?? "배포에 실패했습니다." });
       } else if (d.warn) {
         setMsg({ ok: false, text: d.warn });
       } else {
-        setMsg({ ok: true, text: `배포 완료 — ${d.recipients}명에게 총 ${d.assigned}건 배정되었습니다.` });
+        setMsg({ ok: true, text: `배포 완료 — 참여 ${d.recipients}명 · 각 과제 ${d.perAssignment}회씩 균등 배부(총 ${d.assigned}건).` });
       }
     } catch {
       setMsg({ ok: false, text: "네트워크 오류가 발생했습니다." });
@@ -100,23 +104,27 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
               <div className="min-h-0">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[13px] font-bold" style={{ color: INK }}>학생 선택</span>
-                  <span className="text-[12px]" style={{ color: MUTED }}>{selected.size}명 선택</span>
+                  <span className="text-[12px]" style={{ color: MUTED }}>제출 {submitters.length}명 · 선택 {selected.size}명</span>
                 </div>
                 <label className="mb-1.5 flex cursor-pointer items-center gap-2 rounded-[8px] border px-3 py-2 text-[13px] font-semibold" style={{ borderColor: LINE, color: BROWN, background: PANEL }}>
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-[#8C6E59]" />
-                  전체 선택
+                  제출자 전체 선택
                 </label>
                 <div className="max-h-[320px] space-y-0.5 overflow-y-auto rounded-[8px] border p-1.5" style={{ borderColor: LINE }}>
                   {students.length === 0 ? (
                     <p className="px-2 py-3 text-center text-[12.5px]" style={{ color: SUB }}>수강생이 없습니다.</p>
                   ) : (
-                    students.map((s, i) => (
-                      <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-2 text-[13px] hover:bg-[#FBF8F2]" style={{ color: INK }}>
-                        <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} className="accent-[#8C6E59]" />
-                        <span className="text-[11px]" style={{ color: MUTED }}>{i + 1}</span>
-                        <span className="truncate font-medium">{s.name}</span>
-                      </label>
-                    ))
+                    students.map((s, i) => {
+                      const ok = canReview(s);
+                      return (
+                        <label key={s.id} className={`flex items-center gap-2 rounded-[6px] px-2.5 py-2 text-[13px] ${ok ? "cursor-pointer hover:bg-[#FBF8F2]" : "cursor-not-allowed opacity-50"}`} style={{ color: INK }}>
+                          <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} disabled={!ok} className="accent-[#8C6E59]" />
+                          <span className="text-[11px]" style={{ color: MUTED }}>{i + 1}</span>
+                          <span className="truncate font-medium">{s.name}</span>
+                          {!ok ? <span className="ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{ background: "#F3EEE4", color: "#a6402c" }}>미제출</span> : null}
+                        </label>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -145,7 +153,7 @@ export default function PeerReviewButton({ courseId, column, label, students }: 
             <div className="border-t px-5 py-4" style={{ borderColor: CARD }}>
               {msg ? <p className="mb-2 text-[12.5px]" style={{ color: msg.ok ? "#3E7E5B" : "#a6402c" }}>{msg.text}</p> : null}
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[12px]" style={{ color: MUTED }}>선택 학생들의 {label}에서 본인 제외 무작위 {count}개씩 배정</p>
+                <p className="text-[12px]" style={{ color: MUTED }}>제출한 학생끼리 · 각자 본인 제외 {count}개 · 모든 과제 균등 배부(미제출 제외)</p>
                 <button type="button" onClick={() => void send()} disabled={sending} className="shrink-0 rounded-[8px] px-6 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>
                   {sending ? "보내는 중…" : "보내기"}
                 </button>
