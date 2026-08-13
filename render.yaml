@@ -15,7 +15,7 @@ services:
       - key: SKIP_STARTUP_DB_TASKS
         value: "true"
       - key: STORAGE_BACKEND
-        value: local
+        value: r2
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_URL_UNPOOLED
