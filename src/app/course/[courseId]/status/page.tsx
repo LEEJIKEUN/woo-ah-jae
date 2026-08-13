@@ -84,8 +84,8 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
           <table className="w-full border-collapse" style={{ minWidth: 1000 }}>
             <thead>
               <tr style={{ background: PANEL, color: INK }}>
-                <th className={th} style={{ borderColor: CARD, width: 48 }}>번호</th>
-                <th className={th} style={{ borderColor: CARD, width: 110 }}>이름</th>
+                <th className={`${th} sticky z-20`} style={{ borderColor: CARD, width: 56, minWidth: 56, left: 0, background: PANEL }}>번호</th>
+                <th className={`${th} sticky z-20`} style={{ borderColor: CARD, width: 120, minWidth: 120, left: 56, background: PANEL, boxShadow: "6px 0 8px -6px rgba(0,0,0,0.18)" }}>이름</th>
                 <th className={th} style={{ borderColor: CARD, minWidth: 300 }}>과목별 세부능력 특기사항</th>
                 <th className={th} style={{ borderColor: CARD, width: 64 }}>byte</th>
                 <th className={th} style={{ borderColor: CARD, minWidth: 200 }}>독서활동상황</th>
@@ -102,8 +102,8 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
               ) : (
                 rows.map((r, i) => (
                   <tr key={r.id}>
-                    <td className={td} style={{ borderColor: CARD, color: MUTED }}>{i + 1}</td>
-                    <td className={td} style={{ borderColor: CARD }}>
+                    <td className={`${td} sticky z-10`} style={{ borderColor: CARD, color: MUTED, left: 0, background: "#fff" }}>{i + 1}</td>
+                    <td className={`${td} sticky z-10`} style={{ borderColor: CARD, left: 56, background: "#fff", boxShadow: "6px 0 8px -6px rgba(0,0,0,0.18)" }}>
                       <Link href={`/course/${courseId}/mentoring?student=${r.id}`} className="font-semibold hover:underline" style={{ color: INK }} title="멘토링에서 세특 작성">
                         {r.name}
                       </Link>
