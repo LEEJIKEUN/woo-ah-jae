@@ -3,14 +3,20 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
-import { addChat, getRoom, saveBooks, saveFile, saveReport, type Book, type MentoringFile, type Report } from "@/lib/mentoring-store";
+import {
+  loadRoom, saveReport, setReportFile, saveBooks,
+  addTextMessage, addFileMessage, editMessage, deleteMessage, getMessage,
+  addNotice, editNotice, deleteNotice, getNotice,
+  FIELD_KEYS, type Book, type Report, type UploadFile,
+} from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
 import { prisma } from "@/lib/prisma";
 
-const FIELD_KEYS = ["topic", "motive", "process", "result", "difficulty", "overcome", "learned", "standard", "references"] as const;
 const MAX_FIELD = 20000;
 const MAX_BOOK_FIELD = 2000;
-const MAX_FILE_DATAURL = 9 * 1024 * 1024;
+const MAX_TEXT = 2000;
+const MAX_NOTICE = 3000;
+const MAX_FILE_DATAURL = 9 * 1024 * 1024; // 약 6MB 파일
 
 async function sessionFromReq(request: NextRequest) {
   try {
@@ -47,13 +53,6 @@ async function resolveStudent(courseId: string, g: Gate, requested: unknown): Pr
   return { studentId: sid };
 }
 
-function nowLabel() {
-  try {
-    return new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
-  } catch {
-    return "";
-  }
-}
 function sanitizeReport(r: unknown): Report {
   const src = (r ?? {}) as Record<string, unknown>;
   const out = {} as Report;
@@ -68,65 +67,136 @@ function sanitizeBooks(bs: unknown): Book[] {
     return { book: s(b.book), author: s(b.author), motive: s(b.motive), review: s(b.review), influence: s(b.influence) };
   });
 }
-function sanitizeFile(f: unknown): MentoringFile | null | "invalid" {
+function sanitizeFile(f: unknown): UploadFile | "invalid" {
   if (!f || typeof f !== "object") return "invalid";
   const o = f as Record<string, unknown>;
   const dataUrl = typeof o.dataUrl === "string" ? o.dataUrl : "";
   if (!dataUrl.startsWith("data:") || dataUrl.length > MAX_FILE_DATAURL) return "invalid";
+  const mimeFromUrl = dataUrl.slice(5, dataUrl.indexOf(";") > 0 ? dataUrl.indexOf(";") : 5) || "application/octet-stream";
   return {
     name: String(typeof o.name === "string" ? o.name : "file").slice(0, 200),
     size: typeof o.size === "number" ? o.size : 0,
+    mime: String(typeof o.mime === "string" && o.mime ? o.mime : mimeFromUrl).slice(0, 120),
     dataUrl,
   };
 }
 
-// 방 조회 (?studentId=). 파일 dataUrl 포함(다운로드용).
+// 방 조회(메타데이터). 파일 실제 바이트는 포함하지 않음 — 다운로드/미리보기는 /mentoring/file 라우트.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   const g = await baseGate(request, courseId);
   if ("error" in g) return g.error;
   const r = await resolveStudent(courseId, g, new URL(request.url).searchParams.get("studentId"));
   if ("error" in r) return r.error;
-  const room = await getRoom(courseId, r.studentId);
-  return NextResponse.json({ ...room, role: g.staff ? "teacher" : "student", studentId: r.studentId });
+  const room = await loadRoom(courseId, r.studentId);
+  return NextResponse.json({ ...room, role: g.staff ? "teacher" : "student", studentId: r.studentId, viewerId: g.session.userId });
 }
 
-// 저장/전송. report·books·file = 방 주인(학생 본인)만 / chat = 학생 본인 + 스태프
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   const g = await baseGate(request, courseId);
   if ("error" in g) return g.error;
 
-  const body = (await request.json()) as { action?: string; report?: unknown; text?: string; books?: unknown; file?: unknown; studentId?: unknown };
+  const body = (await request.json()) as {
+    action?: string; report?: unknown; text?: string; books?: unknown; file?: unknown; studentId?: unknown; id?: unknown; body?: unknown;
+  };
   const r = await resolveStudent(courseId, g, body.studentId);
   if ("error" in r) return r.error;
   const studentId = r.studentId;
   const isOwnerStudent = g.enrolledStudent; // 학생은 본인 방만 접근
+  const senderRole: "teacher" | "student" = g.staff ? "teacher" : "student";
 
-  let room;
-  if (body.action === "report") {
-    if (!isOwnerStudent) return NextResponse.json({ error: "보고서는 학생 본인만 작성할 수 있습니다." }, { status: 403 });
-    room = await saveReport(courseId, studentId, sanitizeReport(body.report));
-  } else if (body.action === "books") {
-    if (!isOwnerStudent) return NextResponse.json({ error: "독서활동상황은 학생 본인만 작성할 수 있습니다." }, { status: 403 });
-    room = await saveBooks(courseId, studentId, sanitizeBooks(body.books));
-  } else if (body.action === "file") {
-    if (!isOwnerStudent) return NextResponse.json({ error: "파일은 학생 본인만 업로드할 수 있습니다." }, { status: 403 });
-    if (body.file === null) {
-      room = await saveFile(courseId, studentId, null);
-    } else {
-      const f = sanitizeFile(body.file);
-      if (f === "invalid") return NextResponse.json({ error: "PDF 파일이 올바르지 않거나 용량이 너무 큽니다. (최대 6MB)" }, { status: 413 });
-      room = await saveFile(courseId, studentId, f);
+  const forbidden = (msg: string) => NextResponse.json({ error: msg }, { status: 403 });
+
+  switch (body.action) {
+    /* 탐구 보고서 — 학생 본인만 */
+    case "report": {
+      if (!isOwnerStudent) return forbidden("보고서는 학생 본인만 작성할 수 있습니다.");
+      await saveReport(courseId, studentId, sanitizeReport(body.report));
+      break;
     }
-  } else if (body.action === "chat" && typeof body.text === "string" && body.text.trim()) {
-    if (!g.staff && !isOwnerStudent) return NextResponse.json({ error: "채팅 권한이 없습니다." }, { status: 403 });
-    const from = g.staff ? "teacher" : "student";
-    room = await addChat(courseId, studentId, { from, text: body.text.trim().slice(0, 2000), at: nowLabel() });
-  } else {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    case "reportFile": {
+      if (!isOwnerStudent) return forbidden("파일은 학생 본인만 업로드할 수 있습니다.");
+      if (body.file === null) {
+        await setReportFile(courseId, studentId, null);
+      } else {
+        const f = sanitizeFile(body.file);
+        if (f === "invalid") return NextResponse.json({ error: "파일이 올바르지 않거나 용량이 너무 큽니다. (최대 6MB)" }, { status: 413 });
+        await setReportFile(courseId, studentId, f);
+      }
+      break;
+    }
+    /* 독서활동상황 — 학생 본인만 */
+    case "books": {
+      if (!isOwnerStudent) return forbidden("독서활동상황은 학생 본인만 작성할 수 있습니다.");
+      await saveBooks(courseId, studentId, sanitizeBooks(body.books));
+      break;
+    }
+    /* 1:1 채팅 — 학생 본인 + 스태프 */
+    case "chat": {
+      if (!g.staff && !isOwnerStudent) return forbidden("채팅 권한이 없습니다.");
+      const t = typeof body.text === "string" ? body.text.trim().slice(0, MAX_TEXT) : "";
+      if (!t) return NextResponse.json({ error: "메시지를 입력하세요." }, { status: 400 });
+      await addTextMessage(courseId, studentId, g.session.userId, senderRole, t);
+      break;
+    }
+    case "chatFile": {
+      if (!g.staff && !isOwnerStudent) return forbidden("파일 전송 권한이 없습니다.");
+      const f = sanitizeFile(body.file);
+      if (f === "invalid") return NextResponse.json({ error: "파일이 올바르지 않거나 용량이 너무 큽니다. (최대 6MB)" }, { status: 413 });
+      const caption = typeof body.text === "string" ? body.text.trim().slice(0, MAX_TEXT) : "";
+      await addFileMessage(courseId, studentId, g.session.userId, senderRole, f, caption);
+      break;
+    }
+    case "editChat": {
+      const id = typeof body.id === "string" ? body.id : "";
+      const m = id ? await getMessage(id) : null;
+      if (!m || m.courseId !== courseId || m.studentId !== studentId || m.deletedAt) return NextResponse.json({ error: "메시지를 찾을 수 없습니다." }, { status: 404 });
+      if (m.senderId !== g.session.userId) return forbidden("본인이 보낸 메시지만 수정할 수 있습니다.");
+      if (m.kind !== "text") return forbidden("파일 메시지는 수정할 수 없습니다.");
+      const t = typeof body.text === "string" ? body.text.trim().slice(0, MAX_TEXT) : "";
+      if (!t) return NextResponse.json({ error: "메시지를 입력하세요." }, { status: 400 });
+      await editMessage(id, t);
+      break;
+    }
+    case "deleteChat": {
+      const id = typeof body.id === "string" ? body.id : "";
+      const m = id ? await getMessage(id) : null;
+      if (!m || m.courseId !== courseId || m.studentId !== studentId || m.deletedAt) return NextResponse.json({ error: "메시지를 찾을 수 없습니다." }, { status: 404 });
+      if (m.senderId !== g.session.userId && !g.staff) return forbidden("본인이 보낸 메시지만 삭제할 수 있습니다.");
+      await deleteMessage(id);
+      break;
+    }
+    /* 개별 공지 — 관리자·퍼실만 */
+    case "notice": {
+      if (!g.staff) return forbidden("공지는 관리자·퍼실리테이터만 작성할 수 있습니다.");
+      const t = typeof body.body === "string" ? body.body.trim().slice(0, MAX_NOTICE) : "";
+      if (!t) return NextResponse.json({ error: "공지 내용을 입력하세요." }, { status: 400 });
+      await addNotice(courseId, studentId, g.session.userId, t);
+      break;
+    }
+    case "editNotice": {
+      if (!g.staff) return forbidden("관리자·퍼실리테이터만 수정할 수 있습니다.");
+      const id = typeof body.id === "string" ? body.id : "";
+      const n = id ? await getNotice(id) : null;
+      if (!n || n.courseId !== courseId || n.studentId !== studentId) return NextResponse.json({ error: "공지를 찾을 수 없습니다." }, { status: 404 });
+      const t = typeof body.body === "string" ? body.body.trim().slice(0, MAX_NOTICE) : "";
+      if (!t) return NextResponse.json({ error: "공지 내용을 입력하세요." }, { status: 400 });
+      await editNotice(id, t);
+      break;
+    }
+    case "deleteNotice": {
+      if (!g.staff) return forbidden("관리자·퍼실리테이터만 삭제할 수 있습니다.");
+      const id = typeof body.id === "string" ? body.id : "";
+      const n = id ? await getNotice(id) : null;
+      if (!n || n.courseId !== courseId || n.studentId !== studentId) return NextResponse.json({ error: "공지를 찾을 수 없습니다." }, { status: 404 });
+      await deleteNotice(id);
+      break;
+    }
+    default:
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
-  publishMentoring(courseId, studentId, room);
+  publishMentoring(courseId, studentId, await loadRoom(courseId, studentId));
   return NextResponse.json({ ok: true });
 }

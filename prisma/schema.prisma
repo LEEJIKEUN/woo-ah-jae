@@ -189,6 +189,77 @@ model CourseSummary {
   updatedAt DateTime @updatedAt
 }
 
+/** 탐구 보고서 — 멘토링 방(강좌+학생)별 1개. 9개 서술 필드 + 보고서 PDF. DB 영구 보존. */
+model MentoringReport {
+  courseId   String
+  studentId  String
+  topic      String   @default("")
+  motive     String   @default("")
+  process    String   @default("")
+  result     String   @default("")
+  difficulty String   @default("")
+  overcome   String   @default("")
+  learned    String   @default("")
+  standard   String   @default("")
+  references String   @default("")
+  fileName   String?
+  fileSize   Int?
+  fileData   String?  // dataUrl(base64)
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@id([courseId, studentId])
+}
+
+/** 독서활동상황 — 멘토링 방별 최대 5개. */
+model MentoringBook {
+  id        String   @id @default(cuid())
+  courseId  String
+  studentId String
+  book      String   @default("")
+  author    String   @default("")
+  motive    String   @default("")
+  review    String   @default("")
+  influence String   @default("")
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([courseId, studentId, sort])
+}
+
+/** 1:1 멘토링 채팅 — 텍스트/파일, 본인 수정·삭제(소프트 삭제). DB 영구 보존. */
+model MentoringMessage {
+  id         String    @id @default(cuid())
+  courseId   String
+  studentId  String    // 방 주인(학생)
+  senderId   String
+  senderRole String    // "teacher" | "student"
+  kind       String    @default("text") // "text" | "file"
+  text       String    @default("")
+  fileName   String?
+  fileSize   Int?
+  fileMime   String?
+  fileData   String?   // dataUrl(base64)
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([courseId, studentId, createdAt])
+}
+
+/** 관리자→학생 개별 공지 — 멘토링 방별. 관리자·퍼실만 작성. */
+model MentoringNotice {
+  id        String   @id @default(cuid())
+  courseId  String
+  studentId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId, studentId, createdAt])
+}
+
 /** 수강신청 — 강좌별 학생 등록(파일이 아닌 DB에 보존). */
 model Enrollment {
   courseId  String

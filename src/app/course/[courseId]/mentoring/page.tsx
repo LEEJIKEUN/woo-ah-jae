@@ -56,6 +56,7 @@ export default async function MentoringPage({ params }: { params: Promise<{ cour
       isStudent={isStudent}
       students={students}
       initialStudentId={initialStudentId}
+      viewerId={session.userId}
     />
   );
 }

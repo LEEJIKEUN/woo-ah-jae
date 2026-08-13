@@ -1,128 +1,164 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import { prisma } from "@/lib/prisma";
 
 /**
- * 탐구활동 멘토링 공유 방(방 = 강좌). 학생 보고서·1:1 채팅·독서활동상황을 서버에 저장해
- * 관리자(교사)와 학생이 같은 방을 실시간으로 공유한다.
- * 파일 저장 + 프로세스 내 뮤텍스(라이브 DB 부담 회피). 서버리스 이전 시 DB/Redis 로 교체.
- * (지금은 강좌당 단일 방 — 데모: 관리자 1 + 학생 1. 다학생 시 방 키를 course+studentId 로 확장.)
+ * 탐구활동 멘토링 방(강좌 + 학생). 탐구 보고서·독서활동·1:1 채팅·개별 공지를
+ * Neon DB(Prisma)에 영구 저장한다. 관리자가 삭제하기 전까지 사라지지 않으며,
+ * 재접속 시 저장된 데이터를 그대로 다시 볼 수 있다.
+ * (과거엔 /var/data 파일 저장 → Render 배포마다 초기화되어 데이터가 유실됐다. 그래서 DB로 이전.)
  */
 export type FieldKey =
   | "topic" | "motive" | "process" | "result" | "difficulty" | "overcome" | "learned" | "standard" | "references";
 export type Report = Record<FieldKey, string>;
-export type ChatMsg = { from: "teacher" | "student"; text: string; at: string };
+export const FIELD_KEYS: FieldKey[] = ["topic", "motive", "process", "result", "difficulty", "overcome", "learned", "standard", "references"];
+
+export type FileMeta = { name: string; size: number };
+export type ChatMsg = {
+  id: string;
+  from: "teacher" | "student";
+  senderId: string;
+  text: string;
+  at: string;
+  edited: boolean;
+  deleted: boolean;
+  kind: "text" | "file";
+  file: FileMeta | null;
+  fileMime: string | null;
+};
 export type Book = { book: string; author: string; motive: string; review: string; influence: string };
-export type MentoringFile = { name: string; size: number; dataUrl: string };
-export type MentoringRoom = { report: Report; chat: ChatMsg[]; books: Book[]; file: MentoringFile | null };
+export type Notice = { id: string; body: string; at: string; updated: boolean };
+export type MentoringRoom = {
+  report: Report;
+  reportFile: FileMeta | null;
+  books: Book[];
+  chat: ChatMsg[];
+  notices: Notice[];
+};
 
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
 }
 export function emptyRoom(): MentoringRoom {
-  return { report: blankReport(), chat: [], books: [], file: null };
+  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [] };
 }
 
-const persistentStoreDir =
-  process.env.LOCAL_DATA_DIR ||
-  (process.env.NODE_ENV === "production" ? "/var/data/local_data" : path.join(process.cwd(), ".local_data"));
-const resolvedStorePath = path.join(persistentStoreDir, "mentoring.json");
-
-let lock: Promise<unknown> = Promise.resolve();
-function withLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = lock.then(fn, fn);
-  lock = run.then(() => undefined, () => undefined);
-  return run;
-}
-
-async function ensureStore() {
-  await fs.mkdir(persistentStoreDir, { recursive: true });
+function fmtAt(d: Date): string {
   try {
-    await fs.access(resolvedStorePath);
+    return d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
   } catch {
-    await fs.writeFile(resolvedStorePath, "{}", "utf8");
+    return "";
   }
 }
 
-async function readAll(): Promise<Record<string, MentoringRoom>> {
-  await ensureStore();
-  const raw = await fs.readFile(resolvedStorePath, "utf8");
-  try {
-    const parsed = JSON.parse(raw) as Record<string, MentoringRoom>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
+/** 방 전체 스냅샷(메타데이터). 파일 실제 바이트(dataUrl)는 포함하지 않는다 — 다운로드는 file 라우트로. */
+export async function loadRoom(courseId: string, studentId: string): Promise<MentoringRoom> {
+  const [rep, books, msgs, notices] = await Promise.all([
+    prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } } }),
+    prisma.mentoringBook.findMany({ where: { courseId, studentId }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
+    prisma.mentoringMessage.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "asc" }, take: -500 }),
+    prisma.mentoringNotice.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "desc" } }),
+  ]);
 
-async function writeAll(all: Record<string, MentoringRoom>) {
-  await ensureStore();
-  await fs.writeFile(resolvedStorePath, JSON.stringify(all, null, 2), "utf8");
-}
+  const report: Report = rep
+    ? { topic: rep.topic, motive: rep.motive, process: rep.process, result: rep.result, difficulty: rep.difficulty, overcome: rep.overcome, learned: rep.learned, standard: rep.standard, references: rep.references }
+    : blankReport();
 
-function normalize(r: MentoringRoom | undefined): MentoringRoom {
-  if (!r) return emptyRoom();
+  const reportFile: FileMeta | null = rep && rep.fileName ? { name: rep.fileName, size: rep.fileSize ?? 0 } : null;
+
   return {
-    report: { ...blankReport(), ...(r.report ?? {}) },
-    chat: Array.isArray(r.chat) ? r.chat : [],
-    books: Array.isArray(r.books) ? r.books : [],
-    file: r.file && typeof r.file === "object" && typeof r.file.dataUrl === "string" ? r.file : null,
+    report,
+    reportFile,
+    books: books.map((b) => ({ book: b.book, author: b.author, motive: b.motive, review: b.review, influence: b.influence })),
+    chat: msgs.map((m) => ({
+      id: m.id,
+      from: (m.senderRole === "teacher" ? "teacher" : "student") as "teacher" | "student",
+      senderId: m.senderId,
+      text: m.deletedAt ? "" : m.text,
+      at: fmtAt(m.createdAt),
+      edited: !!m.editedAt && !m.deletedAt,
+      deleted: !!m.deletedAt,
+      kind: (m.kind === "file" ? "file" : "text") as "text" | "file",
+      file: m.kind === "file" && m.fileName && !m.deletedAt ? { name: m.fileName, size: m.fileSize ?? 0 } : null,
+      fileMime: m.deletedAt ? null : m.fileMime ?? null,
+    })),
+    notices: notices.map((n) => ({ id: n.id, body: n.body, at: fmtAt(n.createdAt), updated: n.updatedAt.getTime() - n.createdAt.getTime() > 1000 })),
   };
 }
 
-/** 방 키 = 강좌 + 학생. 학생별로 독립된 멘토링 방을 갖는다(관리자가 학생을 선택해 작업). */
-function roomKey(courseId: string, studentId: string): string {
-  return `${courseId}::${studentId}`;
-}
-
-export async function getRoom(courseId: string, studentId: string): Promise<MentoringRoom> {
-  const all = await readAll();
-  return normalize(all[roomKey(courseId, studentId)]);
-}
-
-export async function saveReport(courseId: string, studentId: string, report: Report): Promise<MentoringRoom> {
-  return withLock(async () => {
-    const all = await readAll();
-    const k = roomKey(courseId, studentId);
-    const room = normalize(all[k]);
-    room.report = { ...blankReport(), ...report };
-    all[k] = room;
-    await writeAll(all);
-    return room;
+/* ── 탐구 보고서 ── */
+export async function saveReport(courseId: string, studentId: string, report: Report): Promise<void> {
+  await prisma.mentoringReport.upsert({
+    where: { courseId_studentId: { courseId, studentId } },
+    create: { courseId, studentId, ...report },
+    update: { ...report },
   });
 }
 
-export async function addChat(courseId: string, studentId: string, msg: ChatMsg): Promise<MentoringRoom> {
-  return withLock(async () => {
-    const all = await readAll();
-    const k = roomKey(courseId, studentId);
-    const room = normalize(all[k]);
-    room.chat = [...room.chat, msg].slice(-500);
-    all[k] = room;
-    await writeAll(all);
-    return room;
+export type UploadFile = { name: string; size: number; mime: string; dataUrl: string };
+
+export async function setReportFile(courseId: string, studentId: string, file: UploadFile | null): Promise<void> {
+  const data = file ? { fileName: file.name, fileSize: file.size, fileData: file.dataUrl } : { fileName: null, fileSize: null, fileData: null };
+  await prisma.mentoringReport.upsert({
+    where: { courseId_studentId: { courseId, studentId } },
+    create: { courseId, studentId, ...blankReport(), ...data },
+    update: { ...data },
   });
 }
 
-export async function saveBooks(courseId: string, studentId: string, books: Book[]): Promise<MentoringRoom> {
-  return withLock(async () => {
-    const all = await readAll();
-    const k = roomKey(courseId, studentId);
-    const room = normalize(all[k]);
-    room.books = books.slice(0, 5);
-    all[k] = room;
-    await writeAll(all);
-    return room;
+export async function getReportFileData(courseId: string, studentId: string): Promise<{ name: string; dataUrl: string } | null> {
+  const rep = await prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } }, select: { fileName: true, fileData: true } });
+  if (!rep?.fileData || !rep.fileName) return null;
+  return { name: rep.fileName, dataUrl: rep.fileData };
+}
+
+/* ── 독서활동상황 ── */
+export async function saveBooks(courseId: string, studentId: string, books: Book[]): Promise<void> {
+  const trimmed = books.slice(0, 5);
+  await prisma.$transaction([
+    prisma.mentoringBook.deleteMany({ where: { courseId, studentId } }),
+    ...trimmed.map((b, i) => prisma.mentoringBook.create({ data: { courseId, studentId, sort: i, book: b.book, author: b.author, motive: b.motive, review: b.review, influence: b.influence } })),
+  ]);
+}
+
+/* ── 1:1 채팅 ── */
+export async function addTextMessage(courseId: string, studentId: string, senderId: string, senderRole: "teacher" | "student", text: string): Promise<void> {
+  await prisma.mentoringMessage.create({ data: { courseId, studentId, senderId, senderRole, kind: "text", text } });
+}
+
+export async function addFileMessage(courseId: string, studentId: string, senderId: string, senderRole: "teacher" | "student", file: UploadFile, caption = ""): Promise<void> {
+  await prisma.mentoringMessage.create({
+    data: { courseId, studentId, senderId, senderRole, kind: "file", text: caption, fileName: file.name, fileSize: file.size, fileMime: file.mime, fileData: file.dataUrl },
   });
 }
 
-export async function saveFile(courseId: string, studentId: string, file: MentoringFile | null): Promise<MentoringRoom> {
-  return withLock(async () => {
-    const all = await readAll();
-    const k = roomKey(courseId, studentId);
-    const room = normalize(all[k]);
-    room.file = file;
-    all[k] = room;
-    await writeAll(all);
-    return room;
-  });
+export async function getMessage(id: string) {
+  return prisma.mentoringMessage.findUnique({ where: { id } });
+}
+
+export async function editMessage(id: string, text: string): Promise<void> {
+  await prisma.mentoringMessage.update({ where: { id }, data: { text, editedAt: new Date() } });
+}
+
+export async function deleteMessage(id: string): Promise<void> {
+  // 소프트 삭제 — "삭제된 메시지입니다"로 표시. 파일 바이트는 회수.
+  await prisma.mentoringMessage.update({ where: { id }, data: { deletedAt: new Date(), fileData: null } });
+}
+
+export async function getMessageFileData(id: string): Promise<{ name: string; mime: string; dataUrl: string } | null> {
+  const m = await prisma.mentoringMessage.findUnique({ where: { id }, select: { kind: true, deletedAt: true, fileName: true, fileMime: true, fileData: true } });
+  if (!m || m.kind !== "file" || m.deletedAt || !m.fileData || !m.fileName) return null;
+  return { name: m.fileName, mime: m.fileMime ?? "application/octet-stream", dataUrl: m.fileData };
+}
+
+/* ── 개별 공지 ── */
+export async function addNotice(courseId: string, studentId: string, authorId: string, body: string): Promise<void> {
+  await prisma.mentoringNotice.create({ data: { courseId, studentId, authorId, body } });
+}
+export async function editNotice(id: string, body: string): Promise<void> {
+  await prisma.mentoringNotice.update({ where: { id }, data: { body } });
+}
+export async function getNotice(id: string) {
+  return prisma.mentoringNotice.findUnique({ where: { id } });
+}
+export async function deleteNotice(id: string): Promise<void> {
+  await prisma.mentoringNotice.delete({ where: { id } });
 }

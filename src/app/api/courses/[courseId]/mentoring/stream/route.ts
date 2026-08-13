@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
-import { getRoom } from "@/lib/mentoring-store";
+import { loadRoom } from "@/lib/mentoring-store";
 import { subscribeMentoring } from "@/lib/mentoring-bus";
 import { prisma } from "@/lib/prisma";
 
@@ -19,7 +19,7 @@ async function sessionFromReq(request: NextRequest) {
   }
 }
 
-/** 멘토링 방 SSE 스트림: 접속 시 현재 방 + 변경마다 즉시 푸시 */
+/** 멘토링 방 SSE 스트림: 접속 시 현재 방(메타) + 변경마다 즉시 푸시. 파일 바이트는 흘리지 않음. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
   if (!getCourse(courseId)) return new Response("Not found", { status: 404 });
@@ -58,16 +58,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           /* 닫힘 */
         }
       };
-      // 파일 dataUrl(수 MB)은 SSE 로 흘리지 않고 메타만 전송 → 다운로드는 GET 으로.
-      const sanitize = (room: Awaited<ReturnType<typeof getRoom>>) => ({
-        ...room,
-        file: room.file ? { name: room.file.name, size: room.file.size } : null,
-      });
 
-      // 최초 방 전송
-      send(sanitize(await getRoom(courseId, studentId)));
+      // 최초 방 전송(메타데이터 — loadRoom 은 파일 바이트를 포함하지 않음)
+      send(await loadRoom(courseId, studentId));
 
-      const unsubscribe = subscribeMentoring(courseId, studentId, (room) => send(sanitize(room)));
+      const unsubscribe = subscribeMentoring(courseId, studentId, (room) => send(room));
 
       const heartbeat = setInterval(() => {
         if (closed) return;
