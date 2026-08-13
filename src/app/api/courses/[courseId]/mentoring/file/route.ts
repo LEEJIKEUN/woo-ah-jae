@@ -66,10 +66,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   if (!buffer) return new NextResponse("Not found", { status: 404 });
 
+  // 기본은 inline(새 탭에서 보기), ?download=1 이면 첨부 다운로드
+  const download = new URL(request.url).searchParams.get("download") === "1";
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": file.mime || "application/octet-stream",
-      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+      "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
       "Cache-Control": "private, max-age=60",
     },
   });
