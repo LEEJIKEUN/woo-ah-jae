@@ -272,8 +272,7 @@ function VideoBlockEditor({ courseId, activityId, block, onPatch }: { courseId: 
           <video
             controls
             preload="metadata"
-            controlsList="nodownload noremoteplayback noplaybackrate"
-            disablePictureInPicture
+            controlsList="nodownload"
             onContextMenu={(e) => e.preventDefault()}
             className="w-full rounded-[8px]"
             style={{ maxHeight: 300, background: "#000" }}
@@ -318,8 +317,7 @@ function BlockView({ block, courseId, activityId }: { block: Block; courseId: st
         <video
           controls
           preload="metadata"
-          controlsList="nodownload noremoteplayback noplaybackrate"
-          disablePictureInPicture
+          controlsList="nodownload"
           onContextMenu={(e) => e.preventDefault()}
           className="w-full"
           style={{ maxHeight: 520 }}
