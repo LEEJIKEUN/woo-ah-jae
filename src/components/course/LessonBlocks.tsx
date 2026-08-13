@@ -269,7 +269,16 @@ function VideoBlockEditor({ courseId, activityId, block, onPatch }: { courseId: 
             </label>
           </div>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video controls preload="metadata" className="w-full rounded-[8px]" style={{ maxHeight: 300, background: "#000" }} src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`} />
+          <video
+            controls
+            preload="metadata"
+            controlsList="nodownload noremoteplayback noplaybackrate"
+            disablePictureInPicture
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full rounded-[8px]"
+            style={{ maxHeight: 300, background: "#000" }}
+            src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`}
+          />
         </div>
       ) : uploading ? (
         <div className="rounded-[8px] border px-3 py-3" style={{ borderColor: LINE }}>
@@ -306,7 +315,16 @@ function BlockView({ block, courseId, activityId }: { block: Block; courseId: st
     return block.videoKey ? (
       <div className="overflow-hidden rounded-[10px] border" style={{ borderColor: LINE, background: "#000" }}>
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video controls preload="metadata" className="w-full" style={{ maxHeight: 520 }} src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`} />
+        <video
+          controls
+          preload="metadata"
+          controlsList="nodownload noremoteplayback noplaybackrate"
+          disablePictureInPicture
+          onContextMenu={(e) => e.preventDefault()}
+          className="w-full"
+          style={{ maxHeight: 520 }}
+          src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`}
+        />
       </div>
     ) : (
       <p className="rounded-[10px] py-3 text-center text-[13px]" style={{ background: PANEL, color: SUB }}>동영상이 아직 업로드되지 않았습니다.</p>

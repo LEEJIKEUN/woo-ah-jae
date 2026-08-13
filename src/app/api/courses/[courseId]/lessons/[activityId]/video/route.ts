@@ -35,6 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const key = await getLessonVideoKey(courseId, activityId, blockId);
   if (!key) return new NextResponse("Not found", { status: 404 });
 
-  const signed = await presignGetUrl(key, 6 * 3600);
+  // 짧은 만료(2시간) — 서명 URL 이 새어나가도 유효기간이 짧다. 재생 중엔 라우트가 재서명(302).
+  const signed = await presignGetUrl(key, 2 * 3600);
   return NextResponse.redirect(signed, { status: 302, headers: { "Cache-Control": "private, no-store" } });
 }
