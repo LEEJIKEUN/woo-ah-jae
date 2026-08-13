@@ -44,6 +44,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       fileMime: true,
       fileSize: true,
       author: { select: { role: true, studentProfile: { select: { realName: true } } } },
+      _count: { select: { likes: true } },
+      likes: { where: { userId: s.userId }, select: { userId: true } },
     },
   });
 
@@ -57,6 +59,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       authorName: c.author.studentProfile?.realName ?? "사용자",
       authorRole: c.author.role,
       file: c.fileName ? { name: c.fileName, size: c.fileSize ?? 0, mime: c.fileMime ?? "application/octet-stream" } : null,
+      likeCount: c._count.likes,
+      likedByMe: c.likes.length > 0,
     })),
   });
 }

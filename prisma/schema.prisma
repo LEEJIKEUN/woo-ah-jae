@@ -191,8 +191,21 @@ model CoursePostComment {
   author          User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parent          CoursePostComment?  @relation("CourseCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
   replies         CoursePostComment[] @relation("CourseCommentReplies")
+  likes           CoursePostCommentLike[]
 
   @@index([postId, createdAt])
+}
+
+/** 댓글 좋아요 — (댓글, 사용자) 유일. */
+model CoursePostCommentLike {
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment   CoursePostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([commentId])
 }
 
 /** 멘토링 '과목별 세부능력 특기사항 작성 가이드' — 강좌별 1개, 관리자·퍼실 편집. */

@@ -42,6 +42,8 @@ type Comment = {
   authorName: string;
   authorRole: string;
   file: CommentFile | null;
+  likeCount: number;
+  likedByMe: boolean;
 };
 
 function fmtDate(iso: string) {
@@ -195,6 +197,27 @@ export default function CourseBoard({
     const d = (await res.json()) as { error?: string };
     alert(d.error ?? "댓글 등록에 실패했습니다.");
     return false;
+  }
+
+  async function likeComment(postId: string, commentId: string) {
+    setCommentsByPost((m) => {
+      const list = m[postId];
+      if (!list) return m;
+      return { ...m, [postId]: list.map((c) => (c.id === commentId ? { ...c, likedByMe: !c.likedByMe, likeCount: c.likeCount + (c.likedByMe ? -1 : 1) } : c)) };
+    });
+    try {
+      const res = await fetch(`/api/courses/${courseId}/posts/${postId}/comments/${commentId}/like`, { method: "POST" });
+      const d = (await res.json().catch(() => ({}))) as { liked?: boolean; likeCount?: number };
+      if (res.ok) {
+        setCommentsByPost((m) => {
+          const list = m[postId];
+          if (!list) return m;
+          return { ...m, [postId]: list.map((c) => (c.id === commentId ? { ...c, likedByMe: !!d.liked, likeCount: d.likeCount ?? c.likeCount } : c)) };
+        });
+      }
+    } catch {
+      /* 무시 */
+    }
   }
 
   async function deleteComment(postId: string, commentId: string) {
@@ -358,6 +381,7 @@ export default function CourseBoard({
                           onSubmit={(body, parentId, file) => submitComment(p.id, body, parentId, file)}
                           onDelete={(commentId) => deleteComment(p.id, commentId)}
                           onEdit={(commentId, body) => editComment(p.id, commentId, body)}
+                          onLike={(commentId) => likeComment(p.id, commentId)}
                         />
                       </div>
                     ) : null}
@@ -465,6 +489,7 @@ function CommentsSection({
   onSubmit,
   onDelete,
   onEdit,
+  onLike,
 }: {
   comments: Comment[] | null;
   courseId: string;
@@ -476,6 +501,7 @@ function CommentsSection({
   onSubmit: (body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
   onEdit: (commentId: string, body: string) => Promise<boolean>;
+  onLike: (commentId: string) => void;
 }) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const tree = comments ? buildTree(comments) : [];
@@ -508,6 +534,7 @@ function CommentsSection({
               onSubmit={onSubmit}
               onDelete={onDelete}
               onEdit={onEdit}
+              onLike={onLike}
             />
           ))}
         </ul>
@@ -534,6 +561,7 @@ function CommentNode({
   onSubmit,
   onDelete,
   onEdit,
+  onLike,
 }: {
   node: Node;
   depth: number;
@@ -548,6 +576,7 @@ function CommentNode({
   onSubmit: (body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
   onEdit: (commentId: string, body: string) => Promise<boolean>;
+  onLike: (commentId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(node.body);
@@ -599,6 +628,10 @@ function CommentNode({
           </>
         )}
         <div className="mt-1.5 flex items-center gap-3 text-[12px]">
+          <button type="button" onClick={() => onLike(node.id)} className="inline-flex items-center gap-1" aria-label="좋아요" title="좋아요">
+            <Heart size={14} style={{ color: node.likedByMe ? "#d1493a" : MUTED }} fill={node.likedByMe ? "#d1493a" : "none"} />
+            {node.likeCount > 0 ? <span style={{ color: node.likedByMe ? "#d1493a" : SUB }}>{node.likeCount}</span> : null}
+          </button>
           {canComment ? (
             <button type="button" onClick={() => setReplyingTo(isReplying ? null : node.id)} style={{ color: DEEP }}>답글</button>
           ) : null}
@@ -642,6 +675,7 @@ function CommentNode({
               onSubmit={onSubmit}
               onDelete={onDelete}
               onEdit={onEdit}
+              onLike={onLike}
             />
           ))}
         </ul>

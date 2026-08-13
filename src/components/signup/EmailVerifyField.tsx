@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const inputCls =
   "w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2";
@@ -10,14 +10,29 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
  * 회원가입 이메일 입력 + 6자리 코드 인증.
  * <input name="email"> 을 직접 렌더(readOnly 잠금이라 폼 제출값에 포함됨).
  * 인증 완료 여부를 onVerifiedChange 로 부모에 알려 제출 버튼을 제어한다.
+ * initialEmail/initialVerified 로 임시저장 복원 지원.
  */
 export default function EmailVerifyField({
   onVerifiedChange,
+  onEmailChange,
+  initialEmail = "",
+  initialVerified = false,
 }: {
   onVerifiedChange?: (verified: boolean) => void;
+  onEmailChange?: (email: string) => void;
+  initialEmail?: string;
+  initialVerified?: boolean;
 }) {
-  const [email, setEmail] = useState("");
-  const [phase, setPhase] = useState<"idle" | "sent" | "verified">("idle");
+  const [email, setEmailState] = useState(initialEmail);
+  const setEmail = (v: string) => { setEmailState(v); onEmailChange?.(v); };
+  const [phase, setPhase] = useState<"idle" | "sent" | "verified">(initialVerified ? "verified" : "idle");
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    if (initialVerified) onVerifiedChange?.(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [code, setCode] = useState("");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
