@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
       if (!user) {
         return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
       }
+      if (user.lifecycleStatus === UserLifecycleStatus.PENDING) {
+        return NextResponse.json({ error: "관리자 승인 대기 중인 계정입니다. 승인 완료 시 이메일로 안내드립니다." }, { status: 403 });
+      }
       if (user.lifecycleStatus !== UserLifecycleStatus.ACTIVE) {
         return NextResponse.json({ error: "비활성화된 계정입니다. 관리자에게 문의하세요." }, { status: 403 });
       }

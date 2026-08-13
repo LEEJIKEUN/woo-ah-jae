@@ -28,6 +28,7 @@ enum CoursePostKind {
 
 enum UserLifecycleStatus {
   ACTIVE
+  PENDING
   DELETED
   ACHIEVED
 }
@@ -489,6 +490,30 @@ model StudentProfile {
   updatedAt         DateTime @updatedAt
 
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/** 퍼실리테이터 가입 신청(관리자 승인 대기). 승인 시 User.lifecycleStatus=ACTIVE. */
+model FacilitatorApplication {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  status           String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  realName         String    @default("")
+  birthDate        DateTime?
+  phone            String    @default("")
+  university       String    @default("")
+  department       String    @default("")
+  entranceYear     Int?
+  enrollmentStatus String    @default("") // 재학 | 휴학
+  docType          String    @default("") // 재적증명서 | 재학증명서 | 휴학증명서 | 성적증명서
+  fileKey          String    @default("")
+  fileName         String    @default("")
+  fileMime         String    @default("")
+  fileSize         Int       @default(0)
+  createdAt        DateTime  @default(now())
+  reviewedAt       DateTime?
+  reviewedBy       String?
+
+  @@index([status, createdAt])
 }
 
 model VerificationSubmission {

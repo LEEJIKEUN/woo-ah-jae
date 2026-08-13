@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { hashPassword } from "@/lib/auth";
 import { sendParentConsentEmail } from "@/lib/mailer";
+import { savePrivateFile, validateUpload } from "@/lib/upload";
 import { clearEmailCode, isEmailVerified } from "@/lib/email-code-store";
 import { createLocalSignup, isDbConnectionError, listLocalSignups } from "@/lib/local-signup-store";
 import { prisma } from "@/lib/prisma";
@@ -18,8 +19,6 @@ const signupSchema = z.object({
   birthDate: z.string().date(),
   // 졸업 예정 연도 (예: "2028년 1(2)월") — grade 컬럼(String)에 저장
   grade: z.string().min(1).max(40),
-  // 퍼실리테이터(강의 담당자) 가입 초대코드 — 일치 시 FACILITATOR 역할로 생성
-  facilitatorCode: z.string().max(100).optional(),
 });
 
 // 학부모 가입 — 간소 폼(이름·이메일·비밀번호 + 자녀 이메일). 학생 전용 항목은 받지 않음.
@@ -31,13 +30,19 @@ const parentSchema = z.object({
   childEmail: z.string().email(),
 });
 
-// 퍼실리테이터(강의 담당자) 가입 — 간소 폼(이름·이메일·비밀번호 + 초대코드).
+// 퍼실리테이터(강의 담당자) 가입 — 상세 폼 + 증빙서류, 관리자 승인 대기(PENDING).
 const facilitatorSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(72),
   passwordConfirm: z.string().min(8).max(72),
   realName: z.string().min(1).max(80),
-  facilitatorCode: z.string().min(1).max(100),
+  birthDate: z.string().date(),
+  phone: z.string().min(1).max(40),
+  university: z.string().min(1).max(120),
+  department: z.string().min(1).max(120),
+  entranceYear: z.string().regex(/^\d{4}$/),
+  enrollmentStatus: z.enum(["재학", "휴학"]),
+  docType: z.enum(["재적증명서", "재학증명서", "휴학증명서", "성적증명서"]),
 });
 
 /**
@@ -85,23 +90,13 @@ export async function POST(request: NextRequest) {
       schoolName: form.get("schoolName"),
       birthDate: form.get("birthDate"),
       grade: form.get("grade"),
-      facilitatorCode: form.get("facilitatorCode") ?? undefined,
     });
 
     if (parsed.password !== parsed.passwordConfirm) {
       return NextResponse.json({ error: "비밀번호 확인이 일치하지 않습니다." }, { status: 400 });
     }
 
-    // 퍼실리테이터 초대코드 검증 — 입력됐으면 서버 환경변수와 일치해야 함
-    const facilitatorCode = (parsed.facilitatorCode ?? "").trim();
-    let signupRole: UserRole = UserRole.STUDENT;
-    if (facilitatorCode) {
-      const expected = (process.env.FACILITATOR_SIGNUP_CODE ?? "").trim();
-      if (!expected || facilitatorCode !== expected) {
-        return NextResponse.json({ error: "퍼실리테이터 초대코드가 올바르지 않습니다." }, { status: 403 });
-      }
-      signupRole = UserRole.FACILITATOR;
-    }
+    const signupRole: UserRole = UserRole.STUDENT;
 
     if (!(await isEmailVerified(parsed.email))) {
       return NextResponse.json({ error: "이메일 인증을 완료해 주세요." }, { status: 400 });
@@ -282,18 +277,30 @@ async function handleFacilitatorSignup(form: FormData): Promise<NextResponse> {
     password: form.get("password"),
     passwordConfirm: form.get("passwordConfirm"),
     realName: form.get("realName"),
-    facilitatorCode: form.get("facilitatorCode"),
+    birthDate: form.get("birthDate"),
+    phone: form.get("phone"),
+    university: form.get("university"),
+    department: form.get("department"),
+    entranceYear: form.get("entranceYear"),
+    enrollmentStatus: form.get("enrollmentStatus"),
+    docType: form.get("docType"),
   });
 
   if (parsed.password !== parsed.passwordConfirm) {
     return NextResponse.json({ error: "비밀번호 확인이 일치하지 않습니다." }, { status: 400 });
   }
-  const expected = (process.env.FACILITATOR_SIGNUP_CODE ?? "").trim();
-  if (!expected || parsed.facilitatorCode.trim() !== expected) {
-    return NextResponse.json({ error: "퍼실리테이터 초대코드가 올바르지 않습니다." }, { status: 403 });
-  }
   if (!(await isEmailVerified(parsed.email))) {
     return NextResponse.json({ error: "이메일 인증을 완료해 주세요." }, { status: 400 });
+  }
+
+  const doc = form.get("doc");
+  if (!(doc instanceof File) || doc.size === 0) {
+    return NextResponse.json({ error: "증빙 서류 파일을 업로드해 주세요." }, { status: 400 });
+  }
+  try {
+    validateUpload(doc);
+  } catch {
+    return NextResponse.json({ error: "PDF 또는 이미지 파일(최대 10MB)만 업로드할 수 있습니다." }, { status: 400 });
   }
 
   const email = parsed.email.trim().toLowerCase();
@@ -302,17 +309,38 @@ async function handleFacilitatorSignup(form: FormData): Promise<NextResponse> {
     return NextResponse.json({ error: "이미 사용 중인 이메일입니다." }, { status: 409 });
   }
 
+  const fileKey = await savePrivateFile(doc);
   const passwordHash = await hashPassword(parsed.password);
+  const birth = new Date(parsed.birthDate);
   const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({ data: { email, passwordHash, role: UserRole.FACILITATOR } });
-    // 이름 표시용 최소 프로필(학생 전용 항목은 비움 → nullable)
-    await tx.studentProfile.create({ data: { userId: user.id, realName: parsed.realName.trim() } });
+    const user = await tx.user.create({
+      data: { email, passwordHash, role: UserRole.FACILITATOR, lifecycleStatus: UserLifecycleStatus.PENDING },
+    });
+    await tx.studentProfile.create({ data: { userId: user.id, realName: parsed.realName.trim(), birthDate: birth } });
+    await tx.facilitatorApplication.create({
+      data: {
+        userId: user.id,
+        status: "PENDING",
+        realName: parsed.realName.trim(),
+        birthDate: birth,
+        phone: parsed.phone.trim(),
+        university: parsed.university.trim(),
+        department: parsed.department.trim(),
+        entranceYear: Number(parsed.entranceYear),
+        enrollmentStatus: parsed.enrollmentStatus,
+        docType: parsed.docType,
+        fileKey,
+        fileName: doc.name,
+        fileMime: doc.type,
+        fileSize: doc.size,
+      },
+    });
     return user;
   });
 
   await clearEmailCode(parsed.email);
   return NextResponse.json(
-    { id: result.id, email: result.email, status: "ACTIVE", role: "FACILITATOR", fallback: false },
+    { id: result.id, email: result.email, status: "PENDING", role: "FACILITATOR", fallback: false },
     { status: 201 }
   );
 }

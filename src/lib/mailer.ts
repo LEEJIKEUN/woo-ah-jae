@@ -156,3 +156,67 @@ export async function sendEmailVerificationCode(params: {
 
   return postResend({ apiKey, from, to: params.to, subject, text, html });
 }
+
+export async function sendFacilitatorApprovalEmail(params: { to: string; name: string }) {
+  const { apiKey, from } = getMailerConfig();
+  const subject = "[우아재] 퍼실리테이터 인력풀 등록이 완료되었습니다";
+  const text = [
+    `${params.name}님, 안녕하세요.`,
+    "",
+    "우아재 퍼실리테이터 인력풀 등록이 완료되었습니다. 지원해 주셔서 감사합니다.",
+    "앞으로 강좌가 배정될 때 담당자가 안내 전화를 드릴 예정입니다.",
+    "",
+    "[퍼실리테이터 역할 안내]",
+    "- 담당 강좌의 학습 운영을 돕고, 수강생의 탐구활동을 멘토링합니다.",
+    "- 과제·상호피드백 관리, 1:1 멘토링, 게시판 소통 등을 지원합니다.",
+    "",
+    "[성장 경로 (가안)]",
+    "일정 기준(활동 성실도·수강생 만족도·운영 기여 등)에 따라",
+    "멘토 → 우수 멘토 → 관리 멘토 로 승격할 수 있으며, 등급에 따라 시급도 인상됩니다.",
+    "",
+    "함께하게 되어 반갑습니다. 우아재 드림.",
+  ].join("\n");
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.7; color:#2c2823; max-width:560px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">퍼실리테이터 인력풀 등록 완료</h2>
+      <p><strong>${params.name}</strong>님, 안녕하세요.</p>
+      <p>우아재 <strong>퍼실리테이터 인력풀 등록이 완료</strong>되었습니다. 지원해 주셔서 감사합니다.<br/>앞으로 강좌가 배정될 때 담당자가 <strong>안내 전화</strong>를 드릴 예정입니다.</p>
+      <div style="margin:18px 0; padding:14px 16px; background:#FBF8F2; border:1px solid #E4DBC7; border-radius:12px;">
+        <p style="margin:0 0 6px; font-weight:700; color:#6B5342;">퍼실리테이터 역할</p>
+        <p style="margin:0; color:#334155;">담당 강좌의 학습 운영을 돕고, 수강생의 탐구활동을 멘토링합니다. 과제·상호피드백 관리, 1:1 멘토링, 게시판 소통 등을 지원합니다.</p>
+      </div>
+      <div style="margin:18px 0; padding:14px 16px; background:#FBF8F2; border:1px solid #E4DBC7; border-radius:12px;">
+        <p style="margin:0 0 6px; font-weight:700; color:#6B5342;">성장 경로 (가안)</p>
+        <p style="margin:0; color:#334155;">활동 성실도·수강생 만족도·운영 기여 등 기준에 따라 <strong>멘토 → 우수 멘토 → 관리 멘토</strong>로 승격할 수 있으며, 등급에 따라 <strong>시급도 인상</strong>됩니다.</p>
+      </div>
+      <p style="color:#8A8479;">함께하게 되어 반갑습니다. — 우아재 드림</p>
+    </div>
+  `;
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}
+
+export async function sendFacilitatorRejectionEmail(params: { to: string; name: string }) {
+  const { apiKey, from } = getMailerConfig();
+  const subject = "[우아재] 퍼실리테이터 지원 결과 안내";
+  const text = [
+    `${params.name}님, 안녕하세요.`,
+    "",
+    "우아재 퍼실리테이터에 관심을 갖고 지원해 주셔서 진심으로 감사드립니다.",
+    "아쉽게도 이번 퍼실리테이터 인력풀 등록에는 함께하지 못하게 되었습니다.",
+    "",
+    "지원자 개개인의 역량과 무관하게, 현재 운영 상황과 배정 계획에 따른 결정임을 너그러이 이해해 주시면 감사하겠습니다.",
+    "다음 기회에 다시 지원해 주시면 반갑게 검토하겠습니다.",
+    "",
+    "관심과 성원에 다시 한번 감사드립니다. 우아재 드림.",
+  ].join("\n");
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.7; color:#2c2823; max-width:560px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">퍼실리테이터 지원 결과 안내</h2>
+      <p><strong>${params.name}</strong>님, 안녕하세요.</p>
+      <p>우아재 퍼실리테이터에 관심을 갖고 지원해 주셔서 진심으로 감사드립니다.<br/>아쉽게도 <strong>이번 인력풀 등록</strong>에는 함께하지 못하게 되었습니다.</p>
+      <p style="color:#334155;">지원자 개개인의 역량과 무관하게 현재 운영 상황과 배정 계획에 따른 결정임을 너그러이 이해해 주시면 감사하겠습니다. <strong>다음 기회</strong>에 다시 지원해 주시면 반갑게 검토하겠습니다.</p>
+      <p style="color:#8A8479;">관심과 성원에 다시 한번 감사드립니다. — 우아재 드림</p>
+    </div>
+  `;
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}

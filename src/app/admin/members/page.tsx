@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import { formatKstDate } from "@/lib/date-format";
 import { COURSES } from "@/lib/course/content";
 import MemberProfileModal from "./MemberProfileModal";
+import FacilitatorApplications from "./FacilitatorApplications";
 
 type MemberItem = {
   id: string;
@@ -463,6 +464,8 @@ export default function AdminMembersPage() {
         </Card>
 
         {profileId ? <MemberProfileModal id={profileId} onClose={() => setProfileId(null)} onSaved={() => void load()} /> : null}
+
+        <FacilitatorApplications />
       </section>
     </main>
   );

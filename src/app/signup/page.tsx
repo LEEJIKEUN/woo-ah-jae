@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import SchoolCombobox from "@/components/signup/SchoolCombobox";
 import EmailVerifyField from "@/components/signup/EmailVerifyField";
 import { GRADUATION_TERMS } from "@/lib/signup-options";
+import { UNIVERSITIES, DEPARTMENTS } from "@/lib/university-options";
+
+const ENTRANCE_YEARS = Array.from({ length: 2033 - 2016 + 1 }, (_, i) => String(2016 + i));
 
 countries.registerLocale(enLocale);
 
@@ -77,12 +80,20 @@ export default function SignupPage() {
           return;
         }
       } else if (accountType === "facilitator") {
-        const code = formData.get("facilitatorCode");
-        if (typeof code !== "string" || !code.trim()) {
-          setError("퍼실리테이터 초대코드를 입력해 주세요.");
+        if (!birthYear || !birthMonth || !birthDay) {
+          setError("생년월일을 모두 선택해주세요.");
           setMessage(null);
           return;
         }
+        formData.set("birthDate", `${birthYear}-${String(birthMonth).padStart(2, "0")}-${String(birthDay).padStart(2, "0")}`);
+        const need: [string, string][] = [["phone", "연락처"], ["university", "소속 대학교"], ["department", "소속 학과(부)"], ["entranceYear", "입학연도"], ["enrollmentStatus", "학적 상태"], ["docType", "증빙 서류 종류"]];
+        for (const [k, label] of need) {
+          const v = formData.get(k);
+          if (typeof v !== "string" || !v.trim()) { setError(`${label}을(를) 입력해 주세요.`); setMessage(null); return; }
+        }
+        const doc = formData.get("doc");
+        if (!(doc instanceof File) || doc.size === 0) { setError("증빙 서류 파일을 업로드해 주세요."); setMessage(null); return; }
+        if (doc.size > 10 * 1024 * 1024) { setError("증빙 파일이 너무 큽니다. (최대 10MB)"); setMessage(null); return; }
       } else {
         if (!birthYear || !birthMonth || !birthDay) {
           setError("생년월일을 모두 선택해주세요.");
@@ -114,8 +125,8 @@ export default function SignupPage() {
         return;
       }
 
-      setMessage("회원가입이 완료되었습니다. 완료 화면으로 이동합니다.");
-      router.push("/signup/success");
+      setMessage("제출이 완료되었습니다. 완료 화면으로 이동합니다.");
+      router.push(accountType === "facilitator" ? "/signup/success?pending=1" : "/signup/success");
     } catch {
       setError("서버 응답이 지연되거나 연결에 문제가 있습니다. 다시 시도해주세요.");
       setMessage(null);
@@ -259,18 +270,73 @@ export default function SignupPage() {
         ) : null}
 
         {accountType === "facilitator" ? (
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">퍼실리테이터 초대코드</span>
-            <input
-              name="facilitatorCode"
-              type="text"
-              required
-              autoComplete="off"
-              className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2"
-              placeholder="발급받은 초대코드"
-            />
-            <p className="text-xs text-slate-500">담당 강의의 발급 초대코드를 입력하면 퍼실리테이터(강의 담당자)로 가입됩니다.</p>
-          </label>
+          <>
+            <div className="space-y-2">
+              <span className="text-sm font-medium">생년월일</span>
+              <div className="grid grid-cols-3 gap-3">
+                <select value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                  <option value="">년도</option>
+                  {yearOptions.map((year) => (<option key={year} value={year}>{year}</option>))}
+                </select>
+                <select value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)} className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                  <option value="">월</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (<option key={month} value={month}>{month}</option>))}
+                </select>
+                <select value={birthDay} onChange={(e) => setBirthDay(e.target.value)} className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                  <option value="">일</option>
+                  {dayOptions.map((day) => (<option key={day} value={day}>{day}</option>))}
+                </select>
+              </div>
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">연락처</span>
+              <input name="phone" type="tel" required autoComplete="off" placeholder="010-1234-5678" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2" />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">소속 대학교</span>
+              <input name="university" list="universities" required autoComplete="off" placeholder="대학교명을 입력·검색" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2" />
+              <datalist id="universities">{UNIVERSITIES.map((u) => (<option key={u} value={u} />))}</datalist>
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">소속 학과(부)</span>
+              <input name="department" list="departments" required autoComplete="off" placeholder="학과(부)명을 입력·검색" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2" />
+              <datalist id="departments">{DEPARTMENTS.map((d) => (<option key={d} value={d} />))}</datalist>
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-sm font-medium">입학연도</span>
+                <select name="entranceYear" required defaultValue="" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                  <option value="">선택</option>
+                  {ENTRANCE_YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
+                </select>
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium">학적 상태</span>
+                <select name="enrollmentStatus" required defaultValue="" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                  <option value="">선택</option>
+                  <option value="재학">재학</option>
+                  <option value="휴학">휴학</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">증빙 서류</span>
+              <select name="docType" required defaultValue="" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                <option value="">서류 종류 선택 (택 1)</option>
+                <option value="재적증명서">재적증명서</option>
+                <option value="재학증명서">재학증명서</option>
+                <option value="휴학증명서">휴학증명서</option>
+                <option value="성적증명서">성적증명서</option>
+              </select>
+              <input name="doc" type="file" required accept="application/pdf,image/*" className="mt-2 w-full text-sm" />
+              <p className="text-xs text-slate-500">PDF 또는 이미지 파일 업로드 (최대 10MB). 관리자 승인 후 가입이 완료됩니다.</p>
+            </label>
+          </>
         ) : null}
 
         {message ? <p className="rounded-md bg-blue-500/10 px-3 py-2 text-sm text-blue-600">{message}</p> : null}
