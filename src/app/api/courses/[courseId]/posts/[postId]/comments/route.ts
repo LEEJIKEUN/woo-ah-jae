@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { canEnterClassroom, isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled } from "@/lib/enrollment-store";
-import { createNotifications, courseStaffIds, type NotificationInput } from "@/lib/notification-store";
+import { createNotifications, courseStaffIds, notifyMentions, type NotificationInput } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -97,6 +97,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   add(parentAuthorId, "내 댓글에 답글이 달렸어요");
   for (const st of await courseStaffIds(courseId)) add(st, `새 댓글 · ${post.title}`);
   await createNotifications(notify);
+  // @이름 멘션 → 해당 학생(+학부모) 알림
+  await notifyMentions(courseId, text, { actorUserId: s.userId, href, context: "댓글" });
 
   return NextResponse.json({ ok: true, id: c.id }, { status: 201 });
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isStaffRole } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
-import { createNotifications } from "@/lib/notification-store";
+import { createNotifications, notifyMentions } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 async function sessionFromReq(request: NextRequest) {
@@ -45,6 +45,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     await createNotifications(
       ids.filter((id) => id !== s.userId).map((uid) => ({ userId: uid, kind: post.kind === "NOTICE" ? "notice" : "post", title: `${label} · ${updated.title}`, body: updated.body.slice(0, 200), href }))
     );
+  }
+  // 수정된 본문의 @이름 멘션 → 해당 학생(+학부모) 알림
+  {
+    const href = post.kind === "NOTICE" ? `/course/${courseId}/notices` : `/course/${courseId}/board`;
+    await notifyMentions(courseId, `${updated.title}\n${updated.body}`, { actorUserId: s.userId, href, context: post.kind === "NOTICE" ? "공지" : "토론글" });
   }
 
   return NextResponse.json({ ok: true, post: updated });

@@ -3,7 +3,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { canEnterClassroom, isStaffRole } from "@/lib/course/access";
 import { isUserEnrolled, getEnrolledUserIds } from "@/lib/enrollment-store";
-import { createNotifications, notifyCourseStaff } from "@/lib/notification-store";
+import { createNotifications, notifyCourseStaff, notifyMentions } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -96,6 +96,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } else {
     await notifyCourseStaff(courseId, s.userId, { kind: "post", title: `새 토론글 · ${title}`, body, href: `/course/${courseId}/board` });
   }
+  // @이름 멘션 → 해당 학생(+학부모) 알림
+  const href = kind === "NOTICE" ? `/course/${courseId}/notices` : `/course/${courseId}/board`;
+  await notifyMentions(courseId, `${title}\n${body}`, { actorUserId: s.userId, href, context: kind === "NOTICE" ? "공지" : "토론글" });
 
   return NextResponse.json({ ok: true, id: post.id }, { status: 201 });
 }

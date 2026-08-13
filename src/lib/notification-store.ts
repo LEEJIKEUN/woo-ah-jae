@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { pingUser } from "@/lib/inbox-bus";
+import { getEnrolledUserIds } from "@/lib/enrollment-store";
 
 export type NotificationInput = { userId: string; kind: string; title: string; body?: string; href: string };
 
@@ -33,6 +34,58 @@ export async function courseStaffIds(courseId: string): Promise<string[]> {
 export async function notifyCourseStaff(courseId: string, actorUserId: string, n: { kind: string; title: string; body?: string; href: string }): Promise<void> {
   const ids = (await courseStaffIds(courseId)).filter((id) => id !== actorUserId);
   await createNotifications(ids.map((uid) => ({ userId: uid, ...n })));
+}
+
+/**
+ * 본문에서 @이름 멘션을 찾아 해당 수강생과 승인된 학부모에게 알림.
+ * 이름은 강좌 수강생 실명과 정확히 일치(@ 접두)해야 매칭. 행위자 본인은 제외.
+ */
+export async function notifyMentions(
+  courseId: string,
+  text: string,
+  opts: { actorUserId: string; href: string; context: string }
+): Promise<void> {
+  if (!text || !text.includes("@")) return;
+  const ids = await getEnrolledUserIds(courseId);
+  if (!ids.length) return;
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, studentProfile: { select: { realName: true } } },
+  });
+  // @이름 뒤에 다른 글자가 붙지 않는 경계 매칭 → "홍길"이 "@홍길동"에 오탐되지 않게
+  const mentionedByName = (name: string) => {
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    try {
+      return new RegExp(`(?:^|[^\\p{L}\\p{N}_])@${esc}(?![\\p{L}\\p{N}_])`, "u").test(text);
+    } catch {
+      return text.includes(`@${name}`);
+    }
+  };
+  const mentioned = users.filter((u) => {
+    const nm = u.studentProfile?.realName?.trim();
+    return nm && u.id !== opts.actorUserId && mentionedByName(nm);
+  });
+  if (!mentioned.length) return;
+
+  const actor = await prisma.user.findUnique({ where: { id: opts.actorUserId }, select: { studentProfile: { select: { realName: true } } } });
+  const actorName = actor?.studentProfile?.realName ?? "누군가";
+
+  const links = await prisma.parentChildLink.findMany({
+    where: { childUserId: { in: mentioned.map((u) => u.id) }, status: "APPROVED" },
+    select: { parentUserId: true, child: { select: { studentProfile: { select: { realName: true } } } } },
+  });
+
+  const body = text.slice(0, 300);
+  const rows: NotificationInput[] = [];
+  for (const u of mentioned) {
+    rows.push({ userId: u.id, kind: "mention", title: `${actorName}님이 ${opts.context}에서 회원님을 언급했어요`, body, href: opts.href });
+  }
+  for (const l of links) {
+    if (l.parentUserId === opts.actorUserId) continue;
+    const childName = l.child.studentProfile?.realName ?? "자녀";
+    rows.push({ userId: l.parentUserId, kind: "mention", title: `${actorName}님이 ${opts.context}에서 ${childName}님을 언급했어요`, body, href: opts.href });
+  }
+  await createNotifications(rows);
 }
 
 export async function unreadNotificationCount(userId: string): Promise<number> {

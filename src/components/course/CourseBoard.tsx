@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronDown, ChevronUp, PenLine, X, MessageSquare, Trash2, CornerDownRight, Send, Pencil } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
+import MentionField, { type Member } from "@/components/course/MentionField";
 
 const BROWN = "#8C6E59";
 const DEEP = "#6B5342";
@@ -80,6 +81,16 @@ export default function CourseBoard({
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editPostTitle, setEditPostTitle] = useState("");
   const [editPostBody, setEditPostBody] = useState("");
+  const [members, setMembers] = useState<Member[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/courses/${courseId}/members`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { members: [] }))
+      .then((d) => { if (alive) setMembers(Array.isArray(d.members) ? d.members : []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [courseId]);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -237,7 +248,7 @@ export default function CourseBoard({
           {composing ? (
             <div className="mt-4 space-y-3 rounded-[14px] p-5" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
               <input value={pTitle} onChange={(e) => setPTitle(e.target.value)} placeholder="제목" className="w-full rounded-[8px] border bg-white px-3.5 py-2.5 text-[15px] outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: INK }} />
-              <textarea value={pBody} onChange={(e) => setPBody(e.target.value)} rows={5} placeholder="내용을 입력하세요." className="w-full resize-y rounded-[8px] border bg-white px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+              <MentionField value={pBody} onChange={setPBody} members={members} rows={5} placeholder="내용을 입력하세요. @이름 으로 수강생을 언급할 수 있어요." className="w-full resize-y rounded-[8px] border bg-white px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
               <div className="flex justify-end">
                 <button type="button" onClick={submitPost} className="rounded-[8px] px-5 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>등록</button>
               </div>
@@ -278,7 +289,7 @@ export default function CourseBoard({
                         {editingPostId === p.id ? (
                           <div className="space-y-2 rounded-[12px] p-4" style={{ background: PANEL, border: `1px solid ${LINE}` }}>
                             <input value={editPostTitle} onChange={(e) => setEditPostTitle(e.target.value)} placeholder="제목" className="w-full rounded-[8px] border bg-white px-3.5 py-2.5 text-[15px] outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: INK }} />
-                            <textarea value={editPostBody} onChange={(e) => setEditPostBody(e.target.value)} rows={5} placeholder="내용을 입력하세요." className="w-full resize-y rounded-[8px] border bg-white px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+                            <MentionField value={editPostBody} onChange={setEditPostBody} members={members} rows={5} placeholder="내용을 입력하세요. @이름 으로 수강생을 언급할 수 있어요." className="w-full resize-y rounded-[8px] border bg-white px-3.5 py-2.5 text-[14px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
                             <div className="flex justify-end gap-2">
                               <button type="button" onClick={() => setEditingPostId(null)} className="rounded-[8px] border px-4 py-2 text-[13px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
                               <button type="button" onClick={() => void saveEditPost(p.id)} className="rounded-[8px] px-5 py-2 text-[13px] font-bold text-white" style={{ background: BROWN }}>저장</button>
@@ -308,6 +319,7 @@ export default function CourseBoard({
 
                         <CommentsSection
                           comments={commentsByPost[p.id] ?? null}
+                          members={members}
                           canComment={canComment}
                           canModerate={canModerate}
                           currentUserId={currentUserId}
@@ -343,6 +355,7 @@ function buildTree(comments: Comment[]): Node[] {
 
 function CommentsSection({
   comments,
+  members,
   canComment,
   canModerate,
   currentUserId,
@@ -351,6 +364,7 @@ function CommentsSection({
   onEdit,
 }: {
   comments: Comment[] | null;
+  members: Member[];
   canComment: boolean;
   canModerate: boolean;
   currentUserId: string;
@@ -384,6 +398,7 @@ function CommentsSection({
               key={n.id}
               node={n}
               depth={0}
+              members={members}
               canComment={canComment}
               canModerate={canModerate}
               currentUserId={currentUserId}
@@ -399,19 +414,18 @@ function CommentsSection({
 
       {canComment ? (
         <div className="mt-3 flex items-center gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void addTop();
-              }
-            }}
-            placeholder="댓글을 입력하세요"
-            className="h-10 flex-1 rounded-[8px] border px-3 text-[13.5px] outline-none focus:border-[#8C6E59]"
-            style={{ borderColor: "#E7E2D6", color: BODY }}
-          />
+          <div className="flex-1">
+            <MentionField
+              as="input"
+              value={text}
+              onChange={setText}
+              members={members}
+              onEnter={() => void addTop()}
+              placeholder="댓글을 입력하세요 (@이름 언급 가능)"
+              className="h-10 w-full rounded-[8px] border px-3 text-[13.5px] outline-none focus:border-[#8C6E59]"
+              style={{ borderColor: "#E7E2D6", color: BODY }}
+            />
+          </div>
           <button type="button" onClick={() => void addTop()} className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="댓글 등록">
             <Send size={16} />
           </button>
@@ -424,6 +438,7 @@ function CommentsSection({
 function CommentNode({
   node,
   depth,
+  members,
   canComment,
   canModerate,
   currentUserId,
@@ -435,6 +450,7 @@ function CommentNode({
 }: {
   node: Node;
   depth: number;
+  members: Member[];
   canComment: boolean;
   canModerate: boolean;
   currentUserId: string;
@@ -507,20 +523,18 @@ function CommentNode({
 
         {isReplying ? (
           <div className="mt-2 flex items-center gap-2">
-            <input
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void sendReply();
-                }
-              }}
-              placeholder="답글을 입력하세요"
-              className="h-9 flex-1 rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
-              style={{ borderColor: "#E7E2D6", color: BODY }}
-              autoFocus
-            />
+            <div className="flex-1">
+              <MentionField
+                as="input"
+                value={reply}
+                onChange={setReply}
+                members={members}
+                onEnter={() => void sendReply()}
+                placeholder="답글을 입력하세요 (@이름 언급 가능)"
+                className="h-9 w-full rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
+                style={{ borderColor: "#E7E2D6", color: BODY }}
+              />
+            </div>
             <button type="button" onClick={() => void sendReply()} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="답글 등록">
               <Send size={14} />
             </button>
@@ -535,6 +549,7 @@ function CommentNode({
               key={c.id}
               node={c}
               depth={depth + 1}
+              members={members}
               canComment={canComment}
               canModerate={canModerate}
               currentUserId={currentUserId}
