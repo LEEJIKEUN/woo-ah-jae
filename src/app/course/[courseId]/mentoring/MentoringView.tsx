@@ -134,6 +134,7 @@ export default function MentoringView({
   const [editBookIdx, setEditBookIdx] = useState<number | null>(null);
   const [editBook, setEditBook] = useState<Book>(BLANK_BOOK);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [reportPct, setReportPct] = useState<number | null>(null);
   const [chatFileError, setChatFileError] = useState<string | null>(null);
   const [uploadingChat, setUploadingChat] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
@@ -159,6 +160,7 @@ export default function MentoringView({
     if (!studentId) return;
     setReport(blankReport());
     setReportFile(null);
+    setReportPct(null);
     setChat([]);
     setBooks([]);
     setNotices([]);
@@ -354,15 +356,37 @@ export default function MentoringView({
       setFileError(`파일이 너무 큽니다. (최대 ${fmtSize(MAX_FILE_BYTES)})`);
       return;
     }
+    setReportPct(0);
     try {
       const dataUrl = await readAsDataUrl(f);
-      const res = await postRoom(courseId, studentId, { action: "reportFile", file: { name: f.name, size: f.size, mime: f.type, dataUrl } });
-      if (!res.ok) {
-        const d = (await res.json().catch(() => ({}))) as { error?: string };
-        setFileError(d.error ?? "업로드에 실패했습니다.");
-      }
-    } catch {
-      setFileError("업로드 중 오류가 발생했습니다.");
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/courses/${courseId}/mentoring`);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) setReportPct(Math.round((ev.loaded / ev.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else {
+            let msg = `업로드 실패 (${xhr.status})`;
+            try {
+              const d = JSON.parse(xhr.responseText) as { error?: string };
+              if (d.error) msg = d.error;
+            } catch {
+              /* 무시 */
+            }
+            reject(new Error(msg));
+          }
+        };
+        xhr.onerror = () => reject(new Error("네트워크 오류가 발생했습니다."));
+        xhr.send(JSON.stringify({ action: "reportFile", file: { name: f.name, size: f.size, mime: f.type, dataUrl }, studentId }));
+      });
+      setReportFile({ name: f.name, size: f.size }); // 낙관적 표시(SSE 로 확정)
+    } catch (e2) {
+      setFileError(e2 instanceof Error ? e2.message : "업로드 중 오류가 발생했습니다.");
+    } finally {
+      setReportPct(null);
     }
   }
   function removeReportFile() {
@@ -546,7 +570,14 @@ export default function MentoringView({
               {/* 보고서 파일 (PDF) 업로드 */}
               <div>
                 <label className="mb-1.5 block text-[13.5px] font-bold" style={{ color: INK }}>보고서 파일 (PDF)</label>
-                {reportFile ? (
+                {reportPct !== null ? (
+                  <div className="rounded-[10px] border px-3.5 py-3.5" style={{ borderColor: LINE }}>
+                    <p className="mb-1.5 text-[12.5px] font-semibold" style={{ color: DEEP }}>업로드 중… {reportPct}%{reportPct >= 100 ? " · 처리 중" : ""}</p>
+                    <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${reportPct}%`, background: BROWN }} />
+                    </div>
+                  </div>
+                ) : reportFile ? (
                   <div className="flex items-center justify-between gap-2 rounded-[10px] border px-3.5 py-3" style={{ borderColor: "#E7E2D6", background: PANEL }}>
                     <a href={`${fileUrl("report")}&v=${reportFile.size}`} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2.5 text-left" title="클릭하면 새 탭에서 열립니다">
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }}><FileText size={16} /></span>
