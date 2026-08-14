@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { COURSES } from "@/lib/course/content";
 import { getAllCourseMeta } from "@/lib/course/meta-store";
+import { listDbCourses } from "@/lib/course/db-course";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
 
   const metaMap = await getAllCourseMeta();
-  const rows = COURSES.map((c) => {
+  const hardRows = COURSES.map((c) => {
     const m = metaMap.get(c.id) ?? null;
     const base = LIST_BASE[c.id] ?? { format: c.format ?? "실시간수업", mode: c.deliveryMode ?? "온라인", from: "", to: "" };
     return {
@@ -41,7 +42,25 @@ export async function GET(request: NextRequest) {
       status: m?.status ?? "open",
       href: `/course/${c.id}`,
     };
-  }).filter((r) => isAdmin || r.status !== "private");
+  });
 
+  // DB 강좌(관리자가 새로 개설)
+  const dbRows = (await listDbCourses()).map((c) => ({
+    id: c.slug,
+    name: c.title,
+    target: c.audience,
+    format: c.format,
+    mode: c.deliveryMode,
+    from: c.fromDate,
+    to: c.toDate,
+    periodLabel: c.periodLabel,
+    country: c.country,
+    capacity: c.capacity,
+    deadline: c.deadline,
+    status: c.status,
+    href: `/course/${c.slug}`,
+  }));
+
+  const rows = [...hardRows, ...dbRows].filter((r) => isAdmin || r.status !== "private");
   return NextResponse.json({ isAdmin, rows });
 }

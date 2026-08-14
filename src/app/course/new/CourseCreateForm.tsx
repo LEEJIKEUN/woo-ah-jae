@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
-import { saveStoredCourse, newId } from "@/lib/course/store";
+import { newId } from "@/lib/course/store";
 
 const BROWN = "#8C6E59";
 const NUM = "#B58F72";
@@ -42,15 +42,13 @@ export default function CourseCreateForm() {
     );
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
       alert("과목명을 입력하세요.");
       return;
     }
-    const id = newId("c");
-    saveStoredCourse({
-      id,
+    const payload = {
       title: title.trim(),
       subtitle: subtitle.trim(),
       programme: programme.trim() || "우아재 강좌",
@@ -60,17 +58,27 @@ export default function CourseCreateForm() {
       periodLabel: periodLabel.trim(),
       country,
       summary: summary.trim(),
+      status: "prep",
       modules: modules
         .map((m) => ({
           label: m.label.trim(),
           lessons: m.lessons
-            .map((l) => ({ id: l.id, title: l.title.trim(), kind: l.kind, body: l.body.trim() }))
+            .map((l) => ({ title: l.title.trim(), kind: l.kind, scheduleLabel: "", body: l.body.trim() }))
             .filter((l) => l.title),
         }))
         .filter((m) => m.label),
-      createdAt: new Date().toISOString(),
-    });
-    router.push(`/course/${id}`);
+    };
+    try {
+      const res = await fetch("/api/admin/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const d = (await res.json()) as { slug?: string; error?: string };
+      if (!res.ok || !d.slug) {
+        alert(d.error ?? "강좌 개설에 실패했습니다.");
+        return;
+      }
+      router.push(`/course/${d.slug}`);
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
+    }
   }
 
   return (

@@ -223,6 +223,64 @@ model CourseSummary {
 }
 
 /**
+ * DB 강좌 — 관리자가 새로 개설(하드코딩 ai-linalg 와 별개로 공존).
+ * slug 가 URL courseId. 커리큘럼은 CourseDbModule → CourseDbLesson.
+ */
+model CourseDb {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  title        String
+  subtitle     String    @default("")
+  programme    String    @default("우아재 강좌")
+  audience     String    @default("고등학생")
+  format       String    @default("실시간수업")
+  deliveryMode String    @default("온라인")
+  classDays    String    @default("")
+  periodLabel  String    @default("")
+  fromDate     String    @default("")
+  toDate       String    @default("")
+  country      String    @default("한국")
+  summary      String    @default("")
+  realtimeInfo String    @default("")
+  capacity     Int       @default(20)
+  deadline     DateTime?
+  status       String    @default("prep") // private | prep | open | full | ongoing
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  modules      CourseDbModule[]
+}
+
+model CourseDbModule {
+  id        String   @id @default(cuid())
+  courseId  String
+  sort      Int      @default(0)
+  label     String
+  createdAt DateTime @default(now())
+
+  course    CourseDb @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   CourseDbLesson[]
+
+  @@index([courseId, sort])
+}
+
+model CourseDbLesson {
+  id            String   @id @default(cuid())
+  moduleId      String
+  sort          Int      @default(0)
+  title         String
+  kind          String   @default("page") // page | assignment
+  scheduleLabel String   @default("")
+  body          String   @default("")
+  createdAt     DateTime @default(now())
+
+  module        CourseDbModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId, sort])
+}
+
+/**
  * 강좌 메타 오버라이드 — 관리자가 홈/상세에서 직접 편집.
  * null 필드는 하드코딩 기본값을 사용. status=private 이면 비관리자에게 숨김.
  */

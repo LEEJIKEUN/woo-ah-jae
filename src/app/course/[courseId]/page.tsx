@@ -1,6 +1,7 @@
 import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
 import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
 import { getCourseMeta } from "@/lib/course/meta-store";
+import { loadDbCourse } from "@/lib/course/db-course";
 import CourseIntro from "./CourseIntro";
 import type { IntroData } from "./CourseIntro";
 
@@ -53,8 +54,28 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
       })),
       firstHref: activities[0] ? courseActivityHref(course.id, activities[0].id) : undefined,
     };
+  } else if (!course) {
+    // DB 강좌(관리자가 새로 개설) — 하드코딩에 없으면 DB 조회
+    const db = await loadDbCourse(courseId);
+    if (db && !(db.status === "private" && !isAdmin)) {
+      seed = {
+        id: db.slug,
+        programme: db.programme,
+        title: db.title,
+        subtitle: db.subtitle,
+        audience: db.audience,
+        deliveryMode: db.deliveryMode,
+        classDays: db.classDays,
+        periodLabel: db.periodLabel,
+        country: db.country,
+        summary: db.summary,
+        realtimeInfo: db.realtimeInfo || undefined,
+        instructor: { name: "우아재 서재", initials: "齋" },
+        modules: db.modules.map((m) => ({ label: m.label, sessions: m.lessons.map((l) => ({ title: l.title, scheduleLabel: l.scheduleLabel || undefined })) })),
+        firstHref: `/course/${db.slug}/learn`,
+      };
+    }
   }
 
-  // seed 가 없으면(커스텀 코스) CourseIntro 가 localStorage 에서 해석
   return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} />;
 }

@@ -152,6 +152,11 @@ export default function HomeWorkshopFinder() {
 
   return (
     <section id="find" className="mx-auto max-w-[1000px] px-6 pb-40">
+      {isAdmin ? (
+        <div className="mb-5 flex justify-end">
+          <Link href="/course/new" className="rounded-full px-4 py-2 text-[13.5px] font-bold text-white" style={{ background: BROWN }}>＋ 새 강좌 개설</Link>
+        </div>
+      ) : null}
       {/* 필터 펼치기 (기본=숨김) */}
       {!show ? (
         <div className="flex justify-center">
