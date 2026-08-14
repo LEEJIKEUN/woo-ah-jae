@@ -49,3 +49,7 @@ prisma/build.db
 
 # local deploy approval lock
 .deploy-approval.json
+
+# 시험 AI 튜닝용 로컬 샘플 PDF(루트) · 임시폴더 — 커밋 금지
+/*.pdf
+/tmp/
