@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { loadAndGrade } from "@/lib/exam/grade";
+import { expireOverdueAttempts } from "@/lib/exam/store";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
 
+    await expireOverdueAttempts([examId]); // 마감 지난 방치 응시 확정
     const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId } } });
     if (!attempt) return NextResponse.json({ code: "NO_ATTEMPT", error: "응시 기록이 없습니다." }, { status: 404 });
     // 학생 본인은 종료된 응시만 결과 열람 가능

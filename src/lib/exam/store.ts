@@ -11,6 +11,18 @@ import { prisma } from "@/lib/prisma";
 export const SAVE_GRACE_MS = 10_000; // 저장은 마감 후 10초 유예. 제출은 무유예.
 export const MAX_TEXT_LEN = 5000; // 주관식 최대 글자수
 
+/**
+ * 마감 시각이 지났는데 아직 in_progress 인 응시를 expired 로 확정(제출 못 한 채 방치된 케이스).
+ * 명렬표·목록·결과 등 조회 시점에 호출해 상태 표기를 일관되게 맞춘다.
+ */
+export async function expireOverdueAttempts(examIds: string[]): Promise<void> {
+  if (!examIds.length) return;
+  await prisma.examAttempt.updateMany({
+    where: { examId: { in: examIds }, status: "in_progress", deadlineAt: { lt: new Date() } },
+    data: { status: "expired" },
+  });
+}
+
 type AttemptStatus = "in_progress" | "submitted" | "expired";
 
 export type AnswerInput = { questionNo: number; choice?: number | null; textAnswer?: string | null };

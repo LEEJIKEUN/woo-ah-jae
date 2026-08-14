@@ -3,6 +3,7 @@ import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { gradeExam } from "@/lib/exam/grade";
+import { expireOverdueAttempts } from "@/lib/exam/store";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 
     if (!examIds.length) return NextResponse.json({ exams: [], students, cells: {} });
+
+    // 마감 지난 방치 응시를 expired 로 확정(응시중 오표기 방지)
+    await expireOverdueAttempts(examIds);
 
     const [assigns, attempts, questions] = await Promise.all([
       prisma.examAssignment.findMany({ where: { examId: { in: examIds } }, select: { examId: true, studentId: true } }),

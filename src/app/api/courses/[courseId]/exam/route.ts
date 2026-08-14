@@ -5,6 +5,7 @@ import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { createNotifications } from "@/lib/notification-store";
 import { savePrivateFile, validateUpload } from "@/lib/upload";
 import { gradeExam } from "@/lib/exam/grade";
+import { expireOverdueAttempts } from "@/lib/exam/store";
 import { PDFDocument } from "pdf-lib";
 import { prisma } from "@/lib/prisma";
 
@@ -173,6 +174,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       orderBy: { createdAt: "desc" },
     });
     const ids = exams.map((e) => e.id);
+    await expireOverdueAttempts(ids); // 마감 지난 방치 응시 확정
     const [questions, attempts] = await Promise.all([
       prisma.examQuestion.findMany({ where: { examId: { in: ids } }, select: { examId: true, number: true, type: true, points: true, answerKey: true } }),
       prisma.examAttempt.findMany({ where: { studentId: auth.userId, examId: { in: ids } } }),
