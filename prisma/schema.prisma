@@ -1058,3 +1058,79 @@ model BoardPostView {
   @@unique([postId, viewerKey])
   @@index([userId, lastViewedAt])
 }
+
+// ─────────────────────────────────────────────────────────────
+// 온라인 시험 응시 (강의실 '시험' 탭) — 문제 본문은 PDF(R2), DB엔 메타·구성·응시·답안만.
+// 시간 판정은 서버 권위(deadlineAt 고정). answer_key 는 학생에게 절대 미노출.
+// ─────────────────────────────────────────────────────────────
+
+/** 시험 — 강좌 단위. 스태프가 생성·발송. */
+model Exam {
+  id          String    @id @default(cuid())
+  courseId    String
+  title       String
+  subject     String    @default("")
+  paperKey    String    // R2 오브젝트 키(시험지 PDF, 프라이빗)
+  paperName   String    @default("")
+  paperSize   Int       @default(0)
+  durationSec Int       // 제한시간(초). 예: 3600
+  opensAt     DateTime? // 응시 가능 시작(null=즉시)
+  closesAt    DateTime? // 응시 마감(null=무제한)
+  status      String    @default("draft") // draft | published | closed
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([courseId, status, createdAt])
+}
+
+/** 시험 문항 구성(메타만) — 문제 내용은 PDF에. answerKey 는 학생 응답으로 절대 전송 금지. */
+model ExamQuestion {
+  id          String @id @default(cuid())
+  examId      String
+  number      Int // 1, 2, 3 …
+  type        String // 'mcq' | 'short'
+  choiceCount Int    @default(5) // 객관식 보기 개수
+  points      Float  @default(1)
+  answerKey   String @default("") // 정답 — 학생에게 미노출
+
+  @@unique([examId, number])
+  @@index([examId])
+}
+
+/** 시험 배정 — 어떤 학생에게 열렸는지(과제 발송처럼 학생 선택). */
+model ExamAssignment {
+  id         String   @id @default(cuid())
+  examId     String
+  studentId  String
+  releasedAt DateTime @default(now())
+
+  @@unique([examId, studentId])
+  @@index([studentId])
+}
+
+/** 응시 세션 — 학생1명×시험1개당 하나. deadlineAt 은 최초 시작 시 고정(재계산 금지). */
+model ExamAttempt {
+  id          String    @id @default(cuid())
+  examId      String
+  studentId   String
+  startedAt   DateTime  @default(now())
+  deadlineAt  DateTime // startedAt + durationSec (불변)
+  submittedAt DateTime?
+  lastSavedAt DateTime?
+  status      String    @default("in_progress") // in_progress | submitted | expired
+
+  @@unique([examId, studentId])
+  @@index([studentId])
+}
+
+/** 답안 — 문항 단위 upsert. delete 후 insert 금지. */
+model ExamAnswer {
+  attemptId  String
+  questionNo Int
+  choice     Int? // 객관식 1~5, 미선택 null
+  textAnswer String? // 주관식
+  updatedAt  DateTime @default(now())
+
+  @@id([attemptId, questionNo])
+}
