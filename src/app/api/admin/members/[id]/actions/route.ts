@@ -3,6 +3,7 @@ import { z } from "zod";
 import { UserLifecycleStatus } from "@prisma/client";
 import { deleteLocalSignup, findLocalSignupByEmail, isDbConnectionError } from "@/lib/local-signup-store";
 import { HttpError, jsonError, requireSuperAdmin } from "@/lib/guards";
+import { collectUserCleanup, purgeUserRelations, deleteUserFiles } from "@/lib/user-purge";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -42,6 +43,7 @@ export async function POST(
 
       // ── 완전 삭제(하드 삭제) ─────────────────────────────
       if (normalizedAction === "MOVE_DELETED") {
+        const { r2Keys, attemptIds } = await collectUserCleanup(id);
         await prisma.$transaction(async (tx) => {
           // 삭제를 막는 Restrict FK 대상(작성 콘텐츠·감사로그·소유 프로젝트)을 먼저 정리
           await tx.comment.deleteMany({ where: { createdBy: id } });
@@ -49,6 +51,9 @@ export async function POST(
           await tx.announcement.deleteMany({ where: { createdBy: id } });
           await tx.auditLog.deleteMany({ where: { actorUserId: id } });
           await tx.project.deleteMany({ where: { ownerId: id } });
+
+          // FK 없이 String userId 로만 연결된 흔적(멘토링·피어리뷰·시험·알림 등)도 정리
+          await purgeUserRelations(tx, id, attemptIds);
 
           // 계정 삭제 — 나머지 연관(프로필·인증·토큰·게시판·멤버십 등)은 Cascade 로 함께 삭제
           await tx.user.delete({ where: { id } });
@@ -63,6 +68,7 @@ export async function POST(
             },
           });
         });
+        await deleteUserFiles(r2Keys); // R2 첨부 파일 실삭제(best-effort)
 
         // 로컬 가입 캐시(DB 다운 폴백)에 같은 이메일이 남아 있으면 제거 → 이메일 즉시 재사용 가능
         const localDup = await findLocalSignupByEmail(user.email);
