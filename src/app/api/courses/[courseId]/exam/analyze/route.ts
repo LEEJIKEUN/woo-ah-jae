@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const b64 = Buffer.from(await paper.arrayBuffer()).toString("base64");
     const result = await analyzeExamPdf(b64);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 502 });
-    return NextResponse.json({ questions: result.questions });
+    return NextResponse.json({ questions: result.questions, answerStartPage: result.answerStartPage });
   } catch (error) {
     return jsonError(error);
   }

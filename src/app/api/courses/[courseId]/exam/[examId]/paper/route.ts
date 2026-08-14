@@ -31,6 +31,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!exam || exam.courseId !== courseId) return new NextResponse("Not found", { status: 404 });
 
   const staff = isStaffRole(session.role);
+  // 학생은 문제 페이지만 자른 studentPaperKey, 스태프는 전체 paperKey
+  let key = exam.paperKey;
   if (staff) {
     if (session.role === "FACILITATOR" && !(await isFacilitatorOfCourse(courseId, session.userId))) {
       return new NextResponse("Forbidden", { status: 403 });
@@ -39,13 +41,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (exam.status === "draft") return new NextResponse("Forbidden", { status: 403 });
     const assigned = await prisma.examAssignment.findUnique({ where: { examId_studentId: { examId, studentId: session.userId } } });
     if (!assigned) return new NextResponse("Forbidden", { status: 403 });
+    key = exam.studentPaperKey || exam.paperKey; // 학생용이 있으면 그것(빠른정답·해설 제거본)
   } else {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
   let buffer: Buffer | null = null;
   try {
-    buffer = await readPrivateFile(exam.paperKey);
+    buffer = await readPrivateFile(key);
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }
@@ -57,6 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(filename)}`,
       "Cache-Control": "private, no-store",
+      "X-Frame-Options": "SAMEORIGIN", // 같은 화면 iframe 뷰어 허용
     },
   });
 }

@@ -129,15 +129,16 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPaper(row.id)}
-                    className="inline-flex items-center gap-1.5 rounded-[8px] border px-3.5 py-2 text-[13.5px] font-semibold transition hover:bg-[#FBF6EC]"
-                    style={{ borderColor: LINE, color: BODY }}
-                  >
-                    <FileText size={15} /> 시험지
-                  </button>
-                  {!isStaff ? (
+                  {isStaff ? (
+                    <button
+                      type="button"
+                      onClick={() => openPaper(row.id)}
+                      className="inline-flex items-center gap-1.5 rounded-[8px] border px-3.5 py-2 text-[13.5px] font-semibold transition hover:bg-[#FBF6EC]"
+                      style={{ borderColor: LINE, color: BODY }}
+                    >
+                      <FileText size={15} /> 시험지
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => goAnswer(row.id)}
@@ -145,9 +146,9 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                       className="inline-flex items-center gap-1.5 rounded-[8px] px-4 py-2 text-[13.5px] font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                       style={{ background: BROWN }}
                     >
-                      <PenLine size={15} /> 답안지
+                      <PenLine size={15} /> 응시하기
                     </button>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </li>

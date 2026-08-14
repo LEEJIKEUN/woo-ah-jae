@@ -51,6 +51,7 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
   const [recovery, setRecovery] = useState<{ nos: number[]; local: LocalBackup } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false); // 모바일에서 시험지 패널 토글(데스크톱은 항상 표시)
 
   const readOnly = !attempt || attempt.status !== "in_progress";
 
@@ -189,9 +190,6 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
     try { await autosave.flushNow(); } catch { /* 무시 */ }
     router.push(`/course/${courseId}/exam`);
   }
-  function openPaper() {
-    window.open(`${base}/paper`, "_blank", "noopener");
-  }
   function scrollToQ(no: number) {
     document.getElementById(`q-${no}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     setShowSubmit(false);
@@ -237,7 +235,7 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
           <span className="text-[13px] font-semibold" style={{ color: DEEP }}>{answeredCount}/{questions.length}</span>
 
           <div className="flex items-center gap-2">
-            <button type="button" onClick={openPaper} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-1.5 text-[12.5px] font-semibold" style={{ borderColor: LINE, color: BODY }}><FileText size={14} /> 시험지</button>
+            <button type="button" onClick={() => setPdfOpen((v) => !v)} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-1.5 text-[12.5px] font-semibold lg:hidden" style={{ borderColor: LINE, color: BODY }}><FileText size={14} /> 시험지</button>
             <button type="button" onClick={leave} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-1.5 text-[12.5px] font-semibold" style={{ borderColor: LINE, color: SUB }}><LogOut size={14} /> 나가기</button>
             {!readOnly ? (
               <button type="button" onClick={() => setShowSubmit(true)} className="inline-flex items-center gap-1 rounded-[8px] px-4 py-1.5 text-[12.5px] font-bold text-white" style={{ background: BROWN }}><Send size={14} /> 제출하기</button>
@@ -259,34 +257,48 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
         </div>
       ) : null}
 
-      {/* 문항 */}
-      <div className="mx-auto max-w-[900px] px-5 pb-40 pt-6">
-        {readOnly ? (
-          <p className="mb-5 rounded-[10px] px-4 py-3 text-[13.5px]" style={{ background: PANEL, color: SUB }}>제출/종료된 답안은 읽기 전용입니다.</p>
-        ) : (
-          <p className="mb-5 text-[13.5px]" style={{ color: SUB }}>문제는 <button type="button" onClick={openPaper} className="font-semibold underline" style={{ color: BROWN }}>시험지</button>에서 확인하고, 아래에 답을 표기하세요.</p>
-        )}
-
-        <div className="divide-y" style={{ borderColor: "#F0EBE0" }}>
-          {questions.map((q) => {
-            const a = answers[q.number];
-            return (
-              <div key={q.number} className="py-3" id={`q-${q.number}`}>
-                {q.type === "mcq" ? (
-                  <OmrRow number={q.number} choiceCount={q.choiceCount} value={a?.choice ?? null} onChange={(v) => setMcq(q.number, v)} disabled={readOnly} />
-                ) : (
-                  <div className="flex items-start gap-3 py-1">
-                    <div className="flex w-10 shrink-0 items-center gap-1.5 pt-2">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: !(a?.textAnswer && a.textAnswer.trim()) ? "#D9B24A" : "transparent" }} aria-hidden />
-                      <span className="text-[15px] font-bold" style={{ color: INK }}>{q.number}</span>
-                    </div>
-                    <AutoTextarea value={a?.textAnswer ?? ""} onChange={(v) => setText(q.number, v)} disabled={readOnly} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {/* 본문: 좌 시험지 뷰어(문제 페이지만) + 우 답안지 */}
+      <div className="lg:flex lg:items-start">
+        {/* 시험지 PDF 뷰어 — 데스크톱은 좌측 고정, 모바일은 토글 */}
+        <div className={`${pdfOpen ? "block" : "hidden"} border-b lg:sticky lg:top-[53px] lg:block lg:w-[48%] lg:shrink-0 lg:self-start lg:border-b-0 lg:border-r`} style={{ borderColor: LINE }}>
+          <iframe src={`${base}/paper`} title="시험지" className="h-[62vh] w-full lg:h-[calc(100vh-53px)]" style={{ background: PANEL }} />
         </div>
+
+        {/* 답안지 */}
+        <main className="min-w-0 flex-1 px-5 pb-40 pt-6 lg:px-8">
+          <div className="mx-auto max-w-[680px]">
+            {readOnly ? (
+              <p className="mb-5 rounded-[10px] px-4 py-3 text-[13.5px]" style={{ background: PANEL, color: SUB }}>제출/종료된 답안은 읽기 전용입니다.</p>
+            ) : (
+              <p className="mb-5 text-[13.5px]" style={{ color: SUB }}>
+                <span className="hidden lg:inline">왼쪽 시험지를 보며 </span>
+                <span className="lg:hidden">위 <b>시험지</b> 버튼으로 문제를 확인하고 </span>
+                아래에 답을 표기하세요.
+              </p>
+            )}
+
+            <div className="divide-y" style={{ borderColor: "#F0EBE0" }}>
+              {questions.map((q) => {
+                const a = answers[q.number];
+                return (
+                  <div key={q.number} className="py-3" id={`q-${q.number}`}>
+                    {q.type === "mcq" ? (
+                      <OmrRow number={q.number} choiceCount={q.choiceCount} value={a?.choice ?? null} onChange={(v) => setMcq(q.number, v)} disabled={readOnly} />
+                    ) : (
+                      <div className="flex items-start gap-3 py-1">
+                        <div className="flex w-10 shrink-0 items-center gap-1.5 pt-2">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: !(a?.textAnswer && a.textAnswer.trim()) ? "#D9B24A" : "transparent" }} aria-hidden />
+                          <span className="text-[15px] font-bold" style={{ color: INK }}>{q.number}</span>
+                        </div>
+                        <AutoTextarea value={a?.textAnswer ?? ""} onChange={(v) => setText(q.number, v)} disabled={readOnly} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </main>
       </div>
 
       {/* 제출 모달 */}

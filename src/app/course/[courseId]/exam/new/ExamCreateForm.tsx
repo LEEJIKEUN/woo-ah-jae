@@ -47,6 +47,7 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiNote, setAiNote] = useState("");
+  const [studentPages, setStudentPages] = useState<string>(""); // 학생에게 보여줄 앞 페이지 수(문제만)
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -77,13 +78,16 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
       const fd = new FormData();
       fd.append("paper", file);
       const res = await fetch(`/api/courses/${courseId}/exam/analyze`, { method: "POST", body: fd });
-      const d = (await res.json().catch(() => ({}))) as { questions?: { type: QType; choiceCount: number; answerKey: string }[]; error?: string };
+      const d = (await res.json().catch(() => ({}))) as { questions?: { type: QType; choiceCount: number; answerKey: string }[]; answerStartPage?: number | null; error?: string };
       if (!res.ok || !d.questions) { setAiNote(d.error ?? "자동 구성에 실패했습니다. 아래에서 직접 구성할 수 있어요."); return; }
       const qs = d.questions;
       const pts = distributePoints(qs.length);
       setRows(qs.map((q, i) => ({ id: `q${++seq}`, type: q.type === "short" ? "short" : "mcq", choiceCount: q.type === "short" ? 5 : q.choiceCount, points: pts[i], answerKey: q.answerKey })));
       const mcq = qs.filter((q) => q.type === "mcq").length;
-      setAiNote(`AI가 ${qs.length}문항(객관식 ${mcq} · 주관식 ${qs.length - mcq})을 구성하고 정답을 채웠습니다. 배점은 100점 균등 분배. 검토 후 보내기 하세요.`);
+      // 빠른정답·해설 앞까지가 학생용 시험지 페이지
+      if (typeof d.answerStartPage === "number" && d.answerStartPage > 1) setStudentPages(String(d.answerStartPage - 1));
+      const pageNote = typeof d.answerStartPage === "number" && d.answerStartPage > 1 ? ` 학생에게는 앞 ${d.answerStartPage - 1}페이지(문제)만 제공됩니다.` : "";
+      setAiNote(`AI가 ${qs.length}문항(객관식 ${mcq} · 주관식 ${qs.length - mcq})을 구성하고 정답을 채웠습니다. 배점은 100점 균등 분배.${pageNote} 검토 후 보내기 하세요.`);
     } catch {
       setAiNote("자동 구성 중 오류가 발생했습니다. 아래에서 직접 구성할 수 있어요.");
     } finally {
@@ -123,6 +127,7 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
       status,
       questions: rows.map((r) => ({ type: r.type, choiceCount: r.choiceCount, points: Number(r.points) || 0, answerKey: r.answerKey.trim() })),
       studentIds: [...selected],
+      studentPageCount: Number(studentPages) > 0 ? Math.trunc(Number(studentPages)) : 0,
     };
     const fd = new FormData();
     fd.append("paper", paper);
@@ -183,6 +188,14 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[13px]" style={{ color: SUB }}>{aiNote}</p>
                 {paper ? <button type="button" onClick={() => void autoConfig(paper)} className="inline-flex items-center gap-1 text-[12.5px] font-semibold" style={{ color: BROWN }}><Sparkles size={13} /> 다시 분석</button> : null}
+              </div>
+            ) : null}
+            {paper ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
+                <span className="text-[12.5px] font-semibold" style={{ color: INK }}>학생에게 보여줄 시험지:</span>
+                <span className="text-[12.5px]" style={{ color: SUB }}>앞</span>
+                <input type="number" min={1} value={studentPages} onChange={(e) => setStudentPages(e.target.value)} placeholder="전체" className="w-20 rounded-md border px-2 py-1 text-[13px]" style={{ borderColor: LINE }} />
+                <span className="text-[12.5px]" style={{ color: SUB }}>페이지 (빠른정답·해설 제외 · 비워두면 전체)</span>
               </div>
             ) : null}
           </Field>

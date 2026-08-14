@@ -4,11 +4,23 @@ import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { createNotifications } from "@/lib/notification-store";
 import { savePrivateFile, validateUpload } from "@/lib/upload";
+import { PDFDocument } from "pdf-lib";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 type QInput = { type?: unknown; choiceCount?: unknown; points?: unknown; answerKey?: unknown };
+
+/** 앞 n페이지만 남긴 PDF 버퍼. n이 전체 이상이면 null(자를 필요 없음). */
+async function trimPdfToPages(bytes: Buffer, n: number): Promise<Buffer | null> {
+  const src = await PDFDocument.load(bytes);
+  const total = src.getPageCount();
+  if (n >= total) return null;
+  const out = await PDFDocument.create();
+  const pages = await out.copyPages(src, Array.from({ length: Math.max(1, n) }, (_, i) => i));
+  pages.forEach((p) => out.addPage(p));
+  return Buffer.from(await out.save());
+}
 
 function parseQuestions(raw: unknown): { type: string; choiceCount: number; points: number; answerKey: string }[] {
   if (!Array.isArray(raw)) return [];
@@ -45,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try { validateUpload(paper); } catch { return NextResponse.json({ error: "PDF는 10MB 이하만 업로드할 수 있습니다." }, { status: 400 }); }
 
     const payload = JSON.parse(String(form.get("payload") ?? "{}")) as {
-      title?: unknown; subject?: unknown; durationMin?: unknown; opensAt?: unknown; closesAt?: unknown; status?: unknown; questions?: unknown; studentIds?: unknown;
+      title?: unknown; subject?: unknown; durationMin?: unknown; opensAt?: unknown; closesAt?: unknown; status?: unknown; questions?: unknown; studentIds?: unknown; studentPageCount?: unknown;
     };
     const title = String(payload.title ?? "").trim().slice(0, 200);
     if (!title) return NextResponse.json({ error: "시험 제목을 입력해 주세요." }, { status: 400 });
@@ -63,13 +75,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const enrolled = new Set(await getEnrolledUserIds(courseId));
     const studentIds = [...new Set(requested.filter((id) => enrolled.has(id)))];
 
+    const fullBytes = Buffer.from(await paper.arrayBuffer());
     const paperKey = await savePrivateFile(paper);
+
+    // 학생용: 문제 페이지(앞 studentPageCount 장)만 남긴 PDF — 빠른정답·해설 제거
+    let studentPaperKey = "";
+    const spcRaw = typeof payload.studentPageCount === "number" ? payload.studentPageCount : Number(payload.studentPageCount);
+    const spc = Number.isFinite(spcRaw) ? Math.trunc(spcRaw) : 0;
+    if (spc > 0) {
+      try {
+        const trimmed = await trimPdfToPages(fullBytes, spc);
+        if (trimmed) studentPaperKey = await savePrivateFile(new File([new Uint8Array(trimmed)], `student_${paper.name}`, { type: "application/pdf" }));
+      } catch {
+        /* 트림 실패 시 studentPaperKey 비움 → 아래에서 안전상 전체 대신 그대로 두되, 로그만 */
+      }
+    }
 
     const exam = await prisma.$transaction(async (tx) => {
       const e = await tx.exam.create({
         data: {
           courseId, title, subject: String(payload.subject ?? "").trim().slice(0, 120),
-          paperKey, paperName: paper.name.slice(0, 200), paperSize: paper.size,
+          paperKey, studentPaperKey, paperName: paper.name.slice(0, 200), paperSize: paper.size,
           durationSec: Math.round(durationMin * 60), opensAt, closesAt, status, createdBy: auth.userId,
         },
       });

@@ -1070,7 +1070,8 @@ model Exam {
   courseId    String
   title       String
   subject     String    @default("")
-  paperKey    String    // R2 오브젝트 키(시험지 PDF, 프라이빗)
+  paperKey    String    // R2 오브젝트 키(시험지 PDF 전체 — 문제+빠른정답+해설, 스태프용)
+  studentPaperKey String @default("") // 학생용(문제 페이지만 자른 PDF). 비어있으면 전체 서빙
   paperName   String    @default("")
   paperSize   Int       @default(0)
   durationSec Int       // 제한시간(초). 예: 3600
