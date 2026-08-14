@@ -8,6 +8,7 @@ export type DbCourse = {
   slug: string;
   title: string;
   subtitle: string;
+  objectives: string;
   programme: string;
   audience: string;
   format: string;
@@ -28,6 +29,7 @@ export type DbCourse = {
 export type DbCourseInput = {
   title: string;
   subtitle?: string;
+  objectives?: string;
   programme?: string;
   audience?: string;
   format?: string;
@@ -67,6 +69,7 @@ function scalarData(input: DbCourseInput) {
   return {
     title: String(input.title ?? "").slice(0, 200),
     subtitle: String(input.subtitle ?? "").slice(0, 500),
+    objectives: String(input.objectives ?? "").slice(0, 5000),
     programme: String(input.programme ?? "우아재 강좌").slice(0, 120),
     audience: String(input.audience ?? "고등학생").slice(0, 80),
     format: String(input.format ?? "실시간수업").slice(0, 40),
@@ -105,6 +108,7 @@ export async function loadDbCourse(slug: string): Promise<DbCourse | null> {
     slug: c.slug,
     title: c.title,
     subtitle: c.subtitle,
+    objectives: c.objectives,
     programme: c.programme,
     audience: c.audience,
     format: c.format,

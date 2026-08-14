@@ -22,7 +22,7 @@ const blankModule = (label = ""): FormModule => ({ id: newId("m"), label, lesson
 
 export type CourseInitial = {
   slug: string;
-  title: string; subtitle: string; programme: string; audience: string; format: string; deliveryMode: string; periodLabel: string; country: string; summary: string;
+  title: string; subtitle: string; objectives: string; programme: string; audience: string; format: string; deliveryMode: string; periodLabel: string; country: string; summary: string;
   modules: { label: string; lessons: { title: string; kind: string; body: string }[] }[];
 };
 
@@ -31,6 +31,7 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
   const isEdit = !!editSlug;
   const [title, setTitle] = useState(initial?.title ?? "");
   const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
+  const [objectives, setObjectives] = useState(initial?.objectives ?? "");
   const [programme, setProgramme] = useState(initial?.programme ?? "");
   const [audience, setAudience] = useState(initial?.audience ?? "고등학생");
   const [format, setFormat] = useState(initial?.format ?? "자기주도학습");
@@ -62,6 +63,7 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
     const payload = {
       title: title.trim(),
       subtitle: subtitle.trim(),
+      objectives: objectives.trim(),
       programme: programme.trim() || "우아재 강좌",
       audience,
       format,
@@ -124,6 +126,10 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
           </Field>
           <Field label="부제">
             <Input value={subtitle} onChange={setSubtitle} placeholder="예: AI를 떠받치는 수학 — 벡터에서 신경망까지" />
+          </Field>
+          <Field label="세부 목표 (한 줄에 하나씩 · 엔터로 줄 추가)">
+            <textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} rows={5} placeholder={"예)\n벡터·행렬을 정의하고 계산할 수 있다.\n고유값·고유벡터를 직접 구할 수 있다.\n특이값 분해로 데이터를 차원 축소할 수 있다."}
+              className="w-full rounded-[10px] border px-4 py-3 text-[15px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: INK }} />
           </Field>
           <Field label="분류 / 프로그램">
             <Input value={programme} onChange={setProgramme} placeholder="예: 2022개정 교육과정 교육감 승인 과목" />

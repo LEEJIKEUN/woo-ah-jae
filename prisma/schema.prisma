@@ -231,6 +231,7 @@ model CourseDb {
   slug         String    @unique
   title        String
   subtitle     String    @default("")
+  objectives   String    @default("") // 세부 목표 리스트 — 줄바꿈 구분(한 줄 = 목표 1개)
   programme    String    @default("우아재 강좌")
   audience     String    @default("고등학생")
   format       String    @default("실시간수업")
@@ -289,6 +290,7 @@ model CourseMeta {
   programme    String?
   title        String?
   subtitle     String?
+  objectives   String?   // 세부 목표 리스트 — 줄바꿈 구분(한 줄 = 목표 1개)
   audience     String?
   format       String?
   deliveryMode String?

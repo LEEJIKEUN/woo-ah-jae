@@ -23,6 +23,7 @@ export type IntroData = {
   programme: string;
   title: string;
   subtitle: string;
+  objectives?: string; // 세부 목표 — 줄바꿈 구분(한 줄 = 목표 1개)
   audience?: string;
   format?: string;
   deliveryMode?: string;
@@ -104,6 +105,12 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
     ["수강 기간", intro.periodLabel],
   ].filter(([, v]) => v) as [string, string][];
 
+  // 세부 목표 리스트 — 줄바꿈 구분, 관리자가 직접 입력한 앞머리 번호(1. / 1)) 는 제거하고 자체 번호로 렌더
+  const objectiveList = (intro.objectives ?? "")
+    .split("\n")
+    .map((s) => s.replace(/^\s*\d+\s*[.)]\s*/, "").trim())
+    .filter(Boolean);
+
   const full = status?.full ?? false;
 
   async function enroll() {
@@ -179,9 +186,21 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
               {intro.subtitle ? (
                 <>
                   <h3 className="text-[15px] font-semibold" style={{ color: INK }}>강좌 목표</h3>
-                  <p className="mb-6 mt-2 text-[15px] leading-8" style={{ color: SUB }}>{intro.subtitle}</p>
+                  <p className="mt-2 text-[15px] leading-8" style={{ color: SUB }}>{intro.subtitle}</p>
                 </>
               ) : null}
+              {objectiveList.length > 0 ? (
+                <ol className="mb-6 mt-4 space-y-2.5">
+                  {objectiveList.map((o, i) => (
+                    <li key={i} className="flex gap-3 text-[15px] leading-8" style={{ color: SUB }}>
+                      <span className="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold" style={{ background: PANEL, color: BROWN }}>{i + 1}</span>
+                      <span className="min-w-0">{o}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="mb-6" />
+              )}
               <h3 className="text-[15px] font-semibold" style={{ color: INK }}>강좌 설명</h3>
               <p className="mt-2 whitespace-pre-line text-[15px] leading-8" style={{ color: SUB }}>{intro.summary}</p>
             </Section>
@@ -299,6 +318,7 @@ function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: stri
     programme: intro.programme ?? "",
     title: intro.title ?? "",
     subtitle: intro.subtitle ?? "",
+    objectives: intro.objectives ?? "",
     summary: intro.summary ?? "",
     audience: intro.audience ?? "",
     format: intro.format ?? "실시간수업",
@@ -322,10 +342,11 @@ function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: stri
       setSaving(false);
     }
   }
-  const rows: { key: keyof typeof f; label: string; area?: boolean; options?: string[] }[] = [
+  const rows: { key: keyof typeof f; label: string; area?: boolean; options?: string[]; placeholder?: string; rows?: number }[] = [
     { key: "programme", label: "상단 라벨(교육과정 등)" },
     { key: "title", label: "강좌명" },
     { key: "subtitle", label: "강좌 목표(부제)" },
+    { key: "objectives", label: "세부 목표 (한 줄에 하나씩 · 엔터로 줄 추가)", area: true, rows: 5, placeholder: "예)\n벡터·행렬을 정의하고 계산할 수 있다.\n고유값·고유벡터를 직접 구할 수 있다.\n특이값 분해로 데이터를 차원 축소할 수 있다." },
     { key: "summary", label: "강좌 설명", area: true },
     { key: "audience", label: "수강 대상" },
     { key: "format", label: "형식", options: ["자기주도학습", "관리형학습", "실시간수업", "세미나"] },
@@ -349,9 +370,9 @@ function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: stri
                   {r.options.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               ) : r.area ? (
-                <textarea value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} rows={4} className={`${inputCls} resize-y leading-7`} style={{ borderColor: LINE, color: BODY }} />
+                <textarea value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} rows={r.rows ?? 4} placeholder={r.placeholder} className={`${inputCls} resize-y leading-7`} style={{ borderColor: LINE, color: BODY }} />
               ) : (
-                <input value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} className={inputCls} style={{ borderColor: LINE, color: BODY }} />
+                <input value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} placeholder={r.placeholder} className={inputCls} style={{ borderColor: LINE, color: BODY }} />
               )}
             </label>
           ))}

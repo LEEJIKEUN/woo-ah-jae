@@ -83,6 +83,7 @@ export type Course = {
   stats?: { likes: number; students: number };
   references?: { label: string; href: string }[];
   audience?: string;
+  objectives?: string; // 세부 목표 리스트 — 줄바꿈 구분(한 줄 = 목표 1개)
   format?: string;
   deliveryMode?: string;
   classDays?: string; // 수업 요일·시간 (예: "매주 월·수 19:00~20:30")
@@ -149,6 +150,8 @@ const linearAlgebraForAI: Course = {
     { label: "Khan Academy · Linear Algebra", href: "#" },
   ],
   audience: "고등학생",
+  objectives:
+    "벡터·행렬의 연산을 정의하고 손과 코드로 계산할 수 있다.\n연립방정식을 행렬로 표현하고 가우스 소거법으로 풀 수 있다.\n최소제곱법으로 데이터에 가장 잘 맞는 직선·평면을 구할 수 있다.\n고유값·고유벡터의 의미를 이해하고 직접 구할 수 있다.\n특이값 분해(SVD)와 주성분 분석(PCA)으로 데이터를 차원 축소할 수 있다.\nColab에서 NumPy로 선형대수 연산을 구현하고 결과를 해석할 수 있다.",
   format: "실시간수업",
   deliveryMode: "온라인",
   classDays: "매주 월·수 19:00~20:30 (싱가포르 표준시)",

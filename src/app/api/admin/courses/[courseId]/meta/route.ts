@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const TEXT_KEYS = ["programme", "title", "subtitle", "audience", "format", "deliveryMode", "classDays", "periodLabel", "country", "summary", "realtimeInfo"] as const;
+const TEXT_KEYS = ["programme", "title", "subtitle", "objectives", "audience", "format", "deliveryMode", "classDays", "periodLabel", "country", "summary", "realtimeInfo"] as const;
 
 /** 강좌 메타 편집 — 관리자만. 하드코딩=CourseMeta 오버라이드, DB강좌=CourseDb 직접 수정. */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {

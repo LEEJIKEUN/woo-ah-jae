@@ -26,6 +26,7 @@ export default async function EditCoursePage({ params }: { params: Promise<{ cou
     slug: db.slug,
     title: db.title,
     subtitle: db.subtitle,
+    objectives: db.objectives,
     programme: db.programme,
     audience: db.audience,
     format: db.format,
