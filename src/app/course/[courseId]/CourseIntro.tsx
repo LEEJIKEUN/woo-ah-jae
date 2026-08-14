@@ -24,6 +24,7 @@ export type IntroData = {
   title: string;
   subtitle: string;
   audience?: string;
+  format?: string;
   deliveryMode?: string;
   classDays?: string;
   timetable?: { day: string; time: string }[];
@@ -97,6 +98,8 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
   const scheduleShort = intro.classDays ? intro.classDays.replace(/\s*\([^)]*\)\s*$/, "") : intro.deliveryMode;
   const stats = [
     ["수강 대상", intro.audience],
+    ["형식", intro.format],
+    ["방식", intro.deliveryMode],
     ["수업 일정", scheduleShort],
     ["수강 기간", intro.periodLabel],
   ].filter(([, v]) => v) as [string, string][];
@@ -298,6 +301,8 @@ function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: stri
     subtitle: intro.subtitle ?? "",
     summary: intro.summary ?? "",
     audience: intro.audience ?? "",
+    format: intro.format ?? "실시간수업",
+    deliveryMode: intro.deliveryMode ?? "온라인",
     classDays: intro.classDays ?? "",
     periodLabel: intro.periodLabel ?? "",
     country: intro.country ?? "",
@@ -317,12 +322,14 @@ function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: stri
       setSaving(false);
     }
   }
-  const rows: { key: keyof typeof f; label: string; area?: boolean }[] = [
+  const rows: { key: keyof typeof f; label: string; area?: boolean; options?: string[] }[] = [
     { key: "programme", label: "상단 라벨(교육과정 등)" },
     { key: "title", label: "강좌명" },
     { key: "subtitle", label: "강좌 목표(부제)" },
     { key: "summary", label: "강좌 설명", area: true },
     { key: "audience", label: "수강 대상" },
+    { key: "format", label: "형식", options: ["자기주도학습", "관리형학습", "실시간수업", "세미나"] },
+    { key: "deliveryMode", label: "방식", options: ["온라인", "오프라인"] },
     { key: "classDays", label: "수업 일정" },
     { key: "periodLabel", label: "수강 기간" },
     { key: "country", label: "국가" },
@@ -337,7 +344,11 @@ function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: stri
           {rows.map((r) => (
             <label key={r.key} className="block">
               <span className="text-[13px] font-semibold" style={{ color: INK }}>{r.label}</span>
-              {r.area ? (
+              {r.options ? (
+                <select value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} className={inputCls} style={{ borderColor: LINE, color: BODY }}>
+                  {r.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : r.area ? (
                 <textarea value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} rows={4} className={`${inputCls} resize-y leading-7`} style={{ borderColor: LINE, color: BODY }} />
               ) : (
                 <input value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} className={inputCls} style={{ borderColor: LINE, color: BODY }} />
@@ -373,6 +384,7 @@ function getStoredCourseSafe(courseId: string): IntroData | null {
     title: stored.title,
     subtitle: stored.subtitle,
     audience: stored.audience,
+    format: stored.format,
     deliveryMode: stored.deliveryMode,
     periodLabel: stored.periodLabel,
     country: stored.country,

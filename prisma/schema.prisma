@@ -290,6 +290,8 @@ model CourseMeta {
   title        String?
   subtitle     String?
   audience     String?
+  format       String?
+  deliveryMode String?
   classDays    String?
   periodLabel  String?
   country      String?

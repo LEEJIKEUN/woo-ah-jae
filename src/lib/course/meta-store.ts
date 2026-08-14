@@ -15,6 +15,8 @@ export type CourseMetaOverride = {
   title: string | null;
   subtitle: string | null;
   audience: string | null;
+  format: string | null;
+  deliveryMode: string | null;
   classDays: string | null;
   periodLabel: string | null;
   country: string | null;
@@ -35,6 +37,8 @@ type MetaRow = {
   title: string | null;
   subtitle: string | null;
   audience: string | null;
+  format: string | null;
+  deliveryMode: string | null;
   classDays: string | null;
   periodLabel: string | null;
   country: string | null;
@@ -51,6 +55,8 @@ function toOverride(r: MetaRow): CourseMetaOverride {
     title: r.title,
     subtitle: r.subtitle,
     audience: r.audience,
+    format: r.format,
+    deliveryMode: r.deliveryMode,
     classDays: r.classDays,
     periodLabel: r.periodLabel,
     country: r.country,
@@ -100,6 +106,8 @@ export type CourseMetaPatch = Partial<{
   title: string | null;
   subtitle: string | null;
   audience: string | null;
+  format: string | null;
+  deliveryMode: string | null;
   classDays: string | null;
   periodLabel: string | null;
   country: string | null;
@@ -113,7 +121,7 @@ export type CourseMetaPatch = Partial<{
 /** 강좌 메타 upsert(관리자 편집). */
 export async function upsertCourseMeta(courseId: string, patch: CourseMetaPatch): Promise<CourseMetaOverride> {
   const data: Record<string, unknown> = {};
-  const textKeys = ["programme", "title", "subtitle", "audience", "classDays", "periodLabel", "country", "summary", "realtimeInfo"] as const;
+  const textKeys = ["programme", "title", "subtitle", "audience", "format", "deliveryMode", "classDays", "periodLabel", "country", "summary", "realtimeInfo"] as const;
   for (const k of textKeys) {
     if (k in patch) {
       const v = (patch as Record<string, unknown>)[k];
