@@ -94,7 +94,7 @@ export default async function MyCoursesPage() {
                 {e.classDays ? <p className="mt-0.5 truncate text-[12px]" style={{ color: BROWN }}>{e.classDays}</p> : null}
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                {e.donut ? <ParentProgressDonut courseId={e.id} /> : null}
+                {e.donut ? <ParentProgressDonut courseId={e.id} tone="onLight" /> : null}
                 {e.manageHref ? (
                   <Link href={e.manageHref} className="inline-flex items-center rounded-[8px] border px-4 py-2.5 text-[14px] font-semibold transition hover:opacity-90" style={{ borderColor: BROWN, color: BROWN, ...serif }}>
                     출석·이수 관리
