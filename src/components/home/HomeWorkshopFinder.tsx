@@ -68,6 +68,15 @@ function toDateInput(iso?: string | null) {
     return "";
   }
 }
+// 신청마감일 23:59:59(KST) 이후면 마감
+function isPastDeadline(iso?: string | null) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const p = (n: number) => String(n).padStart(2, "0");
+  const cutoff = new Date(`${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T23:59:59+09:00`);
+  return Date.now() > cutoff.getTime();
+}
 
 export default function HomeWorkshopFinder() {
   const [targets, setTargets] = useState<string[]>([]);
@@ -231,7 +240,7 @@ export default function HomeWorkshopFinder() {
           <table className="w-full min-w-[960px] text-left">
             <thead>
               <tr className="border-b" style={{ borderColor: "#D8CFBD" }}>
-                {["강좌명", "대상", "형식", "방식", "기간", "국가", "신청현황", "마감", "상태"].map((h) => (
+                {["강좌명", "대상", "형식", "방식", "기간", "국가", "신청현황", "신청마감", "상태"].map((h) => (
                   <th key={h} className="whitespace-nowrap pb-3 pr-4 text-[14px] font-semibold" style={{ color: INK }}>{h}</th>
                 ))}
               </tr>
@@ -253,13 +262,14 @@ export default function HomeWorkshopFinder() {
                     {(() => {
                       const applied = liveApplied[r.id] ?? r.applied ?? 0;
                       const cap = capacityFor(r.format, r.capacity);
-                      const isFull = applied >= cap;
+                      const past = isPastDeadline(r.deadline);
+                      const isFull = applied >= cap || past;
                       return (
                         <>
                           <span style={{ color: isFull ? "#a6402c" : BODY, fontWeight: isFull ? 600 : 400 }}>{applied}</span>
                           <span style={{ color: SUB }}>/</span>
                           <span style={{ color: BROWN, fontWeight: 600 }}>{cap}</span>
-                          {isFull ? <span className="ml-1.5 text-[12px]" style={{ color: "#a6402c" }}>마감</span> : null}
+                          {past ? <span className="ml-1.5 text-[12px]" style={{ color: "#a6402c" }}>신청마감</span> : applied >= cap ? <span className="ml-1.5 text-[12px]" style={{ color: "#a6402c" }}>마감</span> : null}
                         </>
                       );
                     })()}

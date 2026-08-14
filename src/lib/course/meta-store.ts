@@ -62,6 +62,27 @@ function toOverride(r: MetaRow): CourseMetaOverride {
   };
 }
 
+/**
+ * 신청 마감 여부 — 마감일(날짜)의 23:59:59(KST) 이후면 true.
+ * deadline 은 날짜(UTC 자정)로 저장되므로 그 날짜의 KST 하루 끝을 기준으로 판단.
+ */
+export function isEnrollmentClosed(deadlineISO: string | null | undefined): boolean {
+  if (!deadlineISO) return false;
+  const d = new Date(deadlineISO);
+  if (Number.isNaN(d.getTime())) return false;
+  const p = (n: number) => String(n).padStart(2, "0");
+  const cutoff = new Date(`${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T23:59:59+09:00`);
+  return Date.now() > cutoff.getTime();
+}
+
+/** 강좌 마감일(ISO) — 하드코딩=CourseMeta, DB강좌=CourseDb. 없으면 null. */
+export async function getCourseDeadline(courseId: string): Promise<string | null> {
+  const meta = await prisma.courseMeta.findUnique({ where: { courseId }, select: { deadline: true } });
+  if (meta?.deadline) return meta.deadline.toISOString();
+  const db = await prisma.courseDb.findUnique({ where: { slug: courseId }, select: { deadline: true } });
+  return db?.deadline ? db.deadline.toISOString() : null;
+}
+
 /** 특정 강좌 메타(없으면 null → 하드코딩 기본값 사용, 상태는 기본 open). */
 export async function getCourseMeta(courseId: string): Promise<CourseMetaOverride | null> {
   const r = await prisma.courseMeta.findUnique({ where: { courseId } });

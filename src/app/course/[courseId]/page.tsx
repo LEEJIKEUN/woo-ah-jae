@@ -1,6 +1,6 @@
 import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
 import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
-import { getCourseMeta } from "@/lib/course/meta-store";
+import { getCourseMeta, getCourseDeadline, isEnrollmentClosed } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import CourseIntro from "./CourseIntro";
 import type { IntroData } from "./CourseIntro";
@@ -80,5 +80,6 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   // DB 강좌(하드코딩 아님)를 관리자가 볼 때만 커리큘럼 편집 링크 노출
   const editHref = isAdmin && !course && seed ? `/course/${courseId}/edit` : undefined;
   const isFacilitator = !!session && session.role === "FACILITATOR";
-  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} editHref={editHref} />;
+  const closed = isEnrollmentClosed(await getCourseDeadline(courseId));
+  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} closed={closed} editHref={editHref} />;
 }

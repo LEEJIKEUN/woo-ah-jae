@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
+import { getCourseDeadline, isEnrollmentClosed } from "@/lib/course/meta-store";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
 
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const applied = await getApplied(courseId);
   const s = await sessionFromReq(request);
   const enrolled = s ? isStaffRole(s.role) || (await isUserEnrolled(courseId, s.userId)) : false;
-  return NextResponse.json({ applied, capacity, full: applied >= capacity, enrolled });
+  const closed = isEnrollmentClosed(await getCourseDeadline(courseId));
+  return NextResponse.json({ applied, capacity, full: applied >= capacity || closed, closed, enrolled });
 }
 
 // 수강신청(로그인 필요 · 사용자ID 기록)
@@ -40,6 +42,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (s.role !== "STUDENT") {
     return NextResponse.json({ error: "수강신청은 학생 계정만 가능합니다." }, { status: 403 });
+  }
+  if (isEnrollmentClosed(await getCourseDeadline(courseId))) {
+    return NextResponse.json({ error: "수강신청이 마감되었습니다." }, { status: 409 });
   }
   const capacity = capacityForCourse(courseId);
   const result = await enrollUser(courseId, s.userId, capacity);
