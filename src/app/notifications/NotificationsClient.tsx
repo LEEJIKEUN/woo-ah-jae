@@ -141,8 +141,10 @@ export default function NotificationsClient({ role, myName, childNames, courses 
             </button>
             {courses.map((c) => (
               <button key={c.id} type="button" onClick={() => setCourse(c.id)} className={banner(course === c.id)} style={bannerStyle(course === c.id)}>
-                <span className="block max-w-[200px] truncate text-[13.5px] font-bold">{c.title}</span>
-                <span className="text-[12px] opacity-70">{countCourse(c.id)}건</span>
+                <span className="flex items-center">
+                  <span className="max-w-[240px] truncate text-[13.5px] font-bold">{c.title}</span>
+                  <span className="ml-2 shrink-0 text-[12px] opacity-70">{countCourse(c.id)}</span>
+                </span>
               </button>
             ))}
           </div>
