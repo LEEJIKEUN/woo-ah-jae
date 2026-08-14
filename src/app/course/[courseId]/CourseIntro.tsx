@@ -216,11 +216,11 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
             <p className="mt-3 text-[16px] leading-7" style={{ color: SUB }}>{intro.subtitle}</p>
           ) : null}
           {stats.length > 0 ? (
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="mt-9 flex flex-wrap gap-x-12 gap-y-5 border-t pt-6" style={{ borderColor: "rgba(140,110,89,0.2)" }}>
               {stats.map(([k, v]) => (
-                <div key={k} className="min-w-0 rounded-[10px] px-4 py-3" style={{ background: "rgba(255,255,255,0.55)" }}>
-                  <p className="text-[13px]" style={{ color: SUB }}>{k}</p>
-                  <p className="mt-1 truncate text-[14px] font-semibold" style={{ color: DEEP }}>{v}</p>
+                <div key={k} className="min-w-0">
+                  <p className="text-[12.5px]" style={{ color: SUB }}>{k}</p>
+                  <p className="mt-1.5 text-[15px] font-semibold" style={{ color: DEEP }}>{v}</p>
                 </div>
               ))}
             </div>
