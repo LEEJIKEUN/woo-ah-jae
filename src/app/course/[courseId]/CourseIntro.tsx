@@ -42,7 +42,7 @@ const SECTIONS = [
   { id: "lessons", label: "강좌 차시" },
 ] as const;
 
-export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean }) {
+export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, editHref }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; editHref?: string }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -126,7 +126,12 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
       <section className="w-full" style={{ background: heroGrad }}>
         <div className="mx-auto max-w-[1120px] px-6 py-14">
           {isAdmin ? (
-            <div className="mb-3 flex justify-end">
+            <div className="mb-3 flex justify-end gap-2">
+              {editHref ? (
+                <Link href={editHref} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
+                  커리큘럼 편집
+                </Link>
+              ) : null}
               <button type="button" onClick={() => setEditing(true)} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
                 강좌 정보 편집
               </button>

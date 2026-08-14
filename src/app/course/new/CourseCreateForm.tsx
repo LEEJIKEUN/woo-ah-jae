@@ -20,18 +20,29 @@ type FormModule = { id: string; label: string; lessons: FormLesson[] };
 const blankLesson = (): FormLesson => ({ id: newId("l"), title: "", kind: "material", body: "" });
 const blankModule = (label = ""): FormModule => ({ id: newId("m"), label, lessons: [blankLesson()] });
 
-export default function CourseCreateForm() {
+export type CourseInitial = {
+  slug: string;
+  title: string; subtitle: string; programme: string; audience: string; format: string; deliveryMode: string; periodLabel: string; country: string; summary: string;
+  modules: { label: string; lessons: { title: string; kind: string; body: string }[] }[];
+};
+
+export default function CourseCreateForm({ initial, editSlug }: { initial?: CourseInitial; editSlug?: string } = {}) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [programme, setProgramme] = useState("");
-  const [audience, setAudience] = useState("고등학생");
-  const [format, setFormat] = useState("자기주도학습");
-  const [deliveryMode, setDeliveryMode] = useState("온라인");
-  const [periodLabel, setPeriodLabel] = useState("");
-  const [country, setCountry] = useState("한국");
-  const [summary, setSummary] = useState("");
-  const [modules, setModules] = useState<FormModule[]>([blankModule("오리엔테이션")]);
+  const isEdit = !!editSlug;
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
+  const [programme, setProgramme] = useState(initial?.programme ?? "");
+  const [audience, setAudience] = useState(initial?.audience ?? "고등학생");
+  const [format, setFormat] = useState(initial?.format ?? "자기주도학습");
+  const [deliveryMode, setDeliveryMode] = useState(initial?.deliveryMode ?? "온라인");
+  const [periodLabel, setPeriodLabel] = useState(initial?.periodLabel ?? "");
+  const [country, setCountry] = useState(initial?.country ?? "한국");
+  const [summary, setSummary] = useState(initial?.summary ?? "");
+  const [modules, setModules] = useState<FormModule[]>(
+    initial?.modules?.length
+      ? initial.modules.map((m) => ({ id: newId("m"), label: m.label, lessons: m.lessons.length ? m.lessons.map((l) => ({ id: newId("l"), title: l.title, kind: l.kind === "assignment" ? "assignment" : "material", body: l.body })) : [blankLesson()] }))
+      : [blankModule("오리엔테이션")]
+  );
 
   function patchModule(mi: number, patch: Partial<FormModule>) {
     setModules((prev) => prev.map((m, i) => (i === mi ? { ...m, ...patch } : m)));
@@ -69,6 +80,13 @@ export default function CourseCreateForm() {
         .filter((m) => m.label),
     };
     try {
+      if (isEdit) {
+        const res = await fetch(`/api/admin/courses/${editSlug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const d = (await res.json()) as { error?: string };
+        if (!res.ok) { alert(d.error ?? "저장에 실패했습니다."); return; }
+        router.push(`/course/${editSlug}`);
+        return;
+      }
       const res = await fetch("/api/admin/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const d = (await res.json()) as { slug?: string; error?: string };
       if (!res.ok || !d.slug) {
@@ -81,11 +99,22 @@ export default function CourseCreateForm() {
     }
   }
 
+  async function removeCourse() {
+    if (!editSlug || !confirm("이 강좌를 삭제할까요? 되돌릴 수 없습니다.")) return;
+    try {
+      const res = await fetch(`/api/admin/courses/${editSlug}`, { method: "DELETE" });
+      if (res.ok) router.push("/");
+      else alert("삭제에 실패했습니다.");
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
+    }
+  }
+
   return (
     <div style={{ background: "#fff", color: BODY }}>
       <form onSubmit={submit} className="mx-auto max-w-[820px] px-6 pt-20 pb-32">
-        <p className="text-center text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>NEW COURSE</p>
-        <h1 className="mt-4 text-center text-[30px] font-normal md:text-[38px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>강좌 개설</h1>
+        <p className="text-center text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>{isEdit ? "EDIT COURSE" : "NEW COURSE"}</p>
+        <h1 className="mt-4 text-center text-[30px] font-normal md:text-[38px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>{isEdit ? "강좌 수정" : "강좌 개설"}</h1>
         <p className="mt-3 text-center text-[14px]" style={{ color: SUB }}>과목·소개·커리큘럼·강의 콘텐츠까지 직접 입력해 강좌를 엽니다.</p>
 
         {/* 기본 정보 */}
@@ -169,9 +198,12 @@ export default function CourseCreateForm() {
           </div>
         </div>
 
-        <div className="mt-14 flex justify-center gap-3">
-          <button type="button" onClick={() => router.push("/course")} className="rounded-[8px] border px-8 py-3 text-[15px]" style={{ borderColor: LINE, color: SUB, ...serif }}>취소</button>
-          <button type="submit" className="rounded-[8px] px-10 py-3 text-[15px] text-white" style={{ background: BROWN, ...serif, boxShadow: "0 2px 10px rgba(140,110,89,0.25)" }}>강좌 개설하기</button>
+        <div className="mt-14 flex flex-wrap justify-center gap-3">
+          <button type="button" onClick={() => router.push(isEdit ? `/course/${editSlug}` : "/")} className="rounded-[8px] border px-8 py-3 text-[15px]" style={{ borderColor: LINE, color: SUB, ...serif }}>취소</button>
+          <button type="submit" className="rounded-[8px] px-10 py-3 text-[15px] text-white" style={{ background: BROWN, ...serif, boxShadow: "0 2px 10px rgba(140,110,89,0.25)" }}>{isEdit ? "저장하기" : "강좌 개설하기"}</button>
+          {isEdit ? (
+            <button type="button" onClick={removeCourse} className="rounded-[8px] border px-6 py-3 text-[15px]" style={{ borderColor: "#E6C4C4", color: "#B4544B", ...serif }}>강좌 삭제</button>
+          ) : null}
         </div>
       </form>
     </div>

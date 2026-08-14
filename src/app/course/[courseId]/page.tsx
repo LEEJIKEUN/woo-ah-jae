@@ -77,5 +77,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
     }
   }
 
-  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} />;
+  // DB 강좌(하드코딩 아님)를 관리자가 볼 때만 커리큘럼 편집 링크 노출
+  const editHref = isAdmin && !course && seed ? `/course/${courseId}/edit` : undefined;
+  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} editHref={editHref} />;
 }
