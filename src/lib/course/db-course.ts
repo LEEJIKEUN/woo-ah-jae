@@ -63,7 +63,7 @@ function cleanModules(mods: DbModule[] | undefined): DbModule[] {
 }
 
 function scalarData(input: DbCourseInput) {
-  const status = STATUSES.includes(input.status ?? "") ? input.status! : "prep";
+  const status = STATUSES.includes(input.status ?? "") ? input.status! : "private";
   return {
     title: String(input.title ?? "").slice(0, 200),
     subtitle: String(input.subtitle ?? "").slice(0, 500),

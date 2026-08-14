@@ -69,7 +69,7 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
       periodLabel: periodLabel.trim(),
       country,
       summary: summary.trim(),
-      status: "prep",
+      status: "private",
       modules: modules
         .map((m) => ({
           label: m.label.trim(),
