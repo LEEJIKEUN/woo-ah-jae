@@ -35,10 +35,22 @@ export async function isParentOfEnrolledChild(courseId: string, parentUserId: st
   return false;
 }
 
-/** 강의실 입장 가능 여부 (관리자·퍼실리테이터 or 수강신청 완료 or 자녀 수강중인 학부모) */
+/** 퍼실리테이터가 이 강좌의 담당(배정)인지 */
+export async function isFacilitatorOfCourse(courseId: string, userId: string): Promise<boolean> {
+  const fc = await prisma.facilitatorCourse.findFirst({ where: { courseId, facilitatorUserId: userId }, select: { courseId: true } });
+  return !!fc;
+}
+
+/**
+ * 강의실 입장 가능 여부.
+ * - 관리자: 전체 강좌 입장
+ * - 퍼실리테이터: 관리자가 배정한 담당 강좌만 입장(미배정은 소개까지만)
+ * - 학생: 수강신청 완료 / 학부모: 자녀 수강중
+ */
 export async function canEnterClassroom(courseId: string, session: CourseSession | null): Promise<boolean> {
   if (!session) return false;
-  if (isStaffRole(session.role)) return true;
+  if (session.role === "ADMIN") return true;
+  if (session.role === "FACILITATOR") return isFacilitatorOfCourse(courseId, session.userId);
   if (await isUserEnrolled(courseId, session.userId)) return true;
   if (session.role === "PARENT") return isParentOfEnrolledChild(courseId, session.userId);
   return false;
@@ -54,7 +66,11 @@ export async function canEnterClassroom(courseId: string, session: CourseSession
 export async function requireClassroomAccess(courseId: string, nextPath: string): Promise<CourseSession> {
   const session = await getSession();
   if (!session) redirect(`/login?next=${encodeURIComponent(nextPath)}`);
-  if (isStaffRole(session.role)) return session;
+  if (session.role === "ADMIN") return session;
+  if (session.role === "FACILITATOR") {
+    if (await isFacilitatorOfCourse(courseId, session.userId)) return session;
+    redirect(`/course/${courseId}`); // 미배정 퍼실 → 소개로
+  }
   if (await isUserEnrolled(courseId, session.userId)) return session;
   if (session.role === "PARENT" && (await isParentOfEnrolledChild(courseId, session.userId))) return session;
   redirect(`/course/${courseId}`);

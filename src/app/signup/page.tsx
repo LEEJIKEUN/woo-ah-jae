@@ -3,7 +3,6 @@
 import countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import SchoolCombobox from "@/components/signup/SchoolCombobox";
 import EmailVerifyField from "@/components/signup/EmailVerifyField";
 import { GRADUATION_TERMS } from "@/lib/signup-options";
@@ -24,7 +23,6 @@ function daysInMonth(year: number, month: number) {
 }
 
 export default function SignupPage() {
-  const router = useRouter();
   const countryOptions = useMemo(() => getCountryOptions(), []);
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(
@@ -182,8 +180,9 @@ export default function SignupPage() {
       }
 
       try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* 무시 */ }
-      setMessage("제출이 완료되었습니다. 완료 화면으로 이동합니다.");
-      router.push(accountType === "facilitator" ? "/signup/success?pending=1" : "/signup/success");
+      // 즉시 이동(RSC 라운드트립 없이 하드 내비게이션)
+      window.location.href = accountType === "facilitator" ? "/signup/success?pending=1" : "/signup/success";
+      return;
     } catch {
       setError("서버 응답이 지연되거나 연결에 문제가 있습니다. 다시 시도해주세요.");
       setMessage(null);
@@ -323,7 +322,7 @@ export default function SignupPage() {
               className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2"
               placeholder="자녀가 가입한 이메일 주소"
             />
-            <p className="text-xs text-slate-500">회원가입 후, 학생 계정(이메일)으로 이메일 인증 요청이 전송되고, 자녀가 수락하면 학습 현황 및 탐구활동 멘토링 열람이 가능합니다.</p>
+            <p className="text-xs leading-5 text-slate-500">회원가입 후, 학생 계정(이메일)으로 이메일 인증 요청이 전송되고, 자녀가 수락하면 학습 현황 및 탐구활동 멘토링 열람이 가능합니다.<br /><br />두 명 이상의 자녀가 우아재를 이용하고 있는 경우, 로그인 후 &lsquo;프로필 수정&rsquo;에서 다른 자녀들을 연결할 수 있습니다.</p>
           </label>
         ) : null}
 
@@ -464,7 +463,7 @@ export default function SignupPage() {
                   <span className="text-[12px] text-slate-500">PDF 또는 이미지 파일 (최대 10MB)</span>
                 </button>
               )}
-              <p className="mt-1 text-xs text-slate-500">관리자 승인 후 가입이 완료됩니다.</p>
+              <p className="mt-1 text-xs text-slate-500">관리자 승인 후 회원가입 및 멘토 인력풀에 등록이 완료됩니다.</p>
             </div>
           </>
         ) : null}

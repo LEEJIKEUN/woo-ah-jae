@@ -79,5 +79,6 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
 
   // DB 강좌(하드코딩 아님)를 관리자가 볼 때만 커리큘럼 편집 링크 노출
   const editHref = isAdmin && !course && seed ? `/course/${courseId}/edit` : undefined;
-  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} editHref={editHref} />;
+  const isFacilitator = !!session && session.role === "FACILITATOR";
+  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} editHref={editHref} />;
 }

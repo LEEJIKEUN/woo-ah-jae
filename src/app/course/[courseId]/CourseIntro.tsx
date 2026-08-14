@@ -42,7 +42,7 @@ const SECTIONS = [
   { id: "lessons", label: "강좌 차시" },
 ] as const;
 
-export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, editHref }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; editHref?: string }) {
+export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, editHref }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; editHref?: string }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -241,6 +241,10 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                 <Link href={`/course/${intro.id}/learn`} className="flex h-12 w-full items-center justify-center gap-2 rounded-full text-white transition hover:opacity-90" style={{ background: BROWN, fontSize: 16, ...serif }}>
                   강의실 입장 &rarr;
                 </Link>
+              ) : isFacilitator ? (
+                <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-full text-white opacity-50" style={{ background: BROWN, fontSize: 15, fontWeight: 600, ...serif }}>
+                  담당 강좌만 입장할 수 있어요
+                </button>
               ) : !authed ? (
                 <Link href={`/login?next=/course/${intro.id}`} className="flex h-12 w-full items-center justify-center rounded-full text-white transition hover:opacity-90" style={{ background: BROWN, fontSize: 16, fontWeight: 600, ...serif }}>
                   수강 신청하기
