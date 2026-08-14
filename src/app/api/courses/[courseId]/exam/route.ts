@@ -4,6 +4,7 @@ import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { createNotifications } from "@/lib/notification-store";
 import { savePrivateFile, validateUpload } from "@/lib/upload";
+import { gradeExam } from "@/lib/exam/grade";
 import { PDFDocument } from "pdf-lib";
 import { prisma } from "@/lib/prisma";
 
@@ -95,7 +96,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const e = await tx.exam.create({
         data: {
           courseId, title, subject: String(payload.subject ?? "").trim().slice(0, 120),
-          paperKey, studentPaperKey, paperName: paper.name.slice(0, 200), paperSize: paper.size,
+          paperKey, studentPaperKey, studentPageCount: studentPaperKey ? spc : 0,
+          paperName: paper.name.slice(0, 200), paperSize: paper.size,
           durationSec: Math.round(durationMin * 60), opensAt, closesAt, status, createdBy: auth.userId,
         },
       });
@@ -171,12 +173,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       orderBy: { createdAt: "desc" },
     });
     const ids = exams.map((e) => e.id);
-    const [qCounts, attempts] = await Promise.all([
-      prisma.examQuestion.groupBy({ by: ["examId"], where: { examId: { in: ids } }, _count: { _all: true } }),
+    const [questions, attempts] = await Promise.all([
+      prisma.examQuestion.findMany({ where: { examId: { in: ids } }, select: { examId: true, number: true, type: true, points: true, answerKey: true } }),
       prisma.examAttempt.findMany({ where: { studentId: auth.userId, examId: { in: ids } } }),
     ]);
-    const qMap = new Map(qCounts.map((r) => [r.examId, r._count._all]));
+    const qByExam = new Map<string, { number: number; type: string; points: number; answerKey: string }[]>();
+    for (const q of questions) { const arr = qByExam.get(q.examId) ?? []; arr.push(q); qByExam.set(q.examId, arr); }
     const atMap = new Map(attempts.map((a) => [a.examId, a]));
+    // 종료된 응시 자동채점
+    const terminal = attempts.filter((a) => a.status !== "in_progress");
+    const ans = terminal.length ? await prisma.examAnswer.findMany({ where: { attemptId: { in: terminal.map((a) => a.id) } }, select: { attemptId: true, questionNo: true, choice: true, textAnswer: true } }) : [];
+    const ansByAttempt = new Map<string, { questionNo: number; choice: number | null; textAnswer: string | null }[]>();
+    for (const a of ans) { const arr = ansByAttempt.get(a.attemptId) ?? []; arr.push(a); ansByAttempt.set(a.attemptId, arr); }
 
     return NextResponse.json({
       serverNow: now.toISOString(),
@@ -185,6 +193,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const at = atMap.get(e.id);
         let atStatus = at?.status ?? null;
         if (at && at.status === "in_progress" && now.getTime() > at.deadlineAt.getTime()) atStatus = "expired";
+        const graded = at && atStatus !== "in_progress" && atStatus !== null ? gradeExam(qByExam.get(e.id) ?? [], ansByAttempt.get(at.id) ?? []) : null;
         return {
           id: e.id,
           title: e.title,
@@ -193,9 +202,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           durationSec: e.durationSec,
           opensAt: e.opensAt ? e.opensAt.toISOString() : null,
           closesAt: e.closesAt ? e.closesAt.toISOString() : null,
-          questionCount: qMap.get(e.id) ?? 0,
+          questionCount: (qByExam.get(e.id) ?? []).length,
           attempt: at
-            ? { status: atStatus, deadlineAt: at.deadlineAt.toISOString(), submittedAt: at.submittedAt ? at.submittedAt.toISOString() : null }
+            ? { status: atStatus, deadlineAt: at.deadlineAt.toISOString(), submittedAt: at.submittedAt ? at.submittedAt.toISOString() : null, score: graded?.score ?? null, total: graded?.total ?? null }
             : null,
         };
       }),

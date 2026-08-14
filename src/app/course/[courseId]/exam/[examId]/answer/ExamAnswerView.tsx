@@ -297,6 +297,14 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
                 );
               })}
             </div>
+
+            {!readOnly ? (
+              <div className="mt-8 flex justify-end">
+                <button type="button" onClick={() => setShowSubmit(true)} className="inline-flex items-center gap-1.5 rounded-[10px] px-7 py-3 text-[15px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>
+                  <Send size={16} /> 제출하기
+                </button>
+              </div>
+            ) : null}
           </div>
         </main>
       </div>

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, PenLine } from "lucide-react";
+import { FileText, PenLine, Download } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 
 const BROWN = "#8C6E59";
+const DEEP = "#6B5342";
 const INK = "#2C2823";
 const BODY = "#223039";
 const SUB = "#8A8479";
@@ -14,7 +15,7 @@ const LINE = "#E4DBC7";
 const PANEL = "#FBF8F2";
 const serif = { fontFamily: "var(--font-serif)" } as const;
 
-type Attempt = { status: string | null; deadlineAt: string; submittedAt: string | null };
+type Attempt = { status: string | null; deadlineAt: string; submittedAt: string | null; score: number | null; total: number | null };
 type Row = {
   id: string;
   title: string;
@@ -92,6 +93,14 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
     router.push(`/course/${courseId}/exam/${id}/answer`);
   }, [courseId, router]);
 
+  const goResult = useCallback((id: string) => {
+    router.push(`/course/${courseId}/exam/${id}/result`);
+  }, [courseId, router]);
+
+  const download = useCallback((id: string, part: "questions" | "explanation") => {
+    window.open(`/api/courses/${courseId}/exam/${id}/paper?part=${part}&download=1`, "_blank", "noopener");
+  }, [courseId]);
+
   const body = useMemo(() => {
     if (error) return <p className="py-16 text-center text-[14px]" style={{ color: "#a6402c" }}>{error}</p>;
     if (rows === null) return <p className="py-16 text-center text-[14px]" style={{ color: SUB }}>불러오는 중…</p>;
@@ -108,6 +117,7 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
           const badge = isStaff ? null : studentBadge(row, nowMs);
           const notOpenYet = !!row.opensAt && nowMs < Date.parse(row.opensAt);
           const answerDisabled = !isStaff && !row.attempt && (row.status === "closed" || notOpenYet);
+          const termDone = !isStaff && !!row.attempt && (row.attempt.status === "submitted" || row.attempt.status === "expired");
           return (
             <li key={row.id} className="rounded-[14px] border p-5" style={{ borderColor: LINE, background: "#fff" }}>
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -128,7 +138,7 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                     {isStaff ? ` · 배정 ${row.assignedCount ?? 0}명 · 제출 ${row.submittedCount ?? 0}명` : ""}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   {isStaff ? (
                     <button
                       type="button"
@@ -138,6 +148,15 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                     >
                       <FileText size={15} /> 시험지
                     </button>
+                  ) : termDone ? (
+                    <>
+                      <button type="button" onClick={() => goResult(row.id)} className="rounded-[10px] px-4 py-2 text-left transition hover:opacity-90" style={{ background: "#F1EADD" }} title="채점 결과·해설 보기">
+                        <span className="text-[18px] font-extrabold" style={{ color: DEEP }}>{row.attempt?.score ?? 0}</span>
+                        <span className="text-[13px] font-semibold" style={{ color: SUB }}> / {row.attempt?.total ?? 100}점</span>
+                      </button>
+                      <button type="button" onClick={() => download(row.id, "questions")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 문제지</button>
+                      <button type="button" onClick={() => download(row.id, "explanation")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 해설지</button>
+                    </>
                   ) : (
                     <button
                       type="button"
