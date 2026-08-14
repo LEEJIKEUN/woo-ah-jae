@@ -232,24 +232,24 @@ export default function HomeWorkshopFinder() {
             <thead>
               <tr className="border-b" style={{ borderColor: "#D8CFBD" }}>
                 {["강좌명", "대상", "형식", "방식", "기간", "국가", "신청현황", "마감", "상태"].map((h) => (
-                  <th key={h} className="pb-3 pr-4 text-[14px] font-semibold" style={{ color: INK }}>{h}</th>
+                  <th key={h} className="whitespace-nowrap pb-3 pr-4 text-[14px] font-semibold" style={{ color: INK }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {results.map((r) => (
                 <tr key={r.id} className="border-b" style={{ borderColor: "#EFEAE0" }}>
-                  <td className="py-5 pr-4">
+                  <td className="whitespace-nowrap py-5 pr-4">
                     <Link href={r.href} className="text-[14px] hover:underline" style={{ color: BODY }}>{r.name}</Link>
                   </td>
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.target}</td>
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.format}</td>
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.mode}</td>
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.periodLabel}</td>
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.target}</td>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.format}</td>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.mode}</td>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>{r.periodLabel}</td>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>
                     <span className="inline-flex items-center gap-1.5">{r.country} <MapPin size={14} style={{ color: BROWN }} /></span>
                   </td>
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>
                     {(() => {
                       const applied = liveApplied[r.id] ?? r.applied ?? 0;
                       const cap = capacityFor(r.format, r.capacity);
@@ -265,7 +265,7 @@ export default function HomeWorkshopFinder() {
                     })()}
                   </td>
                   {/* 마감 */}
-                  <td className="py-5 pr-4 text-[14px]" style={{ color: BODY }}>
+                  <td className="whitespace-nowrap py-5 pr-4 text-[14px]" style={{ color: BODY }}>
                     {isAdmin ? (
                       <input type="date" value={toDateInput(r.deadline)} onChange={(e) => patchMeta(r.id, { deadline: e.target.value })} className="rounded-[8px] border bg-white px-2 py-1 text-[13px]" style={{ borderColor: LINE, color: INK }} />
                     ) : (
@@ -273,7 +273,7 @@ export default function HomeWorkshopFinder() {
                     )}
                   </td>
                   {/* 상태 */}
-                  <td className="py-5 text-[14px]">
+                  <td className="whitespace-nowrap py-5 text-[14px]">
                     {isAdmin ? (
                       <select value={r.status} onChange={(e) => patchMeta(r.id, { status: e.target.value })} className="rounded-[8px] border bg-white px-2 py-1 text-[13px] font-semibold" style={{ borderColor: LINE, color: STATUS_COLOR[r.status] ?? INK }}>
                         {STATUS_LIST.map((s) => (
