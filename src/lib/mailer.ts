@@ -220,3 +220,27 @@ export async function sendFacilitatorRejectionEmail(params: { to: string; name: 
   `;
   return postResend({ apiKey, from, to: params.to, subject, text, html });
 }
+
+export async function sendFacilitatorCourseAssignedEmail(params: { to: string; name: string; courseTitle: string }) {
+  const { apiKey, from } = getMailerConfig();
+  const subject = `[우아재] 담당 강좌 배정 안내 — ${params.courseTitle}`;
+  const text = [
+    `${params.name}님, 안녕하세요.`,
+    "",
+    `'${params.courseTitle}' 강좌의 담당 퍼실리테이터(멘토)로 배정되었습니다.`,
+    "이제 해당 강좌의 강의실에 입장해 수강생 멘토링·운영을 시작하실 수 있습니다.",
+    "우아재에 로그인 후 강좌 강의실에서 확인해 주세요.",
+    "",
+    "함께해 주셔서 감사합니다. — 우아재 드림",
+  ].join("\n");
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.7; color:#2c2823; max-width:560px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">담당 강좌 배정 안내</h2>
+      <p><strong>${params.name}</strong>님, 안녕하세요.</p>
+      <p><strong>'${params.courseTitle}'</strong> 강좌의 담당 퍼실리테이터(멘토)로 배정되었습니다.</p>
+      <p style="color:#334155;">이제 해당 강좌의 강의실에 입장해 수강생 멘토링·운영을 시작하실 수 있습니다. 우아재에 로그인 후 강좌 강의실에서 확인해 주세요.</p>
+      <p style="color:#8A8479;">함께해 주셔서 감사합니다. — 우아재 드림</p>
+    </div>
+  `;
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}
