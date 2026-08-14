@@ -31,6 +31,7 @@ export default function MemberProfileModal({ id, onClose, onSaved }: { id: strin
   const [form, setForm] = useState<Record<string, string>>({});
   const [role, setRole] = useState("STUDENT");
   const [courseIds, setCourseIds] = useState<Set<string>>(new Set());
+  const [assignable, setAssignable] = useState<{ id: string; title: string }[]>(COURSES.map((c) => ({ id: c.id, title: c.title })));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -52,6 +53,11 @@ export default function MemberProfileModal({ id, onClose, onSaved }: { id: strin
         setForm(Object.fromEntries(EDITABLE.map((k) => [k, (d as unknown as Record<string, string>)[k] ?? ""])));
         setRole(d.role);
         setCourseIds(new Set(d.assignedCourseIds ?? []));
+        // 배정 가능한 전체 강좌(하드코딩 + DB)
+        fetch("/api/admin/courses/assignable", { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : { courses: [] }))
+          .then((cd) => { if (alive && Array.isArray(cd.courses) && cd.courses.length) setAssignable(cd.courses); })
+          .catch(() => {});
       } catch {
         if (alive) setErr("네트워크 오류가 발생했습니다.");
       } finally {
@@ -130,7 +136,7 @@ export default function MemberProfileModal({ id, onClose, onSaved }: { id: strin
                 <div className="space-y-1 sm:col-span-2">
                   <span className="text-xs text-slate-500">담당 강좌 (관리자가 배정)</span>
                   <div className="space-y-1 rounded-md border border-slate-200 p-2">
-                    {COURSES.map((c) => (
+                    {assignable.map((c) => (
                       <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm text-slate-800 hover:bg-slate-50">
                         <input type="checkbox" checked={courseIds.has(c.id)} onChange={() => toggleCourse(c.id)} />
                         <span className="truncate">{c.title}</span>

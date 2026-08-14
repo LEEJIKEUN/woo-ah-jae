@@ -35,6 +35,7 @@ const FIELD_LIMITS: Partial<Record<FieldKey, number>> = {
   topic: 90, motive: 300, process: 600, result: 300, difficulty: 240, overcome: 360, learned: 300, references: 300,
 };
 const BOOK_LIMITS = { motive: 90, review: 260, influence: 260 } as const;
+const SETE_LIMIT = 1500; // 과목별 세부능력 특기사항(참고)
 const OVER_RED = "#dc2626";
 
 type Report = Record<FieldKey, string>;
@@ -846,11 +847,19 @@ export default function MentoringView({
                   과목별 세부능력 특기사항(참고)
                   {!isStaff ? <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
                 </p>
-                <span className="shrink-0 text-[11px]" style={{ color: MUTED }}>{byteLen(editingSete ? seteDraft : sete)} byte</span>
+                {(() => {
+                  const used = byteLen(editingSete ? seteDraft : sete);
+                  const over = used > SETE_LIMIT;
+                  return (
+                    <span className="shrink-0 text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
+                      <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{SETE_LIMIT}byte</b>
+                    </span>
+                  );
+                })()}
               </div>
               <div className="px-4 py-4">
                 {editingSete ? (
-                  <textarea value={seteDraft} onChange={(e) => setSeteDraft(e.target.value)} rows={6} placeholder="이 학생의 과목별 세부능력 특기사항을 작성하세요." className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BODY }} />
+                  <textarea value={seteDraft} onChange={(e) => setSeteDraft(truncateToBytes(e.target.value, Math.floor(SETE_LIMIT * 1.1)))} rows={6} placeholder="이 학생의 과목별 세부능력 특기사항을 작성하세요." className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(seteDraft) > SETE_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
                 ) : sete ? (
                   <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{sete}</p>
                 ) : (
