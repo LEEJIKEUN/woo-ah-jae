@@ -244,3 +244,26 @@ export async function sendFacilitatorCourseAssignedEmail(params: { to: string; n
   `;
   return postResend({ apiKey, from, to: params.to, subject, text, html });
 }
+
+/** 새 강좌 개설 요청 접수 알림(관리자 → 담당자). spec 은 사람이 읽을 수 있는 강좌 사양 텍스트. */
+export async function sendCourseRequestEmail(params: { to: string; requesterEmail: string; title: string; spec: string }) {
+  const { apiKey, from } = getMailerConfig();
+  const subject = `[우아재] 새 강좌 개설 요청 — ${params.title}`;
+  const text = [
+    "새 강좌 개설 요청이 접수되었습니다.",
+    `요청자: ${params.requesterEmail}`,
+    "",
+    params.spec,
+    "",
+    "담당자가 강좌 구조를 구성한 뒤 공개됩니다.",
+  ].join("\n");
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.7; color:#2c2823; max-width:640px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">새 강좌 개설 요청</h2>
+      <p style="color:#8A8479; margin:0 0 12px;">요청자: ${params.requesterEmail}</p>
+      <pre style="white-space:pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size:13px; background:#FBF8F2; border:1px solid #E4DBC7; border-radius:10px; padding:16px; color:#2c2823;">${params.spec.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string))}</pre>
+      <p style="color:#8A8479;">담당자가 강좌 구조를 구성한 뒤 공개됩니다. — 우아재</p>
+    </div>
+  `;
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}

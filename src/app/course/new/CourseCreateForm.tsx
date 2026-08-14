@@ -39,6 +39,8 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
   const [periodLabel, setPeriodLabel] = useState(initial?.periodLabel ?? "");
   const [country, setCountry] = useState(initial?.country ?? "한국");
   const [summary, setSummary] = useState(initial?.summary ?? "");
+  const [submittedSpec, setSubmittedSpec] = useState<string | null>(null); // 개설 요청 접수 후 사양 표시(생성 모드)
+  const [copied, setCopied] = useState(false);
   const [modules, setModules] = useState<FormModule[]>(
     initial?.modules?.length
       ? initial.modules.map((m) => ({ id: newId("m"), label: m.label, lessons: m.lessons.length ? m.lessons.map((l) => ({ id: newId("l"), title: l.title, kind: l.kind === "assignment" ? "assignment" : "material", body: l.body })) : [blankLesson()] }))
@@ -89,13 +91,15 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
         router.push(`/course/${editSlug}`);
         return;
       }
-      const res = await fetch("/api/admin/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const d = (await res.json()) as { slug?: string; error?: string };
-      if (!res.ok || !d.slug) {
-        alert(d.error ?? "강좌 개설에 실패했습니다.");
+      // 하드코딩 기준 운영: 여기서는 DB 강좌를 만들지 않고 '개설 요청'으로 접수한다(담당자가 구조 구성 후 공개).
+      const res = await fetch("/api/admin/courses/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const d = (await res.json()) as { spec?: string; error?: string };
+      if (!res.ok) {
+        alert(d.error ?? "요청 접수에 실패했습니다.");
         return;
       }
-      router.push(`/course/${d.slug}`);
+      setSubmittedSpec(d.spec ?? "");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
       alert("네트워크 오류가 발생했습니다.");
     }
@@ -112,12 +116,40 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
     }
   }
 
+  if (submittedSpec !== null) {
+    return (
+      <div style={{ background: "#fff", color: BODY }}>
+        <div className="mx-auto max-w-[720px] px-6 pt-24 pb-32 text-center">
+          <p className="text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>REQUEST RECEIVED</p>
+          <h1 className="mt-4 text-[28px] font-normal md:text-[34px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>강좌 개설 요청이 접수되었습니다</h1>
+          <p className="mt-3 text-[14px] leading-7" style={{ color: SUB }}>
+            담당자가 강좌 구조(모듈·차시)를 구성한 뒤 공개됩니다.<br />
+            요청 내역은 관리자 메일·알림으로도 전송되었습니다.
+          </p>
+          {submittedSpec ? (
+            <pre className="mt-8 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-[12px] border p-5 text-left text-[13px] leading-6" style={{ borderColor: LINE, background: PANEL, color: INK, fontFamily: "ui-monospace, Menlo, monospace" }}>{submittedSpec}</pre>
+          ) : null}
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {submittedSpec ? (
+              <button type="button" onClick={() => { navigator.clipboard?.writeText(submittedSpec).then(() => setCopied(true), () => setCopied(true)); }} className="rounded-[8px] px-8 py-3 text-[15px] text-white" style={{ background: BROWN, ...serif }}>{copied ? "복사됨 ✓" : "내용 복사"}</button>
+            ) : null}
+            <button type="button" onClick={() => router.push("/")} className="rounded-[8px] border px-8 py-3 text-[15px]" style={{ borderColor: LINE, color: SUB, ...serif }}>홈으로</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ background: "#fff", color: BODY }}>
       <form onSubmit={submit} className="mx-auto max-w-[820px] px-6 pt-20 pb-32">
         <p className="text-center text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>{isEdit ? "EDIT COURSE" : "NEW COURSE"}</p>
-        <h1 className="mt-4 text-center text-[30px] font-normal md:text-[38px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>{isEdit ? "강좌 수정" : "강좌 개설"}</h1>
-        <p className="mt-3 text-center text-[14px]" style={{ color: SUB }}>과목·소개·커리큘럼·강의 콘텐츠까지 직접 입력해 강좌를 엽니다.</p>
+        <h1 className="mt-4 text-center text-[30px] font-normal md:text-[38px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>{isEdit ? "강좌 수정" : "강좌 개설 요청"}</h1>
+        <p className="mt-3 text-center text-[14px] leading-7" style={{ color: SUB }}>
+          {isEdit
+            ? "과목·소개·커리큘럼·강의 콘텐츠까지 직접 입력해 강좌를 수정합니다."
+            : "과목·소개·커리큘럼을 입력해 개설을 요청하면, 담당자가 강좌를 구성한 뒤 공개합니다."}
+        </p>
 
         {/* 기본 정보 */}
         <div className="mt-14 space-y-8">
@@ -206,7 +238,7 @@ export default function CourseCreateForm({ initial, editSlug }: { initial?: Cour
 
         <div className="mt-14 flex flex-wrap justify-center gap-3">
           <button type="button" onClick={() => router.push(isEdit ? `/course/${editSlug}` : "/")} className="rounded-[8px] border px-8 py-3 text-[15px]" style={{ borderColor: LINE, color: SUB, ...serif }}>취소</button>
-          <button type="submit" className="rounded-[8px] px-10 py-3 text-[15px] text-white" style={{ background: BROWN, ...serif, boxShadow: "0 2px 10px rgba(140,110,89,0.25)" }}>{isEdit ? "저장하기" : "강좌 개설하기"}</button>
+          <button type="submit" className="rounded-[8px] px-10 py-3 text-[15px] text-white" style={{ background: BROWN, ...serif, boxShadow: "0 2px 10px rgba(140,110,89,0.25)" }}>{isEdit ? "저장하기" : "개설 요청 보내기"}</button>
           {isEdit ? (
             <button type="button" onClick={removeCourse} className="rounded-[8px] border px-6 py-3 text-[15px]" style={{ borderColor: "#E6C4C4", color: "#B4544B", ...serif }}>강좌 삭제</button>
           ) : null}
