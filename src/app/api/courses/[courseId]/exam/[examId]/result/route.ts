@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
-import { loadAndGrade } from "@/lib/exam/grade";
+import { loadAndGrade, gradeExam } from "@/lib/exam/grade";
 import { expireOverdueAttempts } from "@/lib/exam/store";
 import { prisma } from "@/lib/prisma";
 
@@ -31,20 +31,32 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     await expireOverdueAttempts([examId]); // 마감 지난 방치 응시 확정
-    const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId } } });
-    if (!attempt) return NextResponse.json({ code: "NO_ATTEMPT", error: "응시 기록이 없습니다." }, { status: 404 });
-    // 학생 본인은 종료된 응시만 결과 열람 가능
-    if (!staff && attempt.status === "in_progress") return NextResponse.json({ error: "시험이 종료된 뒤 결과를 볼 수 있습니다." }, { status: 403 });
 
-    const result = await loadAndGrade(examId, studentId);
     let studentName: string | undefined;
     if (staff) {
       const u = await prisma.user.findUnique({ where: { id: studentId }, select: { email: true, studentProfile: { select: { realName: true } } } });
       studentName = u?.studentProfile?.realName?.trim() || u?.email || undefined;
     }
+    const examMeta = { title: exam.title, subject: exam.subject, durationSec: exam.durationSec, hasStudentPaper: !!exam.studentPaperKey, studentPageCount: exam.studentPageCount };
 
+    const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId } } });
+
+    if (!attempt) {
+      // 미응시: 마감된 시험(closesAt 지남 또는 상태 closed)에 배정됐으면 0점 리뷰(빈 답안+정답 공개)
+      const closed = exam.status === "closed" || (!!exam.closesAt && new Date() > exam.closesAt);
+      const assigned = await prisma.examAssignment.findUnique({ where: { examId_studentId: { examId, studentId } } });
+      if (!assigned || !closed) return NextResponse.json({ code: "NO_ATTEMPT", error: "응시 기록이 없습니다." }, { status: 404 });
+      const questions = await prisma.examQuestion.findMany({ where: { examId }, select: { number: true, type: true, points: true, answerKey: true } });
+      const result = gradeExam(questions, []); // 빈 답안 → 전부 0점
+      return NextResponse.json({ exam: examMeta, attempt: { status: "expired", submittedAt: null }, studentName, result, noShow: true });
+    }
+
+    // 학생 본인은 종료된 응시만 결과 열람 가능
+    if (!staff && attempt.status === "in_progress") return NextResponse.json({ error: "시험이 종료된 뒤 결과를 볼 수 있습니다." }, { status: 403 });
+
+    const result = await loadAndGrade(examId, studentId);
     return NextResponse.json({
-      exam: { title: exam.title, subject: exam.subject, durationSec: exam.durationSec, hasStudentPaper: !!exam.studentPaperKey, studentPageCount: exam.studentPageCount },
+      exam: examMeta,
       attempt: { status: attempt.status, submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null },
       studentName,
       result,

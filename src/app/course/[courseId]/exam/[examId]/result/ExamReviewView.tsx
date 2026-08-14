@@ -22,6 +22,7 @@ type Data = {
   attempt: { status: string; submittedAt: string | null };
   studentName?: string;
   result: Result | null;
+  noShow?: boolean;
 };
 
 export default function ExamReviewView({ courseId, examId, isStaff, studentId }: { courseId: string; examId: string; isStaff: boolean; studentId: string }) {
@@ -92,10 +93,16 @@ export default function ExamReviewView({ courseId, examId, isStaff, studentId }:
 
         <main className="min-w-0 flex-1 px-5 pb-32 pt-6 lg:px-8">
           <div className="mx-auto max-w-[680px]">
-            <p className="mb-4 text-[13.5px]" style={{ color: SUB }}>
-              {r ? <>정답 <b style={{ color: OK }}>{r.correctCount}</b> / {r.per.length}문항 · 자동채점 결과입니다.</> : "채점 데이터가 없습니다."}
-              {" "}주관식은 표기 차이로 오채점될 수 있어요.
-            </p>
+            {data.noShow ? (
+              <p className="mb-4 rounded-[10px] px-4 py-3 text-[13.5px] leading-6" style={{ background: "#F7ECEC", color: "#B4544B" }}>
+                응시 마감까지 응시하지 않아 <b>0점 처리</b>된 시험입니다. 아래는 문제별 정답이며, 왼쪽 시험지와 해설지로 복습할 수 있어요.
+              </p>
+            ) : (
+              <p className="mb-4 text-[13.5px]" style={{ color: SUB }}>
+                {r ? <>정답 <b style={{ color: OK }}>{r.correctCount}</b> / {r.per.length}문항 · 자동채점 결과입니다.</> : "채점 데이터가 없습니다."}
+                {" "}주관식은 표기 차이로 오채점될 수 있어요.
+              </p>
+            )}
 
             <div className="divide-y" style={{ borderColor: "#F0EBE0" }}>
               {(r?.per ?? []).map((q) => (
