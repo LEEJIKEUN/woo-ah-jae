@@ -7,6 +7,7 @@ import { sendParentConsentEmail } from "@/lib/mailer";
 import { savePrivateFile, validateUpload } from "@/lib/upload";
 import { clearEmailCode, isEmailVerified } from "@/lib/email-code-store";
 import { createLocalSignup, isDbConnectionError, listLocalSignups } from "@/lib/local-signup-store";
+import { FACILITATOR_SIGNUP_ENABLED } from "@/lib/signup-config";
 import { prisma } from "@/lib/prisma";
 
 const signupSchema = z.object({
@@ -79,6 +80,9 @@ export async function POST(request: NextRequest) {
     }
     // 퍼실리테이터 가입은 별도 경로(간소 폼 + 초대코드)
     if (form.get("accountType") === "facilitator") {
+      if (!FACILITATOR_SIGNUP_ENABLED) {
+        return NextResponse.json({ error: "퍼실리테이터 가입은 현재 준비 중입니다. 추후 오픈 예정입니다." }, { status: 403 });
+      }
       return await handleFacilitatorSignup(form);
     }
 

@@ -7,6 +7,7 @@ import SchoolCombobox from "@/components/signup/SchoolCombobox";
 import EmailVerifyField from "@/components/signup/EmailVerifyField";
 import { GRADUATION_TERMS } from "@/lib/signup-options";
 import { UNIVERSITIES, DEPARTMENTS } from "@/lib/university-options";
+import { FACILITATOR_SIGNUP_ENABLED } from "@/lib/signup-config";
 
 const ENTRANCE_YEARS = Array.from({ length: 2033 - 2016 + 1 }, (_, i) => String(2016 + i));
 
@@ -65,7 +66,10 @@ export default function SignupPage() {
         const d = JSON.parse(raw) as { at?: number; v?: Record<string, unknown> };
         if (d.at && Date.now() - d.at < DRAFT_TTL && d.v) {
           const v = d.v;
-          if (typeof v.accountType === "string") setAccountType(v.accountType as "student" | "parent" | "facilitator");
+          if (typeof v.accountType === "string") {
+            const at = v.accountType as "student" | "parent" | "facilitator";
+            setAccountType(at === "facilitator" && !FACILITATOR_SIGNUP_ENABLED ? "student" : at);
+          }
           if (typeof v.email === "string") setEmail(v.email);
           if (typeof v.emailVerified === "boolean") setEmailVerified(v.emailVerified);
           if (typeof v.birthYear === "string") setBirthYear(v.birthYear);
@@ -214,20 +218,22 @@ export default function SignupPage() {
               { key: "parent", label: "학부모", desc: "자녀 진도 열람" },
               { key: "facilitator", label: "퍼실리테이터", desc: "멘토 담당" },
             ] as const).map((t) => {
+              const locked = t.key === "facilitator" && !FACILITATOR_SIGNUP_ENABLED;
               const active = accountType === t.key;
               return (
                 <button
                   key={t.key}
                   type="button"
-                  onClick={() => setAccountType(t.key)}
-                  className="rounded-md border px-3 py-2.5 text-left transition"
+                  disabled={locked}
+                  onClick={() => { if (!locked) setAccountType(t.key); }}
+                  className={`rounded-md border px-3 py-2.5 text-left transition ${locked ? "cursor-not-allowed opacity-60" : ""}`}
                   style={{
                     borderColor: active ? "#4E6B5A" : "#e2e8f0",
                     background: active ? "rgba(78,107,90,0.08)" : "transparent",
                   }}
                 >
-                  <span className="block text-[14px] font-bold" style={{ color: active ? "#4E6B5A" : "#334155" }}>{t.label}</span>
-                  <span className="block text-[12px] text-slate-500">{t.desc}</span>
+                  <span className="block text-[14px] font-bold" style={{ color: active ? "#4E6B5A" : "#334155" }}>{t.label}{locked ? " 🔒" : ""}</span>
+                  <span className="block text-[12px] text-slate-500">{locked ? "준비 중 (추후 오픈 예정)" : t.desc}</span>
                 </button>
               );
             })}
