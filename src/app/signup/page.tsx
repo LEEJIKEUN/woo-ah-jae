@@ -47,6 +47,7 @@ export default function SignupPage() {
   const [department, setDepartment] = useState("");
   const [entranceYear, setEntranceYear] = useState("");
   const [enrollmentStatus, setEnrollmentStatus] = useState("");
+  const [facCountry, setFacCountry] = useState("");
   const [docType, setDocType] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
@@ -76,6 +77,7 @@ export default function SignupPage() {
           if (typeof v.department === "string") setDepartment(v.department);
           if (typeof v.entranceYear === "string") setEntranceYear(v.entranceYear);
           if (typeof v.enrollmentStatus === "string") setEnrollmentStatus(v.enrollmentStatus);
+          if (typeof v.facCountry === "string") setFacCountry(v.facCountry);
           if (typeof v.docType === "string") setDocType(v.docType);
         }
       }
@@ -87,10 +89,10 @@ export default function SignupPage() {
   useEffect(() => {
     if (!restored) return;
     try {
-      const v = { accountType, email, emailVerified, birthYear, birthMonth, birthDay, uniType, phone, university, department, entranceYear, enrollmentStatus, docType };
+      const v = { accountType, email, emailVerified, birthYear, birthMonth, birthDay, uniType, phone, university, department, entranceYear, enrollmentStatus, facCountry, docType };
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), v }));
     } catch { /* 무시 */ }
-  }, [restored, accountType, email, emailVerified, birthYear, birthMonth, birthDay, uniType, phone, university, department, entranceYear, enrollmentStatus, docType]);
+  }, [restored, accountType, email, emailVerified, birthYear, birthMonth, birthDay, uniType, phone, university, department, entranceYear, enrollmentStatus, facCountry, docType]);
 
   const dayOptions = useMemo(() => {
     if (!birthYear || !birthMonth) return [];
@@ -132,7 +134,7 @@ export default function SignupPage() {
         }
       } else if (accountType === "facilitator") {
         if (!birthYear || !birthMonth || !birthDay) { setError("생년월일을 모두 선택해주세요."); setMessage(null); return; }
-        const checks: [string, string][] = [[phone, "연락처"], [university, "소속 대학교"], [department, "소속 학과(부)"], [entranceYear, "입학연도"], [enrollmentStatus, "학적 상태"], [docType, "증빙 서류 종류"]];
+        const checks: [string, string][] = [[phone, "연락처"], [facCountry, "거주 국가"], [university, "소속 대학교"], [department, "소속 학과(부)"], [entranceYear, "입학연도"], [enrollmentStatus, "학적 상태"], [docType, "증빙 서류 종류"]];
         for (const [v, label] of checks) {
           if (!v.trim()) { setError(`${label}을(를) 입력해 주세요.`); setMessage(null); return; }
         }
@@ -144,6 +146,7 @@ export default function SignupPage() {
         formData.set("department", department);
         formData.set("entranceYear", entranceYear);
         formData.set("enrollmentStatus", enrollmentStatus);
+        formData.set("residenceCountry", facCountry);
         formData.set("docType", docType);
         formData.set("doc", docFile);
       } else {
@@ -349,6 +352,14 @@ export default function SignupPage() {
             <label className="block space-y-1">
               <span className="text-sm font-medium">연락처</span>
               <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" autoComplete="off" placeholder="010-1234-5678" className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2" />
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium">거주 국가</span>
+              <select value={facCountry} onChange={(e) => setFacCountry(e.target.value)} className="w-full rounded-md border border-slate-200 bg-[color:var(--surface-elevated)] px-3 py-2">
+                <option value="">국가 선택</option>
+                {countryOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+              </select>
             </label>
 
             {/* 국내대 / 해외대 */}

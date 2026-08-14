@@ -42,7 +42,8 @@ const facilitatorSchema = z.object({
   department: z.string().min(1).max(120),
   entranceYear: z.string().regex(/^\d{4}$/),
   enrollmentStatus: z.enum(["재학", "휴학"]),
-  docType: z.enum(["재적증명서", "재학증명서", "휴학증명서", "성적증명서"]),
+  residenceCountry: z.string().max(80).optional().default(""),
+  docType: z.enum(["재적증명서", "재학증명서", "휴학증명서", "성적증명서", "기타"]),
 });
 
 /**
@@ -283,6 +284,7 @@ async function handleFacilitatorSignup(form: FormData): Promise<NextResponse> {
     department: form.get("department"),
     entranceYear: form.get("entranceYear"),
     enrollmentStatus: form.get("enrollmentStatus"),
+    residenceCountry: form.get("residenceCountry") ?? "",
     docType: form.get("docType"),
   });
 
@@ -316,7 +318,8 @@ async function handleFacilitatorSignup(form: FormData): Promise<NextResponse> {
     const user = await tx.user.create({
       data: { email, passwordHash, role: UserRole.FACILITATOR, lifecycleStatus: UserLifecycleStatus.PENDING },
     });
-    await tx.studentProfile.create({ data: { userId: user.id, realName: parsed.realName.trim(), birthDate: birth } });
+    const schoolLabel = [parsed.university.trim(), parsed.department.trim()].filter(Boolean).join(" ");
+    await tx.studentProfile.create({ data: { userId: user.id, realName: parsed.realName.trim(), birthDate: birth, schoolName: schoolLabel || null, residenceCountry: parsed.residenceCountry?.trim() || null } });
     await tx.facilitatorApplication.create({
       data: {
         userId: user.id,

@@ -63,6 +63,9 @@ type ProfilePayload = {
   className?: unknown;
   number?: unknown;
   bio?: unknown;
+  residenceCountry?: unknown;
+  phone?: unknown;
+  entranceYear?: unknown;
 };
 
 function asTrimmedOptionalString(value: unknown) {
@@ -79,6 +82,7 @@ export async function PATCH(request: NextRequest) {
     const realName = asTrimmedOptionalString(body.realName);
     const schoolName = asTrimmedOptionalString(body.schoolName);
     const grade = asTrimmedOptionalString(body.grade);
+    const residenceCountry = asTrimmedOptionalString(body.residenceCountry);
 
     const me = await prisma.user.findUnique({ where: { id: auth.userId }, select: { role: true } });
     if (!realName) {
@@ -95,11 +99,13 @@ export async function PATCH(request: NextRequest) {
         realName,
         schoolName,
         grade,
+        residenceCountry,
       },
       update: {
         realName,
         schoolName,
         grade,
+        residenceCountry,
       },
       select: {
         realName: true,
@@ -108,8 +114,21 @@ export async function PATCH(request: NextRequest) {
         className: true,
         number: true,
         bio: true,
+        residenceCountry: true,
       },
     });
+
+    // 퍼실리테이터: 연락처·입학연도(신청서)도 함께 갱신
+    if (me?.role === "FACILITATOR") {
+      const phone = asTrimmedOptionalString(body.phone);
+      const ey = typeof body.entranceYear === "string" && /^\d{4}$/.test(body.entranceYear) ? Number(body.entranceYear) : null;
+      const data: Record<string, unknown> = {};
+      if (phone !== null) data.phone = phone;
+      if (ey !== null) data.entranceYear = ey;
+      if (Object.keys(data).length) {
+        await prisma.facilitatorApplication.updateMany({ where: { userId: auth.userId }, data });
+      }
+    }
 
     return NextResponse.json({ profile });
   } catch (error) {

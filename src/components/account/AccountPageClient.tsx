@@ -1,6 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import countries from "i18n-iso-countries";
+import enLocale from "i18n-iso-countries/langs/en.json";
+
+countries.registerLocale(enLocale);
+function getCountryOptions() {
+  return Object.values(countries.getNames("en", { select: "official" })).sort((a, b) => a.localeCompare(b));
+}
 
 type MeResponse = {
   id: string;
@@ -47,7 +54,10 @@ const codeInputCls = "h-10 w-40 rounded-md border border-slate-200/80 bg-transpa
 const btnSecondary = "rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white disabled:opacity-50";
 const btnDanger = "rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50";
 
-export default function AccountPageClient({ initialMe, childrenLinks = [], facilitatorCourses = [] }: { initialMe: MeResponse; childrenLinks?: ChildLink[]; facilitatorCourses?: { id: string; title: string }[] }) {
+type FacilitatorApp = { university: string; department: string; entranceYear: number | null; phone: string; enrollmentStatus: string; docType: string; status: string };
+const ENTRANCE_YEARS = Array.from({ length: 2033 - 2016 + 1 }, (_, i) => String(2016 + i));
+
+export default function AccountPageClient({ initialMe, childrenLinks = [], facilitatorCourses = [], facilitatorApp = null }: { initialMe: MeResponse; childrenLinks?: ChildLink[]; facilitatorCourses?: { id: string; title: string }[]; facilitatorApp?: FacilitatorApp | null }) {
   const [me, setMe] = useState(initialMe);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -75,11 +85,15 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
   const isStudent = role === "STUDENT";
   const isParent = role === "PARENT";
   const isFacilitator = role === "FACILITATOR";
+  const countryOptions = useMemo(() => getCountryOptions(), []);
 
   const [form, setForm] = useState({
     realName: initialMe.studentProfile?.realName ?? "",
-    schoolName: initialMe.studentProfile?.schoolName ?? "",
+    schoolName: initialMe.studentProfile?.schoolName || (facilitatorApp ? [facilitatorApp.university, facilitatorApp.department].filter(Boolean).join(" ") : "") || "",
     grade: initialMe.studentProfile?.grade ?? "",
+    residenceCountry: initialMe.studentProfile?.residenceCountry ?? "",
+    phone: facilitatorApp?.phone ?? "",
+    entranceYear: facilitatorApp?.entranceYear ? String(facilitatorApp.entranceYear) : "",
   });
 
   // 인증코드 발송(비밀번호 변경·탈퇴 공용 엔드포인트)
@@ -251,6 +265,41 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
             ) : null}
 
             {isFacilitator ? (
+              <>
+                <label className="space-y-1">
+                  <span className="text-sm text-slate-600">소속 대학교 · 학과</span>
+                  <input className={inputCls} value={form.schoolName} onChange={(e) => setForm((f) => ({ ...f, schoolName: e.target.value }))} placeholder="예: 서울대학교 컴퓨터공학과" />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm text-slate-600">거주 국가</span>
+                  <select className={inputCls} value={form.residenceCountry} onChange={(e) => setForm((f) => ({ ...f, residenceCountry: e.target.value }))}>
+                    <option value="">국가 선택</option>
+                    {countryOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm text-slate-600">입학연도</span>
+                  <select className={inputCls} value={form.entranceYear} onChange={(e) => setForm((f) => ({ ...f, entranceYear: e.target.value }))}>
+                    <option value="">선택</option>
+                    {ENTRANCE_YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm text-slate-600">연락처</span>
+                  <input className={inputCls} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="010-1234-5678" />
+                </label>
+                <div className="space-y-1">
+                  <span className="text-sm text-slate-600">생년월일</span>
+                  <div className={roCls}>{fmtDay(p?.birthDate)}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm text-slate-600">학적 상태</span>
+                  <div className={roCls}>{facilitatorApp?.enrollmentStatus || "-"}</div>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <span className="text-sm text-slate-600">증빙 서류 · 승인 상태</span>
+                  <div className={roCls}>{facilitatorApp?.docType || "-"} · {facilitatorApp?.status === "APPROVED" ? "승인 완료" : facilitatorApp?.status === "PENDING" ? "승인 대기" : facilitatorApp?.status || "-"}</div>
+                </div>
               <div className="space-y-1 md:col-span-2">
                 <span className="text-sm text-slate-600">담당 강좌 (관리자 배정)</span>
                 {facilitatorCourses.length === 0 ? (
@@ -263,6 +312,7 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
                   </ul>
                 )}
               </div>
+              </>
             ) : null}
 
             <div className={roCls}>가입일: {fmtDate(me.createdAt)}</div>

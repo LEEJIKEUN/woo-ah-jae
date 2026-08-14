@@ -36,12 +36,17 @@ export default async function AccountPage() {
     childrenLinks = links.map((l) => ({ name: l.child.studentProfile?.realName ?? "", email: l.child.email, status: l.status }));
   }
 
-  // 퍼실리테이터: 관리자가 배정한 담당 강좌(읽기 전용)
+  // 퍼실리테이터: 관리자가 배정한 담당 강좌(읽기 전용) + 신청서 상세
   let facilitatorCourses: { id: string; title: string }[] = [];
+  let facilitatorApp: {
+    university: string; department: string; entranceYear: number | null; phone: string; enrollmentStatus: string; docType: string; status: string;
+  } | null = null;
   if (user.role === "FACILITATOR") {
     const fc = await prisma.facilitatorCourse.findMany({ where: { facilitatorUserId: user.id }, select: { courseId: true } });
     facilitatorCourses = fc.map((f) => ({ id: f.courseId, title: getCourse(f.courseId)?.title ?? f.courseId }));
+    const app = await prisma.facilitatorApplication.findUnique({ where: { userId: user.id }, select: { university: true, department: true, entranceYear: true, phone: true, enrollmentStatus: true, docType: true, status: true } });
+    if (app) facilitatorApp = app;
   }
 
-  return <AccountPageClient initialMe={initialMe} childrenLinks={childrenLinks} facilitatorCourses={facilitatorCourses} />;
+  return <AccountPageClient initialMe={initialMe} childrenLinks={childrenLinks} facilitatorCourses={facilitatorCourses} facilitatorApp={facilitatorApp} />;
 }
