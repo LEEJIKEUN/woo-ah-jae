@@ -181,6 +181,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ]);
     const qByExam = new Map<string, { number: number; type: string; points: number; answerKey: string }[]>();
     for (const q of questions) { const arr = qByExam.get(q.examId) ?? []; arr.push(q); qByExam.set(q.examId, arr); }
+    const totalByExam = new Map(ids.map((id) => [id, (qByExam.get(id) ?? []).reduce((s, q) => s + q.points, 0)]));
     const atMap = new Map(attempts.map((a) => [a.examId, a]));
     // 종료된 응시 자동채점
     const terminal = attempts.filter((a) => a.status !== "in_progress");
@@ -205,6 +206,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           opensAt: e.opensAt ? e.opensAt.toISOString() : null,
           closesAt: e.closesAt ? e.closesAt.toISOString() : null,
           questionCount: (qByExam.get(e.id) ?? []).length,
+          total: totalByExam.get(e.id) ?? 0,
           attempt: at
             ? { status: atStatus, deadlineAt: at.deadlineAt.toISOString(), submittedAt: at.submittedAt ? at.submittedAt.toISOString() : null, score: graded?.score ?? null, total: graded?.total ?? null }
             : null,

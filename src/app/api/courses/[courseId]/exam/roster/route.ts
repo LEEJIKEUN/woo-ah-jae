@@ -51,14 +51,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const attemptByKey = new Map(attempts.map((a) => [`${a.examId}:${a.studentId}`, a]));
 
     // 셀 구성
+    const now = new Date();
     const cells: Record<string, Record<string, { status: string; score?: number; total?: number }>> = {};
     for (const s of students) {
       cells[s.id] = {};
       for (const e of exams) {
         const key = `${e.id}:${s.id}`;
+        const examTotal = totalByExam.get(e.id) ?? 0;
         if (!assignedSet.has(key)) { cells[s.id][e.id] = { status: "unassigned" }; continue; }
         const at = attemptByKey.get(key);
-        if (!at) { cells[s.id][e.id] = { status: "not_started" }; continue; }
+        if (!at) {
+          // 배정됐는데 미응시: 마감(closesAt 지남 또는 상태 closed)이면 0점 처리, 아니면 미응시
+          const closed = (e.closesAt && now > e.closesAt) || e.status === "closed";
+          cells[s.id][e.id] = closed ? { status: "zero", score: 0, total: examTotal } : { status: "not_started" };
+          continue;
+        }
         if (at.status === "in_progress") { cells[s.id][e.id] = { status: "in_progress" }; continue; }
         const g = gradeExam(qByExam.get(e.id) ?? [], ansByAttempt.get(at.id) ?? []);
         cells[s.id][e.id] = { status: at.status, score: g.score, total: g.total };

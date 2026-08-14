@@ -23,6 +23,15 @@ function CellView({ cell, onClick }: { cell: Cell | undefined; onClick?: () => v
   if (!cell || cell.status === "unassigned") return <span className="text-[13px]" style={{ color: "#C9C2B4" }}>–</span>;
   if (cell.status === "not_started") return <span className="text-[12.5px]" style={{ color: SUB }}>미응시</span>;
   if (cell.status === "in_progress") return <span className="text-[12.5px] font-semibold" style={{ color: "#B06B2E" }}>응시중</span>;
+  if (cell.status === "zero") {
+    // 마감 후 미응시 → 0점(응시 기록 없어 리뷰 불가)
+    return (
+      <span title="미응시 · 마감(0점)">
+        <span className="text-[15px] font-extrabold" style={{ color: "#B4544B" }}>0</span>
+        <span className="text-[11.5px] font-semibold" style={{ color: SUB }}>/{cell.total ?? 100}</span>
+      </span>
+    );
+  }
   // 종료됨(제출/시간종료) → 점수(클릭 리뷰)
   return (
     <button type="button" onClick={onClick} className="rounded-[8px] px-2.5 py-1 transition hover:bg-[#F1EADD]" title="답안 채점 리뷰">

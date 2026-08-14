@@ -25,6 +25,7 @@ type Row = {
   opensAt: string | null;
   closesAt: string | null;
   questionCount: number;
+  total?: number;
   assignedCount?: number;
   submittedCount?: number;
   attempt: Attempt | null;
@@ -50,7 +51,7 @@ function studentBadge(row: Row, nowMs: number): Badge {
     if (remain <= 0) return { label: "시간 종료", bg: "#F2ECEC", fg: "#a6402c" };
     return { label: `응시 중 · ${fmt(remain)} 남음`, bg: "#FBEEE0", fg: "#B06B2E" };
   }
-  if (row.status === "closed") return { label: "마감", bg: "#EFEDE8", fg: SUB };
+  if (row.status === "closed" || (row.closesAt && nowMs > Date.parse(row.closesAt))) return { label: "마감", bg: "#EFEDE8", fg: SUB };
   if (row.opensAt && nowMs < Date.parse(row.opensAt)) return { label: "오픈 예정", bg: "#EFEDE8", fg: SUB };
   return { label: "응시 전", bg: "#F1EADD", fg: BROWN };
 }
@@ -116,8 +117,10 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
         {rows.map((row) => {
           const badge = isStaff ? null : studentBadge(row, nowMs);
           const notOpenYet = !!row.opensAt && nowMs < Date.parse(row.opensAt);
-          const answerDisabled = !isStaff && !row.attempt && (row.status === "closed" || notOpenYet);
+          const closedByTime = !!row.closesAt && nowMs > Date.parse(row.closesAt);
+          const answerDisabled = !isStaff && !row.attempt && (row.status === "closed" || notOpenYet || closedByTime);
           const termDone = !isStaff && !!row.attempt && (row.attempt.status === "submitted" || row.attempt.status === "expired");
+          const noShowZero = !isStaff && !row.attempt && (row.status === "closed" || closedByTime); // 마감 후 미응시 → 0점
           return (
             <li key={row.id} className="rounded-[14px] border p-5" style={{ borderColor: LINE, background: "#fff" }}>
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -157,6 +160,11 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                       <button type="button" onClick={() => download(row.id, "questions")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 문제지</button>
                       <button type="button" onClick={() => download(row.id, "explanation")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 해설지</button>
                     </>
+                  ) : noShowZero ? (
+                    <span className="rounded-[10px] px-4 py-2" style={{ background: "#F7ECEC" }} title="마감까지 응시하지 않아 0점 처리됐습니다.">
+                      <span className="text-[18px] font-extrabold" style={{ color: "#B4544B" }}>0</span>
+                      <span className="text-[13px] font-semibold" style={{ color: SUB }}> / {row.total ?? 100}점 · 미응시</span>
+                    </span>
                   ) : (
                     <button
                       type="button"
