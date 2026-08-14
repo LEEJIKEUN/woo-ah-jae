@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Plus, X, Check } from "lucide-react";
+import { FileText, X, Check, Loader2, Sparkles } from "lucide-react";
 
 const BROWN = "#8C6E59";
 const NUM = "#B58F72";
@@ -21,6 +21,14 @@ type Student = { id: string; name: string };
 let seq = 0;
 const newRow = (type: QType): QRow => ({ id: `q${++seq}`, type, choiceCount: 5, points: 1, answerKey: "" });
 
+/** 100점 만점 균등 분배(합이 정확히 100이 되도록 나머지는 앞 문항에). */
+function distributePoints(n: number, total = 100): number[] {
+  if (n <= 0) return [];
+  const base = Math.floor(total / n);
+  const rem = total - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0));
+}
+
 export default function ExamCreateForm({ courseId }: { courseId: string }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -37,6 +45,8 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiNote, setAiNote] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -51,11 +61,37 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
 
   function pickFile(f: File | null) {
     setPaperErr("");
+    setAiNote("");
     if (!f) { setPaper(null); return; }
     if (f.type !== "application/pdf") { setPaperErr("PDF 파일만 업로드할 수 있습니다."); return; }
     if (f.size > 10 * 1024 * 1024) { setPaperErr("10MB 이하만 업로드할 수 있습니다."); return; }
     setPaper(f);
+    void autoConfig(f); // 업로드 즉시 AI 자동 구성
   }
+
+  /** PDF(문제+빠른정답+해설)를 AI로 분석해 문항·정답·배점(100점 균등)을 자동 채운다. */
+  async function autoConfig(file: File) {
+    setAnalyzing(true);
+    setAiNote("");
+    try {
+      const fd = new FormData();
+      fd.append("paper", file);
+      const res = await fetch(`/api/courses/${courseId}/exam/analyze`, { method: "POST", body: fd });
+      const d = (await res.json().catch(() => ({}))) as { questions?: { type: QType; choiceCount: number; answerKey: string }[]; error?: string };
+      if (!res.ok || !d.questions) { setAiNote(d.error ?? "자동 구성에 실패했습니다. 아래에서 직접 구성할 수 있어요."); return; }
+      const qs = d.questions;
+      const pts = distributePoints(qs.length);
+      setRows(qs.map((q, i) => ({ id: `q${++seq}`, type: q.type === "short" ? "short" : "mcq", choiceCount: q.type === "short" ? 5 : q.choiceCount, points: pts[i], answerKey: q.answerKey })));
+      const mcq = qs.filter((q) => q.type === "mcq").length;
+      setAiNote(`AI가 ${qs.length}문항(객관식 ${mcq} · 주관식 ${qs.length - mcq})을 구성하고 정답을 채웠습니다. 배점은 100점 균등 분배. 검토 후 보내기 하세요.`);
+    } catch {
+      setAiNote("자동 구성 중 오류가 발생했습니다. 아래에서 직접 구성할 수 있어요.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  const rebalance = () => setRows((prev) => { const pts = distributePoints(prev.length); return prev.map((r, i) => ({ ...r, points: pts[i] })); });
 
   const addRows = (type: QType, n: number, choiceCount = 5) => {
     const cnt = Math.max(0, Math.min(200, Math.trunc(n)));
@@ -136,17 +172,26 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
                   <button type="button" onClick={() => { setPaper(null); if (fileRef.current) fileRef.current.value = ""; }} className="shrink-0 text-[13px] font-semibold" style={{ color: "#a6402c" }}>삭제</button>
                 </div>
               ) : (
-                <button type="button" onClick={() => fileRef.current?.click()} className="w-full rounded-[8px] py-3 text-[14px] font-semibold" style={{ color: BROWN }}>＋ PDF 선택 (최대 10MB)</button>
+                <button type="button" onClick={() => fileRef.current?.click()} className="w-full rounded-[8px] py-3 text-[14px] font-semibold" style={{ color: BROWN }}>＋ PDF 선택 (업로드하면 문항·정답 자동 구성 · 최대 10MB)</button>
               )}
               <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
             </div>
             {paperErr ? <p className="mt-1.5 text-[12.5px]" style={{ color: "#C0392B" }}>{paperErr}</p> : null}
+            {analyzing ? (
+              <p className="mt-2 flex items-center gap-1.5 text-[13px]" style={{ color: BROWN }}><Loader2 size={14} className="animate-spin" /> AI가 시험지를 분석하는 중… (문항·정답 자동 구성)</p>
+            ) : aiNote ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[13px]" style={{ color: SUB }}>{aiNote}</p>
+                {paper ? <button type="button" onClick={() => void autoConfig(paper)} className="inline-flex items-center gap-1 text-[12.5px] font-semibold" style={{ color: BROWN }}><Sparkles size={13} /> 다시 분석</button> : null}
+              </div>
+            ) : null}
           </Field>
 
           {/* 문항 구성 */}
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[13.5px] font-semibold" style={{ color: INK }}>문항 구성 <span style={{ color: SUB }}>· {rows.length}문항 · 총 {totalPoints}점</span></span>
+              {rows.length > 0 ? <button type="button" onClick={rebalance} className="text-[12.5px] font-semibold" style={{ color: BROWN }}>100점 균등 분배</button> : null}
             </div>
             <div className="mt-2 flex flex-wrap items-end gap-2 rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
               <label className="text-[12.5px]" style={{ color: SUB }}>객관식
