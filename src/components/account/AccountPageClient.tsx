@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import countries from "i18n-iso-countries";
 import enLocale from "i18n-iso-countries/langs/en.json";
+import AddChildForm from "@/components/account/AddChildForm";
 
 countries.registerLocale(enLocale);
 function getCountryOptions() {
@@ -248,9 +249,9 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
 
             {isParent ? (
               <div className="space-y-1 md:col-span-2">
-                <span className="text-sm text-slate-600">연결된 자녀</span>
+                <span className="text-sm text-slate-600">연결된 자녀 <span className="text-slate-400">({childrenLinks.filter((c) => c.status === "APPROVED").length}/4)</span></span>
                 {childrenLinks.length === 0 ? (
-                  <div className={roCls}>아직 연결된 자녀가 없습니다. 자녀가 연결 요청을 수락하면 표시됩니다.</div>
+                  <div className={roCls}>아직 연결된 자녀가 없습니다. 아래에서 자녀를 추가하세요.</div>
                 ) : (
                   <ul className="space-y-1.5">
                     {childrenLinks.map((c, i) => (
@@ -260,6 +261,11 @@ export default function AccountPageClient({ initialMe, childrenLinks = [], facil
                       </li>
                     ))}
                   </ul>
+                )}
+                {childrenLinks.filter((c) => c.status === "APPROVED").length < 4 ? (
+                  <AddChildForm />
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">자녀는 최대 4명까지 연결할 수 있습니다.</p>
                 )}
               </div>
             ) : null}

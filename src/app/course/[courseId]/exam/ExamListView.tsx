@@ -68,6 +68,7 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
   const router = useRouter();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [parent, setParent] = useState<{ childName?: string } | null>(null); // 학부모 열람(읽기전용)
   const offsetRef = useRef(0); // serverNow - clientNow
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -76,10 +77,11 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
     (async () => {
       try {
         const res = await fetch(`/api/courses/${courseId}/exam`, { cache: "no-store" });
-        const d = (await res.json()) as { serverNow?: string; rows?: Row[]; error?: string };
+        const d = (await res.json()) as { serverNow?: string; rows?: Row[]; error?: string; isParentView?: boolean; childName?: string };
         if (!alive) return;
         if (!res.ok) { setError(d.error ?? "시험 목록을 불러오지 못했습니다."); return; }
         if (d.serverNow) offsetRef.current = Date.parse(d.serverNow) - Date.now();
+        if (d.isParentView) setParent({ childName: d.childName });
         setRows(d.rows ?? []);
       } catch {
         if (alive) setError("네트워크 오류가 발생했습니다.");
@@ -116,7 +118,7 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
     if (rows.length === 0) {
       return (
         <div className="rounded-[14px] border py-16 text-center" style={{ borderColor: LINE, background: PANEL }}>
-          <p className="text-[15px]" style={{ color: SUB }}>{isStaff ? "아직 만든 시험이 없습니다." : "배정된 시험이 없습니다."}</p>
+          <p className="text-[15px]" style={{ color: SUB }}>{isStaff ? "아직 만든 시험이 없습니다." : parent ? "자녀에게 배정된 시험이 없습니다." : "배정된 시험이 없습니다."}</p>
         </div>
       );
     }
@@ -182,6 +184,8 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                       <button type="button" onClick={() => download(row.id, "questions")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 문제지</button>
                       <button type="button" onClick={() => download(row.id, "explanation")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 해설지</button>
                     </>
+                  ) : parent ? (
+                    <span className="text-[13px] font-semibold" style={{ color: SUB }}>{badge?.label ?? "응시 전"}</span>
                   ) : (
                     <button
                       type="button"
@@ -209,13 +213,16 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
         <div className="mx-auto max-w-[880px]">
           <Link href={`/course/${courseId}/learn`} className="mb-2 inline-flex items-center gap-1 text-[13px]" style={{ color: BROWN }}>← 강의실</Link>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-[24px] font-normal md:text-[28px]" style={{ ...serif, color: INK, letterSpacing: "-0.02em" }}>시험</h1>
+            <div>
+              <h1 className="text-[24px] font-normal md:text-[28px]" style={{ ...serif, color: INK, letterSpacing: "-0.02em" }}>시험{parent?.childName ? ` · ${parent.childName}` : ""}</h1>
+              {parent ? <p className="mt-1 text-[13px]" style={{ color: SUB }}>자녀의 응시 현황·점수를 확인할 수 있어요(읽기 전용).</p> : null}
+            </div>
             {isStaff ? (
               <Link href={`/course/${courseId}/exam/new`} className="rounded-full px-4 py-2 text-[13.5px] font-bold text-white" style={{ background: BROWN }}>＋ 시험 만들기</Link>
             ) : null}
           </div>
           {body}
-          {!isStaff ? (
+          {!isStaff && !parent ? (
             <p className="mt-6 rounded-[10px] px-4 py-3 text-[12.5px] leading-6" style={{ background: PANEL, color: SUB }}>
               ※ 시험은 <b style={{ color: BROWN }}>응시 기간(시작~마감, 한국시간)</b> 안에 응시해야 합니다. 마감 시각이 지나면 <b style={{ color: "#B4544B" }}>응시하지 않은 시험은 자동으로 0점</b> 처리됩니다. 이미 응시를 시작했다면 개인 제한시간까지는 이어서 풀 수 있고, 마감 후에도 문제지·해설지는 내려받아 확인할 수 있어요.
             </p>

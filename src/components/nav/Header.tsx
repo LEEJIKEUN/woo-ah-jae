@@ -94,10 +94,7 @@ export default function Header({ session, accountLabel }: Props) {
                       <Link href="/admin/members" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>회원 관리</Link>
                     </>
                   ) : session.role === "PARENT" ? (
-                    <>
-                      <Link href="/me/children" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>자녀 학습 현황</Link>
-                      <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] hover:bg-[#f6f3ef]" style={{ color: MENU }}>내 강의실</Link>
-                    </>
+                    <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>자녀 강의실</Link>
                   ) : (
                     <Link href="/my-courses" onClick={() => setOpen(false)} className="mt-0.5 block rounded-[2px] px-3 py-2 text-[14px] font-semibold hover:bg-[#f6f3ef]" style={{ color: BROWN }}>내 강의실</Link>
                   )}

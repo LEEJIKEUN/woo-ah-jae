@@ -72,7 +72,7 @@ export default function ExamReviewView({ courseId, examId, isStaff, studentId }:
       <div className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur" style={{ borderColor: LINE }}>
         <div className="mx-auto flex max-w-[1000px] flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[16px] font-semibold" style={{ ...serif, color: INK }}>{data.exam.title}{isStaff && data.studentName ? ` · ${data.studentName}` : ""}</h1>
+            <h1 className="truncate text-[16px] font-semibold" style={{ ...serif, color: INK }}>{data.exam.title}{data.studentName ? ` · ${data.studentName}` : ""}</h1>
           </div>
           <div className="flex items-baseline gap-1 rounded-[10px] px-3 py-1" style={{ background: "#F1EADD" }}>
             <span className="text-[20px] font-extrabold" style={{ color: DEEP }}>{r?.score ?? 0}</span>

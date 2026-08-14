@@ -7,6 +7,7 @@ import { savePrivateFile, validateUpload } from "@/lib/upload";
 import { gradeExam } from "@/lib/exam/grade";
 import { expireOverdueAttempts } from "@/lib/exam/store";
 import { trimPdfToPages } from "@/lib/exam/pdf";
+import { resolveChildInCourse } from "@/lib/course/parent-child";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -151,12 +152,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    // 학부모 등 학생/스태프가 아니면 빈 목록(에러 대신 조용히)
-    if (auth.role !== "STUDENT") return NextResponse.json({ serverNow: now.toISOString(), isStaff: false, rows: [] });
+    // 학생 본인, 또는 학부모(자녀 대신 열람 · 읽기전용). 그 외는 빈 목록.
+    let targetStudentId = auth.userId;
+    let isParentView = false;
+    let childName: string | undefined;
+    if (auth.role === "PARENT") {
+      const child = await resolveChildInCourse(courseId, auth.userId);
+      if (!child) return NextResponse.json({ serverNow: now.toISOString(), isStaff: false, isParentView: true, rows: [] });
+      targetStudentId = child.id;
+      isParentView = true;
+      childName = child.name;
+    } else if (auth.role !== "STUDENT") {
+      return NextResponse.json({ serverNow: now.toISOString(), isStaff: false, rows: [] });
+    }
 
-    const assigns = await prisma.examAssignment.findMany({ where: { studentId: auth.userId }, select: { examId: true } });
+    const assigns = await prisma.examAssignment.findMany({ where: { studentId: targetStudentId }, select: { examId: true } });
     const assignedIds = assigns.map((a) => a.examId);
-    if (!assignedIds.length) return NextResponse.json({ serverNow: now.toISOString(), isStaff: false, rows: [] });
+    if (!assignedIds.length) return NextResponse.json({ serverNow: now.toISOString(), isStaff: false, isParentView, childName, rows: [] });
 
     const exams = await prisma.exam.findMany({
       where: { id: { in: assignedIds }, courseId, status: { in: ["published", "closed"] } },
@@ -166,7 +178,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     await expireOverdueAttempts(ids); // 마감 지난 방치 응시 확정
     const [questions, attempts] = await Promise.all([
       prisma.examQuestion.findMany({ where: { examId: { in: ids } }, select: { examId: true, number: true, type: true, points: true, answerKey: true } }),
-      prisma.examAttempt.findMany({ where: { studentId: auth.userId, examId: { in: ids } } }),
+      prisma.examAttempt.findMany({ where: { studentId: targetStudentId, examId: { in: ids } } }),
     ]);
     const qByExam = new Map<string, { number: number; type: string; points: number; answerKey: string }[]>();
     for (const q of questions) { const arr = qByExam.get(q.examId) ?? []; arr.push(q); qByExam.set(q.examId, arr); }
@@ -181,6 +193,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({
       serverNow: now.toISOString(),
       isStaff: false,
+      isParentView,
+      childName,
       rows: exams.map((e) => {
         const at = atMap.get(e.id);
         let atStatus = at?.status ?? null;

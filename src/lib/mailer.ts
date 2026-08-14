@@ -245,6 +245,30 @@ export async function sendFacilitatorCourseAssignedEmail(params: { to: string; n
   return postResend({ apiKey, from, to: params.to, subject, text, html });
 }
 
+/** 학부모 자녀 연결 인증코드(자녀 이메일로 발송). 코드를 학부모가 입력하면 연결 완료. */
+export async function sendChildLinkCodeEmail(params: { to: string; code: string; parentName: string; expiresMinutes: number }) {
+  const { apiKey, from } = getMailerConfig();
+  const subject = "[우아재] 자녀 연결 인증코드";
+  const text = [
+    `${params.parentName || "학부모"} 님이 우아재에서 자녀(회원) 연결을 요청했습니다.`,
+    "",
+    `인증코드: ${params.code}`,
+    `이 코드를 학부모님께 알려주시면 연결이 완료됩니다. (${params.expiresMinutes}분 내 유효)`,
+    "",
+    "요청한 적이 없다면 이 메일을 무시하세요.",
+  ].join("\n");
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height:1.7; color:#2c2823; max-width:520px;">
+      <h2 style="margin:0 0 12px; color:#6B5342;">자녀 연결 인증코드</h2>
+      <p><strong>${params.parentName || "학부모"}</strong> 님이 우아재에서 자녀 연결을 요청했습니다.</p>
+      <p style="font-size:26px; font-weight:800; letter-spacing:4px; color:#8C6E59; background:#FBF8F2; border:1px solid #E4DBC7; border-radius:10px; padding:14px 16px; text-align:center;">${params.code}</p>
+      <p style="color:#334155;">이 코드를 학부모님께 알려주시면 연결이 완료됩니다. (${params.expiresMinutes}분 내 유효)</p>
+      <p style="color:#8A8479;">요청한 적이 없다면 이 메일을 무시하세요. — 우아재</p>
+    </div>
+  `;
+  return postResend({ apiKey, from, to: params.to, subject, text, html });
+}
+
 /** 새 강좌 개설 요청 접수 알림(관리자 → 담당자). spec 은 사람이 읽을 수 있는 강좌 사양 텍스트. */
 export async function sendCourseRequestEmail(params: { to: string; requesterEmail: string; title: string; spec: string }) {
   const { apiKey, from } = getMailerConfig();

@@ -50,7 +50,7 @@ export default function AccountMenu({ role, email }: Props) {
             </>
           ) : role === "PARENT" ? (
             <>
-              <Link href="/me/children" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-semibold hover:bg-[color:var(--surface-elevated)]" style={{ color: "#4E6B5A" }}>자녀 학습 현황</Link>
+              <Link href="/my-courses" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-semibold hover:bg-[color:var(--surface-elevated)]" style={{ color: "#4E6B5A" }}>자녀 강의실</Link>
               <Link href="/account" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-900 hover:bg-[color:var(--surface-elevated)]">계정 정보</Link>
               <Link href="/settings/password" onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm text-slate-900 hover:bg-[color:var(--surface-elevated)]">비밀번호 변경</Link>
             </>

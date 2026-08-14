@@ -3,6 +3,7 @@ import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { loadAndGrade, gradeExam } from "@/lib/exam/grade";
 import { expireOverdueAttempts } from "@/lib/exam/store";
+import { resolveChildInCourse, isApprovedChild } from "@/lib/course/parent-child";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (auth.role === "FACILITATOR" && !(await isFacilitatorOfCourse(courseId, auth.userId))) return NextResponse.json({ error: "담당 강좌가 아닙니다." }, { status: 403 });
       studentId = new URL(request.url).searchParams.get("studentId") || "";
       if (!studentId) return NextResponse.json({ error: "studentId 필요" }, { status: 400 });
+    } else if (auth.role === "PARENT") {
+      const reqSid = new URL(request.url).searchParams.get("studentId");
+      if (reqSid) {
+        if (!(await isApprovedChild(auth.userId, reqSid))) return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
+        studentId = reqSid;
+      } else {
+        const child = await resolveChildInCourse(courseId, auth.userId);
+        if (!child) return NextResponse.json({ code: "NO_ATTEMPT", error: "자녀의 응시 기록이 없습니다." }, { status: 404 });
+        studentId = child.id;
+      }
     } else if (auth.role !== "STUDENT") {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }
@@ -33,7 +44,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     await expireOverdueAttempts([examId]); // 마감 지난 방치 응시 확정
 
     let studentName: string | undefined;
-    if (staff) {
+    if (staff || auth.role === "PARENT") {
       const u = await prisma.user.findUnique({ where: { id: studentId }, select: { email: true, studentProfile: { select: { realName: true } } } });
       studentName = u?.studentProfile?.realName?.trim() || u?.email || undefined;
     }

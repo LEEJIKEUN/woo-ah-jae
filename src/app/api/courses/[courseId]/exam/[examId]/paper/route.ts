@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { readPrivateFile } from "@/lib/upload";
+import { resolveChildInCourse } from "@/lib/course/parent-child";
 import { PDFDocument } from "pdf-lib";
 import { prisma } from "@/lib/prisma";
 
@@ -59,6 +60,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (part === "explanation") {
       // 해설은 본인 응시가 끝났거나(제출/시간종료) 시험이 마감된 뒤에만(미응시 0점 포함)
       const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId: session.userId } }, select: { status: true } });
+      const attemptDone = !!attempt && attempt.status !== "in_progress";
+      const examClosed = exam.status === "closed" || (!!exam.closesAt && new Date() > exam.closesAt);
+      if (!attemptDone && !examClosed) return new NextResponse("Forbidden", { status: 403 });
+    }
+  } else if (session.role === "PARENT") {
+    // 학부모: 자녀 대신 열람(문제/해설). full 금지.
+    const child = await resolveChildInCourse(courseId, session.userId);
+    if (!child) return new NextResponse("Forbidden", { status: 403 });
+    if (exam.status === "draft" || part === "full") return new NextResponse("Forbidden", { status: 403 });
+    const assigned = await prisma.examAssignment.findUnique({ where: { examId_studentId: { examId, studentId: child.id } } });
+    if (!assigned) return new NextResponse("Forbidden", { status: 403 });
+    if (part === "explanation") {
+      const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId: child.id } }, select: { status: true } });
       const attemptDone = !!attempt && attempt.status !== "in_progress";
       const examClosed = exam.status === "closed" || (!!exam.closesAt && new Date() > exam.closesAt);
       if (!attemptDone && !examClosed) return new NextResponse("Forbidden", { status: 403 });
