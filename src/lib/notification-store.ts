@@ -36,6 +36,32 @@ export async function notifyCourseStaff(courseId: string, actorUserId: string, n
   await createNotifications(ids.map((uid) => ({ userId: uid, ...n })));
 }
 
+/** 승인된 학부모 userId 목록(자녀 studentId 기준). */
+export async function approvedParentIds(studentId: string): Promise<string[]> {
+  const links = await prisma.parentChildLink.findMany({ where: { childUserId: studentId, status: "APPROVED" }, select: { parentUserId: true } });
+  return links.map((l) => l.parentUserId);
+}
+
+/**
+ * 멘토링 방(강좌+학생) 변동 알림 — 학생 본인 + 승인된 학부모 (+옵션: 담당 퍼실리테이터). 행위자 제외.
+ * 1:1 채팅 외 모든 변동(공지·세특·보고서·과제 등)에서 호출한다.
+ */
+export async function notifyMentoringRoom(
+  courseId: string,
+  studentId: string,
+  actorUserId: string,
+  n: { kind: string; title: string; body?: string; href: string },
+  opts: { includeStaff?: boolean } = {}
+): Promise<void> {
+  const ids = new Set<string>([studentId, ...(await approvedParentIds(studentId))]);
+  if (opts.includeStaff) {
+    const facs = await prisma.facilitatorCourse.findMany({ where: { courseId }, select: { facilitatorUserId: true } });
+    for (const f of facs) ids.add(f.facilitatorUserId);
+  }
+  ids.delete(actorUserId);
+  await createNotifications([...ids].map((uid) => ({ userId: uid, ...n })));
+}
+
 /**
  * 본문에서 @이름 멘션을 찾아 해당 수강생·스태프(관리자·담당 퍼실)와 승인된 학부모에게 알림.
  * 이름은 실명과 정확히 일치(@ 접두)해야 매칭. 행위자 본인은 제외.

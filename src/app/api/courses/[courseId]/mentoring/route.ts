@@ -13,7 +13,7 @@ import {
 } from "@/lib/mentoring-store";
 import { publishMentoring } from "@/lib/mentoring-bus";
 import { pingUser, pingCourseStaff } from "@/lib/inbox-bus";
-import { notifyCourseStaff, createNotifications } from "@/lib/notification-store";
+import { notifyCourseStaff, createNotifications, notifyMentoringRoom, approvedParentIds } from "@/lib/notification-store";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FIELD = 20000;
@@ -265,10 +265,34 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   publishMentoring(courseId, studentId, await loadRoom(courseId, studentId));
-  // 실시간 배지: 새 채팅 메시지 → 상대에게 신호(교사→학생 / 학생→담당 스태프)
-  if (body.action === "chat" || body.action === "chatFile") {
-    if (senderRole === "teacher") pingUser(studentId);
-    else pingCourseStaff(courseId);
+
+  // 알림(best-effort) — 실패해도 저장된 변경엔 영향 없음
+  try {
+    if (body.action === "chat" || body.action === "chatFile") {
+      // 1:1 채팅 → 채팅 알람(실시간 배지). 학생·스태프 + 학부모 모두.
+      if (senderRole === "teacher") pingUser(studentId);
+      else pingCourseStaff(courseId);
+      for (const pid of await approvedParentIds(studentId)) if (pid !== g.session.userId) pingUser(pid);
+    } else {
+      // 그 외 모든 변동(공지·세특·보고서·독서·과제) → 학생·학부모(+담당 퍼실) 알림
+      const NOTICES: Record<string, { kind: string; title: string; includeStaff: boolean }> = {
+        sete: { kind: "notice", title: "세특(세부능력 특기사항)이 업데이트되었어요", includeStaff: true },
+        notice: { kind: "notice", title: "새 개별 공지가 등록되었어요", includeStaff: true },
+        editNotice: { kind: "notice", title: "개별 공지가 수정되었어요", includeStaff: true },
+        deleteNotice: { kind: "notice", title: "개별 공지가 삭제되었어요", includeStaff: true },
+        report: { kind: "notice", title: "탐구 보고서가 업데이트되었어요", includeStaff: true },
+        reportFile: { kind: "notice", title: "탐구 보고서 파일이 변경되었어요", includeStaff: true },
+        books: { kind: "notice", title: "독서활동상황이 업데이트되었어요", includeStaff: true },
+        assignmentAdd: { kind: "assignment", title: "새 과제가 업로드되었어요", includeStaff: false },
+        assignmentDelete: { kind: "assignment", title: "과제가 삭제되었어요", includeStaff: false },
+      };
+      const cn = NOTICES[body.action ?? ""];
+      if (cn) {
+        await notifyMentoringRoom(courseId, studentId, g.session.userId, { kind: cn.kind, title: cn.title, body: "탐구활동 멘토링에서 확인하세요.", href: `/course/${courseId}/mentoring` }, { includeStaff: cn.includeStaff });
+      }
+    }
+  } catch {
+    /* 알림 실패는 무시 */
   }
   return NextResponse.json({ ok: true });
 }
