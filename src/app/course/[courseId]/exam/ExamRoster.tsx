@@ -79,6 +79,23 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
     }
   }
 
+  // ── 평균 계산(소수점 2자리 절사) ──
+  const fmtAvg = (x: number) => (Math.floor(x * 100) / 100).toFixed(2);
+  const avgOf = (scores: number[]): { avg: number; count: number } | null => (scores.length ? { avg: scores.reduce((a, b) => a + b, 0) / scores.length, count: scores.length } : null);
+  const examScores = (examId: string): number[] => (data ? data.students.map((s) => data.cells[s.id]?.[examId]).filter((c): c is Cell => !!c && typeof c.score === "number").map((c) => c.score as number) : []);
+  const studentScores = (studentId: string): number[] => (data ? data.exams.map((e) => data.cells[studentId]?.[e.id]).filter((c): c is Cell => !!c && typeof c.score === "number").map((c) => c.score as number) : []);
+  const allScores = (): number[] => (data ? data.students.flatMap((s) => studentScores(s.id)) : []);
+  function renderAvg(scores: number[], showCount: boolean, color: string = DEEP) {
+    const a = avgOf(scores);
+    if (!a) return <span className="text-[12.5px]" style={{ color: "#C9C2B4" }}>–</span>;
+    return (
+      <span title={`${a.count}개 평균`}>
+        <span className="text-[15px] font-extrabold" style={{ color }}>{fmtAvg(a.avg)}</span>
+        {showCount ? <span className="text-[10.5px] font-semibold" style={{ color: SUB }}> ({a.count}명)</span> : null}
+      </span>
+    );
+  }
+
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
       <ClassroomSidebar courseId={courseId} isStaff />
@@ -119,6 +136,9 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
                         {e.opensAt || e.closesAt ? <div className="text-[10.5px] font-medium" style={{ color: SUB }}>{fmtKst(e.opensAt) || "즉시"}~{fmtKst(e.closesAt) || "무제한"}</div> : null}
                       </th>
                     ))}
+                    <th className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 84, background: "#F3EDE0" }}>
+                      평균<div className="text-[10.5px] font-medium" style={{ color: SUB }}>누적</div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,8 +150,19 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
                           <CellView cell={data.cells[s.id]?.[e.id]} onClick={() => router.push(`/course/${courseId}/exam/${e.id}/result?studentId=${s.id}`)} />
                         </td>
                       ))}
+                      <td className="border-b border-l px-3 py-2.5 text-center" style={{ borderColor: "#F0EBE0", background: "#FBF8F2" }}>
+                        {renderAvg(studentScores(s.id), false)}
+                      </td>
                     </tr>
                   ))}
+                  {/* 평균 행 */}
+                  <tr style={{ background: "#F3EDE0" }}>
+                    <td className="sticky left-0 z-10 border-t px-4 py-2.5 text-[13px] font-bold" style={{ borderColor: LINE, color: INK, background: "#F3EDE0" }}>평균</td>
+                    {data.exams.map((e) => (
+                      <td key={e.id} className="border-t border-l px-3 py-2.5 text-center" style={{ borderColor: LINE }}>{renderAvg(examScores(e.id), true)}</td>
+                    ))}
+                    <td className="border-t border-l px-3 py-2.5 text-center" style={{ borderColor: LINE }}>{renderAvg(allScores(), false, BROWN)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
