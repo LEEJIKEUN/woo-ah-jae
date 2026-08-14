@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 
 const BROWN = "#8C6E59";
@@ -14,7 +14,15 @@ const LINE = "#E4DBC7";
 const PANEL = "#FBF8F2";
 const serif = { fontFamily: "var(--font-serif)" } as const;
 
-type ExamCol = { id: string; title: string; subject: string; status: string; total: number; assignedCount: number; submittedCount: number };
+type ExamCol = { id: string; title: string; subject: string; status: string; total: number; assignedCount: number; submittedCount: number; opensAt: string | null; closesAt: string | null };
+
+/** ISO → "8/14 22:01" (한국시간) */
+function fmtKst(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
 type Student = { id: string; name: string };
 type Cell = { status: string; score?: number; total?: number };
 type Roster = { exams: ExamCol[]; students: Student[]; cells: Record<string, Record<string, Cell>> };
@@ -104,9 +112,11 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
                       <th key={e.id} className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 104 }}>
                         <div className="flex items-center justify-center gap-1">
                           <span className="truncate" title={e.title}>{e.title}</span>
+                          <button type="button" onClick={() => router.push(`/course/${courseId}/exam/${e.id}/edit`)} title="시험 수정" className="shrink-0 rounded p-0.5 transition hover:bg-[#F1EADD]" style={{ color: BROWN }}><Pencil size={12} /></button>
                           <button type="button" onClick={() => void deleteExam(e.id, e.title)} title="시험 삭제" className="shrink-0 rounded p-0.5 transition hover:bg-[#F2ECEC]" style={{ color: "#B4544B" }}><Trash2 size={13} /></button>
                         </div>
                         <div className="text-[11px] font-medium" style={{ color: SUB }}>제출 {e.submittedCount}/{e.assignedCount} · {e.total}점</div>
+                        {e.opensAt || e.closesAt ? <div className="text-[10.5px] font-medium" style={{ color: SUB }}>{fmtKst(e.opensAt) || "즉시"}~{fmtKst(e.closesAt) || "무제한"}</div> : null}
                       </th>
                     ))}
                   </tr>

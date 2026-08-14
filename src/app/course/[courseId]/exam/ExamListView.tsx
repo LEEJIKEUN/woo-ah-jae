@@ -40,6 +40,14 @@ function fmt(ms: number): string {
   return h > 0 ? `${p(h)}:${p(m)}:${p(sec)}` : `${p(m)}:${p(sec)}`;
 }
 
+/** ISO → "8/14 22:01" (한국시간) */
+function fmtKst(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
 type Badge = { label: string; bg: string; fg: string };
 
 function studentBadge(row: Row, nowMs: number): Badge {
@@ -140,6 +148,11 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                     {row.questionCount}문항 · 제한시간 {Math.round(row.durationSec / 60)}분
                     {isStaff ? ` · 배정 ${row.assignedCount ?? 0}명 · 제출 ${row.submittedCount ?? 0}명` : ""}
                   </p>
+                  {row.opensAt || row.closesAt ? (
+                    <p className="mt-0.5 text-[12px]" style={{ color: closedByTime || notOpenYet ? "#B06B2E" : SUB }}>
+                      응시 기간: {fmtKst(row.opensAt) || "즉시"} ~ {fmtKst(row.closesAt) || "무제한"} <span style={{ color: SUB }}>(한국시간)</span>
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   {isStaff ? (

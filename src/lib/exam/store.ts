@@ -39,7 +39,7 @@ export type StartResult =
   | { code: "NOT_FOUND" }
   | { code: "NOT_ASSIGNED" }
   | { code: "NOT_OPEN"; opensAt: string }
-  | { code: "CLOSED" }
+  | { code: "CLOSED"; reason: "not_published" | "closed_time"; closesAt: string | null }
   | { code: "OK"; data: StartData };
 
 export type SaveResult =
@@ -128,9 +128,9 @@ export async function startAttempt(courseId: string, examId: string, studentId: 
 
   if (!attempt) {
     // 신규 시작 차단 조건(기존 attempt 가 있으면 아래 조건과 무관하게 유지)
-    if (exam.status !== "published") return { code: "CLOSED" };
+    if (exam.status !== "published") return { code: "CLOSED", reason: "not_published", closesAt: null };
     if (exam.opensAt && now < exam.opensAt) return { code: "NOT_OPEN", opensAt: exam.opensAt.toISOString() };
-    if (exam.closesAt && now > exam.closesAt) return { code: "CLOSED" };
+    if (exam.closesAt && now > exam.closesAt) return { code: "CLOSED", reason: "closed_time", closesAt: exam.closesAt.toISOString() };
     const deadlineAt = new Date(now.getTime() + exam.durationSec * 1000);
     try {
       attempt = await prisma.examAttempt.create({ data: { examId, studentId, startedAt: now, deadlineAt, status: "in_progress" } });

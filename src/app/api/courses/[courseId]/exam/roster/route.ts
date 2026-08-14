@@ -84,6 +84,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         total: totalByExam.get(e.id) ?? 0,
         assignedCount: assignedCountByExam.get(e.id) ?? 0,
         submittedCount: submittedCountByExam.get(e.id) ?? 0,
+        opensAt: e.opensAt ? e.opensAt.toISOString() : null,
+        closesAt: e.closesAt ? e.closesAt.toISOString() : null,
       })),
       cells,
     });

@@ -6,23 +6,12 @@ import { createNotifications } from "@/lib/notification-store";
 import { savePrivateFile, validateUpload } from "@/lib/upload";
 import { gradeExam } from "@/lib/exam/grade";
 import { expireOverdueAttempts } from "@/lib/exam/store";
-import { PDFDocument } from "pdf-lib";
+import { trimPdfToPages } from "@/lib/exam/pdf";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 type QInput = { type?: unknown; choiceCount?: unknown; points?: unknown; answerKey?: unknown };
-
-/** 앞 n페이지만 남긴 PDF 버퍼. n이 전체 이상이면 null(자를 필요 없음). */
-async function trimPdfToPages(bytes: Buffer, n: number): Promise<Buffer | null> {
-  const src = await PDFDocument.load(bytes);
-  const total = src.getPageCount();
-  if (n >= total) return null;
-  const out = await PDFDocument.create();
-  const pages = await out.copyPages(src, Array.from({ length: Math.max(1, n) }, (_, i) => i));
-  pages.forEach((p) => out.addPage(p));
-  return Buffer.from(await out.save());
-}
 
 function parseQuestions(raw: unknown): { type: string; choiceCount: number; points: number; answerKey: string }[] {
   if (!Array.isArray(raw)) return [];

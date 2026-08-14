@@ -29,8 +29,9 @@ function distributePoints(n: number, total = 100): number[] {
   return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
-export default function ExamCreateForm({ courseId }: { courseId: string }) {
+export default function ExamCreateForm({ courseId, examId }: { courseId: string; examId?: string }) {
   const router = useRouter();
+  const editMode = !!examId;
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [durationMin, setDurationMin] = useState(60);
@@ -59,6 +60,27 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
       } catch { /* 무시 */ }
     })();
   }, [courseId]);
+
+  // 수정 모드: 기존 시험 불러와 프리필
+  useEffect(() => {
+    if (!examId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/exam/${examId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const d = (await res.json()) as { title: string; subject: string; durationMin: number; opensAt: string; closesAt: string; studentPageCount: number; questions: { type: string; choiceCount: number; points: number; answerKey: string }[]; studentIds: string[] };
+        setTitle(d.title ?? "");
+        setSubject(d.subject ?? "");
+        setDurationMin(d.durationMin ?? 60);
+        setOpensAt(d.opensAt ?? "");
+        setClosesAt(d.closesAt ?? "");
+        setStudentPages(d.studentPageCount ? String(d.studentPageCount) : "");
+        setRows((d.questions ?? []).map((q) => ({ id: `q${++seq}`, type: q.type === "short" ? "short" : "mcq", choiceCount: q.type === "short" ? 5 : q.choiceCount, points: q.points, answerKey: q.answerKey })));
+        setSelected(new Set(d.studentIds ?? []));
+        setAiNote("기존 시험을 불러왔습니다. 수정 후 저장하세요. (새 PDF를 올리면 문항·정답이 다시 구성됩니다.)");
+      } catch { /* 무시 */ }
+    })();
+  }, [courseId, examId]);
 
   function pickFile(f: File | null) {
     setPaperErr("");
@@ -112,7 +134,7 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
 
   async function submit(status: "published" | "draft") {
     if (!title.trim()) { alert("시험 제목을 입력하세요."); return; }
-    if (!paper) { alert("시험지 PDF를 첨부하세요."); return; }
+    if (!paper && !editMode) { alert("시험지 PDF를 첨부하세요."); return; } // 수정 모드는 기존 시험지 유지 가능
     if (!Number.isFinite(durationMin) || durationMin <= 0) { alert("제한시간을 올바르게 입력하세요."); return; }
     if (rows.length === 0) { alert("문항을 1개 이상 구성하세요."); return; }
     if (status === "published" && selected.size === 0) { alert("발송할 학생을 1명 이상 선택하세요."); return; }
@@ -130,14 +152,15 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
       studentPageCount: Number(studentPages) > 0 ? Math.trunc(Number(studentPages)) : 0,
     };
     const fd = new FormData();
-    fd.append("paper", paper);
+    if (paper) fd.append("paper", paper);
     fd.append("payload", JSON.stringify(payload));
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/courses/${courseId}/exam`, { method: "POST", body: fd });
+      const url = editMode ? `/api/courses/${courseId}/exam/${examId}` : `/api/courses/${courseId}/exam`;
+      const res = await fetch(url, { method: editMode ? "PATCH" : "POST", body: fd });
       const d = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
-      if (!res.ok) { alert(d.error ?? "시험 생성에 실패했습니다."); return; }
+      if (!res.ok) { alert(d.error ?? (editMode ? "시험 수정에 실패했습니다." : "시험 생성에 실패했습니다.")); return; }
       router.push(`/course/${courseId}/exam`);
     } catch {
       alert("네트워크 오류가 발생했습니다.");
@@ -152,9 +175,9 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
     <div style={{ background: "#fff", color: BODY }}>
       <div className="mx-auto max-w-[860px] px-6 pt-16 pb-32">
         <Link href={`/course/${courseId}/exam`} className="text-[13px]" style={{ color: BROWN }}>← 시험 목록</Link>
-        <p className="mt-4 text-center text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>NEW EXAM</p>
-        <h1 className="mt-3 text-center text-[30px] font-normal md:text-[36px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>시험 만들기</h1>
-        <p className="mt-3 text-center text-[14px]" style={{ color: SUB }}>시험지 PDF와 제한시간·문항 구성을 설정하고, 응시할 학생을 선택해 보냅니다.</p>
+        <p className="mt-4 text-center text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.24em", color: NUM }}>{editMode ? "EDIT EXAM" : "NEW EXAM"}</p>
+        <h1 className="mt-3 text-center text-[30px] font-normal md:text-[36px]" style={{ ...serif, color: INK, letterSpacing: "-0.03em" }}>{editMode ? "시험 수정" : "시험 만들기"}</h1>
+        <p className="mt-3 text-center text-[14px]" style={{ color: SUB }}>{editMode ? "시험 내용·학생을 수정하고 다시 저장·발송합니다. 시험지 PDF는 새로 올릴 때만 교체됩니다." : "시험지 PDF와 제한시간·문항 구성을 설정하고, 응시할 학생을 선택해 보냅니다."}</p>
 
         <div className="mt-12 space-y-8">
           {/* 기본 정보 */}
@@ -177,7 +200,7 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
                   <button type="button" onClick={() => { setPaper(null); if (fileRef.current) fileRef.current.value = ""; }} className="shrink-0 text-[13px] font-semibold" style={{ color: "#a6402c" }}>삭제</button>
                 </div>
               ) : (
-                <button type="button" onClick={() => fileRef.current?.click()} className="w-full rounded-[8px] py-3 text-[14px] font-semibold" style={{ color: BROWN }}>＋ PDF 선택 (업로드하면 문항·정답 자동 구성 · 최대 10MB)</button>
+                <button type="button" onClick={() => fileRef.current?.click()} className="w-full rounded-[8px] py-3 text-[14px] font-semibold" style={{ color: BROWN }}>{editMode ? "＋ 새 PDF 선택 (안 올리면 기존 시험지 유지 · 올리면 교체·자동 재구성)" : "＋ PDF 선택 (업로드하면 문항·정답 자동 구성 · 최대 10MB)"}</button>
               )}
               <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
             </div>
@@ -271,7 +294,7 @@ export default function ExamCreateForm({ courseId }: { courseId: string }) {
         <div className="mt-12 flex flex-wrap justify-center gap-3">
           <button type="button" onClick={() => router.push(`/course/${courseId}/exam`)} className="rounded-[8px] border px-8 py-3 text-[15px]" style={{ borderColor: LINE, color: SUB, ...serif }}>취소</button>
           <button type="button" onClick={() => void submit("draft")} disabled={submitting} className="rounded-[8px] border px-7 py-3 text-[15px] font-semibold disabled:opacity-60" style={{ borderColor: BROWN, color: BROWN, ...serif }}>임시저장</button>
-          <button type="button" onClick={() => void submit("published")} disabled={submitting} className="rounded-[8px] px-10 py-3 text-[15px] font-bold text-white disabled:opacity-60" style={{ background: BROWN, ...serif, boxShadow: "0 2px 10px rgba(140,110,89,0.25)" }}>{submitting ? "보내는 중…" : "보내기"}</button>
+          <button type="button" onClick={() => void submit("published")} disabled={submitting} className="rounded-[8px] px-10 py-3 text-[15px] font-bold text-white disabled:opacity-60" style={{ background: BROWN, ...serif, boxShadow: "0 2px 10px rgba(140,110,89,0.25)" }}>{submitting ? (editMode ? "저장 중…" : "보내는 중…") : editMode ? "수정 저장·발송" : "보내기"}</button>
         </div>
       </div>
     </div>
