@@ -174,10 +174,14 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
                       <button type="button" onClick={() => download(row.id, "explanation")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 해설지</button>
                     </>
                   ) : noShowZero ? (
-                    <span className="rounded-[10px] px-4 py-2" style={{ background: "#F7ECEC" }} title="마감까지 응시하지 않아 0점 처리됐습니다.">
-                      <span className="text-[18px] font-extrabold" style={{ color: "#B4544B" }}>0</span>
-                      <span className="text-[13px] font-semibold" style={{ color: SUB }}> / {row.total ?? 100}점 · 미응시</span>
-                    </span>
+                    <>
+                      <span className="rounded-[10px] px-4 py-2" style={{ background: "#F7ECEC" }} title="응시 마감까지 응시하지 않아 0점 처리됐습니다.">
+                        <span className="text-[18px] font-extrabold" style={{ color: "#B4544B" }}>0</span>
+                        <span className="text-[13px] font-semibold" style={{ color: SUB }}> / {row.total ?? 100}점 · 미응시</span>
+                      </span>
+                      <button type="button" onClick={() => download(row.id, "questions")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 문제지</button>
+                      <button type="button" onClick={() => download(row.id, "explanation")} className="inline-flex items-center gap-1 rounded-[8px] border px-3 py-2 text-[12.5px] font-semibold transition hover:bg-[#FBF6EC]" style={{ borderColor: LINE, color: BODY }}><Download size={14} /> 해설지</button>
+                    </>
                   ) : (
                     <button
                       type="button"
@@ -211,6 +215,11 @@ export default function ExamListView({ courseId, isStaff }: { courseId: string; 
             ) : null}
           </div>
           {body}
+          {!isStaff ? (
+            <p className="mt-6 rounded-[10px] px-4 py-3 text-[12.5px] leading-6" style={{ background: PANEL, color: SUB }}>
+              ※ 시험은 <b style={{ color: BROWN }}>응시 기간(시작~마감, 한국시간)</b> 안에 응시해야 합니다. 마감 시각이 지나면 <b style={{ color: "#B4544B" }}>응시하지 않은 시험은 자동으로 0점</b> 처리됩니다. 이미 응시를 시작했다면 개인 제한시간까지는 이어서 풀 수 있고, 마감 후에도 문제지·해설지는 내려받아 확인할 수 있어요.
+            </p>
+          ) : null}
         </div>
       </main>
     </div>

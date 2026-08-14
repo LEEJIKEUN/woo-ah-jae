@@ -57,8 +57,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!assigned) return new NextResponse("Forbidden", { status: 403 });
     if (part === "full") return new NextResponse("Forbidden", { status: 403 });
     if (part === "explanation") {
+      // 해설은 본인 응시가 끝났거나(제출/시간종료) 시험이 마감된 뒤에만(미응시 0점 포함)
       const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId: session.userId } }, select: { status: true } });
-      if (!attempt || attempt.status === "in_progress") return new NextResponse("Forbidden", { status: 403 }); // 종료 후에만 해설
+      const attemptDone = !!attempt && attempt.status !== "in_progress";
+      const examClosed = exam.status === "closed" || (!!exam.closesAt && new Date() > exam.closesAt);
+      if (!attemptDone && !examClosed) return new NextResponse("Forbidden", { status: 403 });
     }
   } else {
     return new NextResponse("Forbidden", { status: 403 });

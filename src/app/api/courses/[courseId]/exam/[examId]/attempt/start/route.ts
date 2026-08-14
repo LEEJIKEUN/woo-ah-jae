@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           {
             code: "CLOSED",
             error: res.reason === "closed_time"
-              ? `응시 마감 시각(${fmtKst(res.closesAt)}, 한국시간)이 지나 응시할 수 없습니다.`
+              ? `응시 마감 시각(${fmtKst(res.closesAt)}, 한국시간)이 지났습니다. 미응시로 0점 처리되며, 문제지·해설지는 시험 목록에서 내려받아 확인할 수 있어요.`
               : "아직 공개되지 않았거나 마감된 시험입니다. 담당 선생님께 문의해 주세요.",
           },
           { status: 403 }
