@@ -48,6 +48,8 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [edit, setEdit] = useState(false); // 화면 직접(인라인) 편집 모드
+  const [objs, setObjs] = useState<string[]>([]); // 편집 모드에서의 세부 목표 초안
   const [enrolled, setEnrolled] = useState(enrolledInitial);
   const [status, setStatus] = useState<{ applied: number; capacity: number; full: boolean } | null>(null);
   const [enrolling, setEnrolling] = useState(false);
@@ -130,26 +132,89 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
     }
   }
 
+  // ── 인라인(화면 직접) 편집 ──
+  async function patchField(patch: Partial<IntroData>) {
+    setIntro((p) => (p ? { ...p, ...patch } : p));
+    try {
+      await fetch(`/api/admin/courses/${courseId}/meta`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+    } catch {
+      /* 무시 — 다음 편집 때 재시도 */
+    }
+  }
+  function commit(field: keyof IntroData, val: string) {
+    const cur = ((intro?.[field] as string | undefined) ?? "").trim();
+    if (cur !== val.trim()) patchField({ [field]: val } as Partial<IntroData>);
+  }
+  // 세부 목표 편집: objs(배열) 를 authoritative 로 두고, 변경 시 줄바꿈 문자열로 저장
+  const splitObjRaw = (s?: string) => (s ?? "").split("\n").map((x) => x.replace(/^\s*\d+\s*[.)]\s*/, ""));
+  const joinObjs = (arr: string[]) => arr.map((s) => s.trim()).filter(Boolean).join("\n");
+  function enterEdit() {
+    setObjs(splitObjRaw(intro?.objectives));
+    setEdit(true);
+  }
+  const setObjAt = (i: number, v: string) => setObjs((prev) => prev.map((x, j) => (j === i ? v : x)));
+  const commitObjs = () => patchField({ objectives: joinObjs(objs) });
+  function addObj() {
+    setObjs((prev) => [...prev, ""]);
+  }
+  function delObj(i: number) {
+    const next = objs.filter((_, j) => j !== i);
+    setObjs(next);
+    patchField({ objectives: joinObjs(next) });
+  }
+  function moveObj(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= objs.length) return;
+    const next = objs.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    setObjs(next);
+    patchField({ objectives: joinObjs(next) });
+  }
+
+  const editFieldCls = "w-full rounded-[8px] border border-dashed bg-white/70 px-3 py-2 outline-none focus:border-[#8C6E59]";
+
   return (
     <div style={{ background: "#fff", color: BODY }}>
       {/* ── 히어로 밴드 ── */}
       <section className="w-full" style={{ background: heroGrad }}>
         <div className="mx-auto max-w-[1120px] px-6 py-14">
           {isAdmin ? (
-            <div className="mb-3 flex justify-end gap-2">
-              {editHref ? (
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+              {edit ? (
+                <span className="mr-auto text-[13px] font-medium" style={{ color: BROWN }}>
+                  ✎ 편집 모드 — 내용을 그 자리에서 수정하세요. 칸 밖을 클릭하면 자동 저장됩니다.
+                </span>
+              ) : null}
+              {editHref && !edit ? (
                 <Link href={editHref} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
                   커리큘럼 편집
                 </Link>
               ) : null}
-              <button type="button" onClick={() => setEditing(true)} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
-                강좌 정보 편집
+              {!edit ? (
+                <button type="button" onClick={() => setEditing(true)} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
+                  강좌 정보 편집
+                </button>
+              ) : null}
+              <button type="button" onClick={() => (edit ? setEdit(false) : enterEdit())} className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-white transition hover:opacity-90" style={{ background: edit ? DEEP : BROWN }}>
+                {edit ? "편집 완료" : "화면 직접 편집"}
               </button>
             </div>
           ) : null}
-          <p className="text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.2em", color: NUM }}>{intro.programme}</p>
-          <h1 className="mt-3 font-normal" style={{ ...serif, color: INK, fontSize: "clamp(28px, 4vw, 40px)", letterSpacing: "-0.02em" }}>{intro.title}</h1>
-          {intro.subtitle ? <p className="mt-3 text-[16px] leading-7" style={{ color: SUB }}>{intro.subtitle}</p> : null}
+          {edit ? (
+            <input defaultValue={intro.programme} key={`pg-${intro.programme}`} onBlur={(e) => commit("programme", e.target.value)} placeholder="상단 라벨(교육과정 등)" className={`${editFieldCls} text-[12px] font-semibold uppercase`} style={{ letterSpacing: "0.2em", color: NUM, borderColor: NUM }} />
+          ) : (
+            <p className="text-[12px] font-semibold uppercase" style={{ letterSpacing: "0.2em", color: NUM }}>{intro.programme}</p>
+          )}
+          {edit ? (
+            <input defaultValue={intro.title} key={`ti-${intro.title}`} onBlur={(e) => commit("title", e.target.value)} placeholder="강좌명" className={`${editFieldCls} mt-3 font-normal`} style={{ ...serif, color: INK, fontSize: "clamp(24px, 3.4vw, 36px)", letterSpacing: "-0.02em", borderColor: LINE }} />
+          ) : (
+            <h1 className="mt-3 font-normal" style={{ ...serif, color: INK, fontSize: "clamp(28px, 4vw, 40px)", letterSpacing: "-0.02em" }}>{intro.title}</h1>
+          )}
+          {edit ? (
+            <input defaultValue={intro.subtitle} key={`sub-${intro.subtitle}`} onBlur={(e) => commit("subtitle", e.target.value)} placeholder="강좌 목표(부제) — 한 줄" className={`${editFieldCls} mt-3 text-[16px] leading-7`} style={{ color: SUB, borderColor: LINE }} />
+          ) : intro.subtitle ? (
+            <p className="mt-3 text-[16px] leading-7" style={{ color: SUB }}>{intro.subtitle}</p>
+          ) : null}
           {stats.length > 0 ? (
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {stats.map(([k, v]) => (
@@ -183,13 +248,31 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
 
             {/* ① 강좌 소개 */}
             <Section id="about" title="강좌 소개">
-              {intro.subtitle ? (
+              {!edit && intro.subtitle ? (
                 <>
                   <h3 className="text-[15px] font-semibold" style={{ color: INK }}>강좌 목표</h3>
                   <p className="mt-2 text-[15px] leading-8" style={{ color: SUB }}>{intro.subtitle}</p>
                 </>
               ) : null}
-              {objectiveList.length > 0 ? (
+
+              {/* 세부 목표 */}
+              {edit ? (
+                <div className="mb-6 mt-2 rounded-[12px] border border-dashed p-4" style={{ borderColor: LINE, background: "#FCFAF5" }}>
+                  <h3 className="text-[15px] font-semibold" style={{ color: INK }}>세부 목표</h3>
+                  <ol className="mt-3 space-y-2">
+                    {objs.map((o, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-bold" style={{ background: PANEL, color: BROWN }}>{i + 1}</span>
+                        <input value={o} onChange={(e) => setObjAt(i, e.target.value)} onBlur={commitObjs} placeholder="예: 벡터를 정의하고 계산할 수 있다." className="min-w-0 flex-1 rounded-[8px] border px-3 py-2 text-[15px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BODY }} />
+                        <button type="button" onClick={() => moveObj(i, -1)} disabled={i === 0} title="위로" className="grid h-7 w-7 shrink-0 place-items-center rounded-md border text-[13px] disabled:opacity-30" style={{ borderColor: LINE, color: SUB }}>↑</button>
+                        <button type="button" onClick={() => moveObj(i, 1)} disabled={i === objs.length - 1} title="아래로" className="grid h-7 w-7 shrink-0 place-items-center rounded-md border text-[13px] disabled:opacity-30" style={{ borderColor: LINE, color: SUB }}>↓</button>
+                        <button type="button" onClick={() => delObj(i)} title="삭제" className="grid h-7 w-7 shrink-0 place-items-center rounded-md border text-[15px]" style={{ borderColor: LINE, color: "#a6402c" }}>×</button>
+                      </li>
+                    ))}
+                  </ol>
+                  <button type="button" onClick={addObj} className="mt-3 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>＋ 목표 추가</button>
+                </div>
+              ) : objectiveList.length > 0 ? (
                 <ol className="mb-6 mt-4 space-y-2.5">
                   {objectiveList.map((o, i) => (
                     <li key={i} className="flex gap-3 text-[15px] leading-8" style={{ color: SUB }}>
@@ -202,7 +285,11 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                 <div className="mb-6" />
               )}
               <h3 className="text-[15px] font-semibold" style={{ color: INK }}>강좌 설명</h3>
-              <p className="mt-2 whitespace-pre-line text-[15px] leading-8" style={{ color: SUB }}>{intro.summary}</p>
+              {edit ? (
+                <textarea defaultValue={intro.summary} key={`sm-${intro.summary}`} onBlur={(e) => commit("summary", e.target.value)} rows={7} placeholder="강좌 설명" className={`${editFieldCls} mt-2 resize-y text-[15px] leading-8`} style={{ color: BODY, borderColor: LINE }} />
+              ) : (
+                <p className="mt-2 whitespace-pre-line text-[15px] leading-8" style={{ color: SUB }}>{intro.summary}</p>
+              )}
             </Section>
 
             {/* ② 강좌 일정 */}
@@ -283,7 +370,11 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
 
               <div className="mt-6 rounded-[16px] border p-6" style={{ borderColor: LINE }}>
                 <h3 className="text-[16px] font-semibold" style={{ ...serif, color: INK }}>실시간 수업 안내</h3>
-                <p className="mt-2 whitespace-pre-line text-[13.5px] leading-6" style={{ color: SUB }}>{intro.realtimeInfo || "이 강좌는 정해진 요일·시간에 화상으로 진행되는 실시간 수업입니다. 강좌 일정을 확인하고 신청해 주세요."}</p>
+                {edit ? (
+                  <textarea defaultValue={intro.realtimeInfo ?? ""} key={`rt-${intro.realtimeInfo ?? ""}`} onBlur={(e) => commit("realtimeInfo", e.target.value)} rows={4} placeholder="실시간 수업 안내 문구" className={`${editFieldCls} mt-2 resize-y text-[13.5px] leading-6`} style={{ color: BODY, borderColor: LINE }} />
+                ) : (
+                  <p className="mt-2 whitespace-pre-line text-[13.5px] leading-6" style={{ color: SUB }}>{intro.realtimeInfo || "이 강좌는 정해진 요일·시간에 화상으로 진행되는 실시간 수업입니다. 강좌 일정을 확인하고 신청해 주세요."}</p>
+                )}
 
                 <p className="mt-5 text-[14px] font-semibold" style={{ color: INK }}>수업 일정</p>
                 <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>{intro.classDays ?? "-"}</p>
