@@ -71,7 +71,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       buffer = await readPrivateFile(exam.studentPaperKey || exam.paperKey);
     } else if (part === "explanation") {
       const full = await readPrivateFile(exam.paperKey);
-      buffer = exam.studentPageCount > 0 ? await slicePdf(full, "tail", exam.studentPageCount) : full;
+      // 분할점: 학생용(문제) PDF 의 실제 페이지 수를 우선 사용(구 시험도 정확). 없으면 studentPageCount.
+      let splitAt = exam.studentPageCount;
+      if (exam.studentPaperKey) {
+        try { splitAt = (await PDFDocument.load(await readPrivateFile(exam.studentPaperKey))).getPageCount(); } catch { /* studentPageCount 유지 */ }
+      }
+      buffer = splitAt > 0 ? await slicePdf(full, "tail", splitAt) : full;
     } else {
       buffer = await readPrivateFile(exam.paperKey); // full
     }

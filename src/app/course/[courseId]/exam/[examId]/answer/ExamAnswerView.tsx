@@ -261,7 +261,7 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
       <div className="lg:flex lg:items-start">
         {/* 시험지 PDF 뷰어 — 데스크톱은 좌측 고정, 모바일은 토글 */}
         <div className={`${pdfOpen ? "block" : "hidden"} border-b lg:sticky lg:top-[53px] lg:block lg:w-[48%] lg:shrink-0 lg:self-start lg:border-b-0 lg:border-r`} style={{ borderColor: LINE }}>
-          <iframe src={`${base}/paper`} title="시험지" className="h-[62vh] w-full lg:h-[calc(100vh-53px)]" style={{ background: PANEL }} />
+          <iframe src={`${base}/paper?part=questions#toolbar=1&navpanes=0&view=FitH`} title="시험지" className="h-[62vh] w-full lg:h-[calc(100vh-53px)]" style={{ background: PANEL }} />
         </div>
 
         {/* 답안지 */}

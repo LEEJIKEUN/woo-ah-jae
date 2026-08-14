@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 
 const BROWN = "#8C6E59";
@@ -36,21 +37,30 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
   const [data, setData] = useState<Roster | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const res = await fetch(`/api/courses/${courseId}/exam/roster`, { cache: "no-store" });
-        const d = (await res.json()) as Roster & { error?: string };
-        if (!alive) return;
-        if (!res.ok) { setError(d.error ?? "명렬표를 불러오지 못했습니다."); return; }
-        setData(d);
-      } catch {
-        if (alive) setError("네트워크 오류가 발생했습니다.");
-      }
-    })();
-    return () => { alive = false; };
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/courses/${courseId}/exam/roster`, { cache: "no-store" });
+      const d = (await res.json()) as Roster & { error?: string };
+      if (!res.ok) { setError(d.error ?? "명렬표를 불러오지 못했습니다."); return; }
+      setError(null);
+      setData(d);
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    }
   }, [courseId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function deleteExam(examId: string, title: string) {
+    if (!confirm(`'${title}' 시험을 삭제할까요?\n학생 응시·채점 기록과 업로드한 PDF까지 모두 삭제되며 되돌릴 수 없습니다.`)) return;
+    try {
+      const res = await fetch(`/api/courses/${courseId}/exam/${examId}`, { method: "DELETE" });
+      if (res.ok) { void load(); }
+      else { const d = (await res.json().catch(() => ({}))) as { error?: string }; alert(d.error ?? "삭제에 실패했습니다."); }
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
+    }
+  }
 
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
@@ -82,8 +92,11 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
                   <tr style={{ background: PANEL }}>
                     <th className="sticky left-0 z-10 min-w-[120px] border-b px-4 py-3 text-[13px] font-bold" style={{ borderColor: LINE, color: INK, background: PANEL }}>수강생</th>
                     {data.exams.map((e) => (
-                      <th key={e.id} className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 92 }}>
-                        <div className="truncate" title={e.title}>{e.title}</div>
+                      <th key={e.id} className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 104 }}>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="truncate" title={e.title}>{e.title}</span>
+                          <button type="button" onClick={() => void deleteExam(e.id, e.title)} title="시험 삭제" className="shrink-0 rounded p-0.5 transition hover:bg-[#F2ECEC]" style={{ color: "#B4544B" }}><Trash2 size={13} /></button>
+                        </div>
                         <div className="text-[11px] font-medium" style={{ color: SUB }}>제출 {e.submittedCount}/{e.assignedCount} · {e.total}점</div>
                       </th>
                     ))}

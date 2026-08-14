@@ -87,7 +87,7 @@ export default function ExamReviewView({ courseId, examId, isStaff, studentId }:
       {/* 좌 시험지 + 우 채점 */}
       <div className="lg:flex lg:items-start">
         <div className={`${pdfOpen ? "block" : "hidden"} border-b lg:sticky lg:top-[53px] lg:block lg:w-[48%] lg:shrink-0 lg:self-start lg:border-b-0 lg:border-r`} style={{ borderColor: LINE }}>
-          <iframe src={`${base}/paper?part=questions`} title="시험지" className="h-[62vh] w-full lg:h-[calc(100vh-53px)]" style={{ background: PANEL }} />
+          <iframe src={`${base}/paper?part=questions#toolbar=1&navpanes=0&view=FitH`} title="시험지" className="h-[62vh] w-full lg:h-[calc(100vh-53px)]" style={{ background: PANEL }} />
         </div>
 
         <main className="min-w-0 flex-1 px-5 pb-32 pt-6 lg:px-8">
