@@ -19,7 +19,8 @@ RUN set -e; \
     }
 
 COPY . .
-RUN npm run db:generate && npm run build:render
+# 빌드 중 메모리 여유 확보(Next/webpack 대형 빌드 OOM 방지) — 빌드 단계에만 적용
+RUN NODE_OPTIONS="--max-old-space-size=4096" sh -c "npm run db:generate && npm run build:render"
 
 EXPOSE 10000
 CMD ["node", "scripts/startup.mjs"]
