@@ -28,21 +28,21 @@ type Cell = { status: string; score?: number; total?: number; correct?: number; 
 type Roster = { exams: ExamCol[]; students: Student[]; cells: Record<string, Record<string, Cell>> };
 
 function CellView({ cell, onClick }: { cell: Cell | undefined; onClick?: () => void }) {
-  if (!cell || cell.status === "unassigned") return <span className="text-[13px]" style={{ color: "#C9C2B4" }}>–</span>;
-  if (cell.status === "not_started") return <span className="text-[12.5px]" style={{ color: SUB }}>미응시</span>;
+  if (!cell) return <span className="text-[13px]" style={{ color: "#C9C2B4" }}>–</span>;
+  // 아직 응시 안 한 학생(미배정 포함) → '미응시'
+  if (cell.status === "unassigned" || cell.status === "not_started") return <span className="text-[12.5px]" style={{ color: SUB }}>미응시</span>;
   if (cell.status === "in_progress") {
-    // 실시간 진행: 맞춘 수 · 체크한 수/총문항 · 미응답 수
+    // 실시간 진행: 응시중 · 맞춘 수 · 체크한 수/총문항 (한 줄)
     const q = cell.qCount ?? 0;
     const answered = cell.answered ?? 0;
     return (
-      <div className="flex flex-col items-center gap-[3px] leading-none">
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ color: "#B06B2E" }}>
+      <span className="inline-flex items-center gap-2 whitespace-nowrap text-[11.5px]">
+        <span className="inline-flex items-center gap-1 font-bold" style={{ color: "#B06B2E" }}>
           <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "#B06B2E" }} />응시중
         </span>
-        <span className="text-[11px] font-bold tabular-nums" style={{ color: "#3E7E5B" }}>정답 {cell.correct ?? 0}</span>
-        <span className="text-[10.5px] tabular-nums" style={{ color: DEEP }}>체크 {answered}/{q}</span>
-        <span className="text-[10.5px] tabular-nums" style={{ color: SUB }}>미응답 {cell.unanswered ?? Math.max(0, q - answered)}</span>
-      </div>
+        <span className="font-bold tabular-nums" style={{ color: "#3E7E5B" }}>정답 {cell.correct ?? 0}</span>
+        <span className="tabular-nums" style={{ color: DEEP }}>체크 {answered}/{q}</span>
+      </span>
     );
   }
   if (cell.status === "zero") {
@@ -209,7 +209,7 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
               </table>
             </div>
           )}
-          <p className="mt-3 text-[12.5px]" style={{ color: SUB }}>응시 중인 학생은 <b style={{ color: "#B06B2E" }}>정답·체크·미응답 수</b>가 실시간으로 갱신됩니다(마킹 즉시 반영). 점수를 누르면 채점 결과(맞/틀)를 볼 수 있고, 주관식 자동채점은 표기와 다를 수 있어 확인이 필요합니다.</p>
+          <p className="mt-3 text-[12.5px]" style={{ color: SUB }}>응시 중인 학생은 <b style={{ color: "#B06B2E" }}>정답·체크 수</b>가 실시간으로 갱신됩니다(마킹 즉시 반영). 점수를 누르면 채점 결과(맞/틀)를 볼 수 있고, 주관식 자동채점은 표기와 다를 수 있어 확인이 필요합니다.</p>
         </div>
       </main>
     </div>
