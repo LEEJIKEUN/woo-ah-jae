@@ -112,7 +112,7 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
   const statFields: { key: keyof IntroData; label: string; options?: string[]; display?: string; editOnly?: boolean }[] = [
     { key: "audience", label: "수강 대상", options: ["초등학생", "중학생", "고등학생", "학부모"] },
     { key: "format", label: "형식", options: ["자기주도학습", "관리형학습", "실시간수업", "세미나"] },
-    { key: "deliveryMode", label: "방식", options: ["온라인", "오프라인"] },
+    { key: "deliveryMode", label: "방식", options: ["온라인", "오프라인", "온·오프 동시"] },
     { key: "classDays", label: "수업 일정", display: scheduleShort ?? undefined },
     { key: "periodLabel", label: "수강 기간" },
     { key: "country", label: "국가", options: ["한국", "호치민", "하노이", "상해", "북경", "자카르타", "싱가포르"], editOnly: true },

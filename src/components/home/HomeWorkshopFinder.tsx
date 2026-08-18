@@ -21,7 +21,7 @@ const FORMAT_OPTIONS = [
   { en: "LIVE", ko: "실시간수업" },
   { en: "SEMINAR", ko: "세미나" },
 ];
-const MODES = ["온라인", "오프라인"];
+const MODES = ["온라인", "오프라인", "온·오프 동시"];
 const COUNTRIES = ["전체", "한국", "호치민", "하노이", "상해", "북경", "자카르타", "싱가포르"];
 
 type Row = {
