@@ -265,11 +265,12 @@ export default function HomeWorkshopFinder() {
                       const past = isPastDeadline(r.deadline);
                       const isFull = applied >= cap || past;
                       return (
+                        // 신청현황은 인원(정원)만 — 마감/진행 여부는 '상태' 칼럼이 담당(중복 라벨 제거).
+                        // 정원이 차거나 마감일이 지나면 인원 숫자를 빨간색으로 강조.
                         <>
                           <span style={{ color: isFull ? "#a6402c" : BODY, fontWeight: isFull ? 600 : 400 }}>{applied}</span>
                           <span style={{ color: SUB }}>/</span>
                           <span style={{ color: BROWN, fontWeight: 600 }}>{cap}</span>
-                          {past ? <span className="ml-1.5 text-[12px]" style={{ color: "#a6402c" }}>신청마감</span> : applied >= cap ? <span className="ml-1.5 text-[12px]" style={{ color: "#a6402c" }}>마감</span> : null}
                         </>
                       );
                     })()}
