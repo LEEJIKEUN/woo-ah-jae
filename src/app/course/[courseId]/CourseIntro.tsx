@@ -44,7 +44,7 @@ const SECTIONS = [
   { id: "lessons", label: "강좌 차시" },
 ] as const;
 
-export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, closed = false, editHref, enrollBlock = null }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; closed?: boolean; editHref?: string; enrollBlock?: { label: string; statusLabel: string; message?: string } | null }) {
+export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, editHref, enrollBlock = null }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; editHref?: string; enrollBlock?: { label: string; statusLabel: string; message?: string } | null }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -362,10 +362,6 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                 <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-full text-white opacity-50" style={{ background: BROWN, fontSize: 15, fontWeight: 600, ...serif }}>
                   {enrollBlock.label}
                 </button>
-              ) : closed ? (
-                <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-full text-white opacity-50" style={{ background: BROWN, fontSize: 16, fontWeight: 600, ...serif }}>
-                  신청 마감
-                </button>
               ) : !authed ? (
                 <Link href={`/login?next=/course/${intro.id}`} className="flex h-12 w-full items-center justify-center rounded-full text-white transition hover:opacity-90" style={{ background: BROWN, fontSize: 16, fontWeight: 600, ...serif }}>
                   수강 신청하기
@@ -397,9 +393,9 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                     <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>
                       <b style={{ color: full ? "#a6402c" : BROWN }}>{status.applied}</b> / {status.capacity}명
                     </p>
-                    <p className="mt-4 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: enrolled ? BROWN : (enrollBlock || full || closed) ? "#a6402c" : "#3E7E5B" }}>
+                    <p className="mt-4 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: enrolled ? BROWN : (enrollBlock || full) ? "#a6402c" : "#3E7E5B" }}>
                       <span style={{ fontSize: 10 }}>●</span>
-                      {enrolled ? "수강신청 완료" : enrollBlock ? enrollBlock.statusLabel : closed ? "신청 마감" : full ? "모집 마감" : "모집 중"}
+                      {enrolled ? "수강신청 완료" : enrollBlock ? enrollBlock.statusLabel : full ? "모집 마감" : "모집 중"}
                     </p>
                   </>
                 ) : null}

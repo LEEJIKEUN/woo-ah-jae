@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
-import { getCourseDeadline, getCourseMeta, isEnrollmentClosed, setCourseStatus, firstClassMsById, autoAdvanceStatus, type CourseStatus } from "@/lib/course/meta-store";
+import { getCourseMeta, setCourseStatus, firstClassMsById, autoAdvanceStatus, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
@@ -50,8 +50,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const applied = await getApplied(courseId);
   const s = await sessionFromReq(request);
   const enrolled = s ? isStaffRole(s.role) || (await isUserEnrolled(courseId, s.userId)) : false;
-  const closed = isEnrollmentClosed(await getCourseDeadline(courseId));
-  return NextResponse.json({ applied, capacity, full: applied >= capacity || closed, closed, enrolled });
+  // 수강신청 가능 여부는 '상태(open)'와 정원으로만 판단(신청마감일은 표시용).
+  return NextResponse.json({ applied, capacity, full: applied >= capacity, enrolled });
 }
 
 // 수강신청(로그인 필요 · 사용자ID 기록)
@@ -69,9 +69,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (status !== "open") {
     const msg = ENROLL_BLOCK_MSG[status] ?? "지금은 수강신청을 받지 않습니다.";
     return NextResponse.json({ error: msg }, { status: status === "private" ? 404 : 409 });
-  }
-  if (isEnrollmentClosed(await getCourseDeadline(courseId))) {
-    return NextResponse.json({ error: "수강신청이 마감되었습니다." }, { status: 409 });
   }
   const capacity = capacityForCourse(courseId);
   const result = await enrollUser(courseId, s.userId, capacity);

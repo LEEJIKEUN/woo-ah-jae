@@ -1,6 +1,6 @@
 import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
 import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
-import { getCourseMeta, getCourseDeadline, isEnrollmentClosed, resolveCourseStatus, type CourseStatus } from "@/lib/course/meta-store";
+import { getCourseMeta, resolveCourseStatus, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import CourseIntro from "./CourseIntro";
 import type { IntroData } from "./CourseIntro";
@@ -88,7 +88,6 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   // DB 강좌(하드코딩 아님)를 관리자가 볼 때만 커리큘럼 편집 링크 노출
   const editHref = isAdmin && !course && seed ? `/course/${courseId}/edit` : undefined;
   const isFacilitator = !!session && session.role === "FACILITATOR";
-  const closed = isEnrollmentClosed(await getCourseDeadline(courseId));
 
   // 정원 마감(full)은 첫 수업일 00:00 을 지나면 '진행중'으로 자동 승격(+DB 반영)
   if (resolvedStatus === "full") resolvedStatus = await resolveCourseStatus(courseId, "full" as CourseStatus);
@@ -102,5 +101,5 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   };
   const enrollBlock = ENROLL_BLOCK_UI[resolvedStatus] ?? null;
 
-  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} closed={closed} editHref={editHref} enrollBlock={enrollBlock} />;
+  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} editHref={editHref} enrollBlock={enrollBlock} />;
 }

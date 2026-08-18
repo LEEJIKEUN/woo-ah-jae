@@ -68,16 +68,6 @@ function toDateInput(iso?: string | null) {
     return "";
   }
 }
-// 신청마감일 23:59:59(KST) 이후면 마감
-function isPastDeadline(iso?: string | null) {
-  if (!iso) return false;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return false;
-  const p = (n: number) => String(n).padStart(2, "0");
-  const cutoff = new Date(`${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T23:59:59+09:00`);
-  return Date.now() > cutoff.getTime();
-}
-
 export default function HomeWorkshopFinder() {
   const [targets, setTargets] = useState<string[]>([]);
   const [formats, setFormats] = useState<string[]>([]);
@@ -262,11 +252,10 @@ export default function HomeWorkshopFinder() {
                     {(() => {
                       const applied = liveApplied[r.id] ?? r.applied ?? 0;
                       const cap = capacityFor(r.format, r.capacity);
-                      const past = isPastDeadline(r.deadline);
-                      const isFull = applied >= cap || past;
+                      const isFull = applied >= cap;
                       return (
-                        // 신청현황은 인원(정원)만 — 마감/진행 여부는 '상태' 칼럼이 담당(중복 라벨 제거).
-                        // 정원이 차거나 마감일이 지나면 인원 숫자를 빨간색으로 강조.
+                        // 신청현황은 인원(정원)만 — 마감/진행 여부는 '상태' 칼럼이 담당.
+                        // 정원이 다 차면 인원 숫자를 빨간색으로 강조(신청마감일은 별도 표시용).
                         <>
                           <span style={{ color: isFull ? "#a6402c" : BODY, fontWeight: isFull ? 600 : 400 }}>{applied}</span>
                           <span style={{ color: SUB }}>/</span>
