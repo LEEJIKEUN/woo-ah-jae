@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2, Pencil } from "lucide-react";
@@ -24,17 +24,28 @@ function fmtKst(iso: string | null | undefined): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
 type Student = { id: string; name: string };
-type Cell = { status: string; score?: number; total?: number; correct?: number; answered?: number; unanswered?: number; qCount?: number };
-type Roster = { exams: ExamCol[]; students: Student[]; cells: Record<string, Record<string, Cell>> };
+type Cell = { status: string; score?: number; total?: number; correct?: number; answered?: number; unanswered?: number; qCount?: number; deadlineAt?: string };
+type Roster = { exams: ExamCol[]; students: Student[]; cells: Record<string, Record<string, Cell>>; serverNow?: string };
 
-function CellView({ cell, onClick }: { cell: Cell | undefined; onClick?: () => void }) {
+/** 남은시간 mm:ss (1시간 이상이면 h:mm:ss) */
+function fmtRemain(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${p(h)}:${p(m)}:${p(sec)}` : `${p(m)}:${p(sec)}`;
+}
+
+function CellView({ cell, onClick, nowMs }: { cell: Cell | undefined; onClick?: () => void; nowMs: number }) {
   if (!cell) return <span className="text-[13px]" style={{ color: "#C9C2B4" }}>–</span>;
   // 아직 응시 안 한 학생(미배정 포함) → '미응시'
   if (cell.status === "unassigned" || cell.status === "not_started") return <span className="text-[12.5px]" style={{ color: SUB }}>미응시</span>;
   if (cell.status === "in_progress") {
-    // 실시간 진행: 응시중 · 맞춘 수 · 체크한 수/총문항 (한 줄)
+    // 실시간 진행: 응시중 · 맞춘 수 · 체크한 수/총문항 · 남은시간 (한 줄)
     const q = cell.qCount ?? 0;
     const answered = cell.answered ?? 0;
+    const remainMs = cell.deadlineAt ? Date.parse(cell.deadlineAt) - nowMs : null;
+    const over = remainMs != null && remainMs <= 0;
+    const danger = remainMs != null && remainMs > 0 && remainMs <= 60_000;
     return (
       <span className="inline-flex items-center gap-2 whitespace-nowrap text-[11.5px]">
         <span className="inline-flex items-center gap-1 font-bold" style={{ color: "#B06B2E" }}>
@@ -42,6 +53,11 @@ function CellView({ cell, onClick }: { cell: Cell | undefined; onClick?: () => v
         </span>
         <span className="font-bold tabular-nums" style={{ color: "#3E7E5B" }}>정답 {cell.correct ?? 0}</span>
         <span className="tabular-nums" style={{ color: DEEP }}>체크 {answered}/{q}</span>
+        {remainMs != null ? (
+          <span className={`tabular-nums font-bold ${danger ? "animate-pulse" : ""}`} style={{ color: over ? "#B4544B" : danger ? "#C0392B" : "#8A8479" }}>
+            {over ? "시간 종료" : fmtRemain(remainMs)}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -67,12 +83,15 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
   const router = useRouter();
   const [data, setData] = useState<Roster | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const offsetRef = useRef(0); // 서버시각 − 클라시각(잔여시간 보정)
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/courses/${courseId}/exam/roster`, { cache: "no-store" });
       const d = (await res.json()) as Roster & { error?: string };
       if (!res.ok) { setError(d.error ?? "명렬표를 불러오지 못했습니다."); return; }
+      offsetRef.current = d.serverNow ? Date.parse(d.serverNow) - Date.now() : 0;
       setError(null);
       setData(d);
     } catch {
@@ -81,6 +100,12 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
   }, [courseId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // 잔여시간 표시용 1초 틱(관리자 브라우저 로컬 — 서버 트래픽 없음)
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // 실시간 응시 현황(SSE) — 학생이 마킹/제출/응시시작하면 해당 셀 즉시 갱신
   useEffect(() => {
@@ -189,7 +214,7 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
                       <td className="sticky left-0 z-10 border-b px-4 py-2.5 text-[13.5px] font-semibold" style={{ borderColor: "#F0EBE0", color: INK, background: "#fff" }}>{s.name}</td>
                       {data.exams.map((e) => (
                         <td key={e.id} className="border-b border-l px-3 py-2.5 text-center" style={{ borderColor: "#F0EBE0" }}>
-                          <CellView cell={data.cells[s.id]?.[e.id]} onClick={() => router.push(`/course/${courseId}/exam/${e.id}/result?studentId=${s.id}`)} />
+                          <CellView cell={data.cells[s.id]?.[e.id]} nowMs={nowMs + offsetRef.current} onClick={() => router.push(`/course/${courseId}/exam/${e.id}/result?studentId=${s.id}`)} />
                         </td>
                       ))}
                       <td className="border-b border-l px-3 py-2.5 text-center" style={{ borderColor: "#F0EBE0", background: "#FBF8F2" }}>

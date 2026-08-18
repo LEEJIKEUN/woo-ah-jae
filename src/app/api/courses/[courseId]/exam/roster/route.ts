@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const [assigns, attempts, questions] = await Promise.all([
       prisma.examAssignment.findMany({ where: { examId: { in: examIds } }, select: { examId: true, studentId: true } }),
-      prisma.examAttempt.findMany({ where: { examId: { in: examIds } }, select: { id: true, examId: true, studentId: true, status: true } }),
+      prisma.examAttempt.findMany({ where: { examId: { in: examIds } }, select: { id: true, examId: true, studentId: true, status: true, deadlineAt: true } }),
       prisma.examQuestion.findMany({ where: { examId: { in: examIds } }, select: { examId: true, number: true, type: true, points: true, answerKey: true } }),
     ]);
 
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // 셀 구성
     const now = new Date();
-    const cells: Record<string, Record<string, { status: string; score?: number; total?: number; correct?: number; answered?: number; unanswered?: number; qCount?: number }>> = {};
+    const cells: Record<string, Record<string, { status: string; score?: number; total?: number; correct?: number; answered?: number; unanswered?: number; qCount?: number; deadlineAt?: string }>> = {};
     for (const s of students) {
       cells[s.id] = {};
       for (const e of exams) {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           const ans = ansByAttempt.get(at.id) ?? [];
           const answered = ans.filter(isAnswerFilled).length;
           const g = gradeExam(qs, ans);
-          cells[s.id][e.id] = { status: "in_progress", correct: g.correctCount, answered, unanswered: Math.max(0, qs.length - answered), qCount: qs.length };
+          cells[s.id][e.id] = { status: "in_progress", correct: g.correctCount, answered, unanswered: Math.max(0, qs.length - answered), qCount: qs.length, deadlineAt: at.deadlineAt.toISOString() };
           continue;
         }
         const g = gradeExam(qByExam.get(e.id) ?? [], ansByAttempt.get(at.id) ?? []);
@@ -97,6 +97,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         closesAt: e.closesAt ? e.closesAt.toISOString() : null,
       })),
       cells,
+      serverNow: now.toISOString(), // 관리자 화면 잔여시간 계산용 시계 보정
     });
   } catch (error) {
     return jsonError(error);

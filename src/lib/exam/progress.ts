@@ -15,6 +15,7 @@ export type LiveCell = {
   answered?: number;
   unanswered?: number;
   qCount?: number;
+  deadlineAt?: string; // in_progress 잔여시간 표시용(서버 고정 마감시각, ISO)
 };
 
 /** examAnswer 한 행이 '응답됨'인지 — 객관식 choice 있음 or 주관식 공백 아닌 텍스트. */
@@ -34,7 +35,7 @@ export async function buildLiveCell(examId: string, studentId: string): Promise<
   const total = Math.round(questions.reduce((s, q) => s + q.points, 0) * 100) / 100;
   const qCount = questions.length;
 
-  const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId } }, select: { id: true, status: true } });
+  const attempt = await prisma.examAttempt.findUnique({ where: { examId_studentId: { examId, studentId } }, select: { id: true, status: true, deadlineAt: true } });
   if (!attempt) {
     const now = new Date();
     const closed = (exam.closesAt && now > exam.closesAt) || exam.status === "closed";
@@ -46,7 +47,7 @@ export async function buildLiveCell(examId: string, studentId: string): Promise<
   if (attempt.status === "in_progress") {
     const g = gradeExam(questions, answers);
     const answered = answers.filter(isAnswerFilled).length;
-    return { status: "in_progress", correct: g.correctCount, answered, unanswered: Math.max(0, qCount - answered), qCount };
+    return { status: "in_progress", correct: g.correctCount, answered, unanswered: Math.max(0, qCount - answered), qCount, deadlineAt: attempt.deadlineAt.toISOString() };
   }
 
   const g = gradeExam(questions, answers);
