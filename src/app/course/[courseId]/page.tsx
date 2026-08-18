@@ -1,4 +1,5 @@
-import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
+import { courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
 import { getCourseMeta, resolveCourseStatus, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
@@ -7,13 +8,13 @@ import type { IntroData } from "./CourseIntro";
 
 export async function generateMetadata({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId);
   return { title: course ? `${course.title} · 우아재` : "강좌 · 우아재" };
 }
 
 export default async function CoursePage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId);
 
   // 로그인 여부 + 수강신청 완료(또는 스태프) 여부 — seed 잠금 계산 전에 먼저 확인
   const session = await getSession();
@@ -50,13 +51,16 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
       realtimeInfo: meta?.realtimeInfo ?? undefined,
       instructor: { name: course.instructor.name, initials: course.instructor.initials },
       modules: course.modules.map((m) => ({
+        id: m.id,
         label: m.label,
+        weekStart: m.weekStart,
+        weekEnd: m.weekEnd,
         locked: isModuleLocked(m, Date.now(), isStaff),
         period: m.weekStart ? weekPeriodLabel(m.weekStart, m.weekEnd) : undefined,
         openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
         sessions: m.blocks
           .flatMap((b) => b.activities)
-          .map((a) => ({ title: a.title, scheduleLabel: a.scheduleLabel })),
+          .map((a) => ({ id: a.id, title: a.title, scheduleLabel: a.scheduleLabel })),
       })),
       firstHref: activities[0] ? courseActivityHref(course.id, activities[0].id) : undefined,
     };

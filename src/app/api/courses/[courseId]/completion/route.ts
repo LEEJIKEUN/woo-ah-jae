@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse, findActivity } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 // 완료 토글(본인 것만)
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId); // 편집된 차시 id 도 검증되도록 실효 강좌 사용
   if (!course) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
   const s = await sessionFromReq(request);
   if (!s) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });

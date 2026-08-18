@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCourse, courseFirstClassMs, dateStrToKstMs } from "./content";
+import { getEffectiveCourse } from "./curriculum";
 import { loadDbCourse } from "./db-course";
 
 export type CourseStatus = "private" | "prep" | "open" | "full" | "ongoing";
@@ -136,8 +137,8 @@ export async function effectiveCapacity(courseId: string): Promise<number> {
 
 /** 강좌 첫 수업일(가장 이른 주차/시작일, KST 00:00)의 절대시각(ms). 하드코딩=주차, DB=fromDate. 없으면 null. */
 export async function firstClassMsById(courseId: string): Promise<number | null> {
-  const hard = getCourse(courseId);
-  if (hard) return courseFirstClassMs(hard);
+  const eff = await getEffectiveCourse(courseId); // 편집된 주차 날짜 반영
+  if (eff) return courseFirstClassMs(eff);
   const db = await loadDbCourse(courseId);
   return db ? dateStrToKstMs(db.fromDate) : null;
 }

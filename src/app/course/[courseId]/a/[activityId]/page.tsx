@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCourse, findActivity, isModuleLocked, weekOpenLabel } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 import { CompletionProvider } from "@/components/course/completion";
@@ -26,7 +27,7 @@ export default async function ActivityPage({
   const isParent = session.role === "PARENT";
   // 학부모는 개별 레슨 열람 차단(강의실 홈으로) — 커리큘럼은 뷰어로만 확인
   if (isParent) redirect(`/course/${courseId}/learn`);
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId); // 커리큘럼 편집 반영(없으면 하드코딩)
 
   // 시드 강좌 → 기존 학습 뷰 (홈 브라운 톤)
   if (course) {

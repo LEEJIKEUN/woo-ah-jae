@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { isStaffRole } from "@/lib/course/access";
-import { getCourse, findActivity } from "@/lib/course/content";
+import { findActivity } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { prisma } from "@/lib/prisma";
 
@@ -21,7 +22,7 @@ async function sessionFromReq(request: NextRequest) {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId); // 편집된 차시 id 도 출석 체크 가능하도록
   if (!course) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
 
   const s = await sessionFromReq(request);

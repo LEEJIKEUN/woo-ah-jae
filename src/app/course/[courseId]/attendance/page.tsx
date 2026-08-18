@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getSession, isStaffRole } from "@/lib/course/access";
-import { getCourse, allActivities } from "@/lib/course/content";
+import { allActivities } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { prisma } from "@/lib/prisma";
 import AttendanceGrid from "./AttendanceGrid";
@@ -13,7 +14,7 @@ export const metadata = { title: "출석·이수 관리 · 우아재" };
 
 export default async function AttendancePage({ params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId);
   if (!course) notFound();
 
   const session = await getSession();

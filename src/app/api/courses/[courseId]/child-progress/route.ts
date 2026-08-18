@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
-import { getCourse, completableActivityIds } from "@/lib/course/content";
+import { completableActivityIds } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import { percentDone } from "@/lib/course/progress";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,7 @@ async function sessionFromReq(request: NextRequest) {
 // 학부모가 보는 '연결된 자녀' 진도율(자녀 로그인 화면과 동일 계산). 자녀 여럿이면 첫 자녀.
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const course = getCourse(courseId);
+  const course = await getEffectiveCourse(courseId);
   if (!course) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
   const s = await sessionFromReq(request);
   if (!s) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });

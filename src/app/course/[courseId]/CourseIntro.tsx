@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getStoredCourse } from "@/lib/course/store";
+import { getStoredCourse, newId } from "@/lib/course/store";
 
 /* 홈(우아재) 서재 톤 — 흰 바탕 · 브라운 · 명조 */
 const BROWN = "#8C6E59";
@@ -16,8 +16,8 @@ const PANEL = "#FBF8F2";
 const serif = { fontFamily: "var(--font-serif)" } as const;
 const heroGrad = "linear-gradient(180deg, #F7F1E6 0%, #F0E6D5 100%)";
 
-export type IntroSession = { title: string; scheduleLabel?: string };
-export type IntroModule = { label: string; period?: string; locked?: boolean; openLabel?: string; sessions: IntroSession[] };
+export type IntroSession = { id?: string; title: string; scheduleLabel?: string };
+export type IntroModule = { id?: string; label: string; weekStart?: string; weekEnd?: string; period?: string; locked?: boolean; openLabel?: string; sessions: IntroSession[] };
 export type IntroData = {
   id: string;
   programme: string;
@@ -363,21 +363,21 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
             {/* ③ 강좌 차시 */}
             <Section id="lessons" title="강좌 차시">
               {edit ? (
-                <div className="mb-4 rounded-[10px] border border-dashed px-4 py-3 text-[13px] leading-6" style={{ borderColor: LINE, background: "#FCFAF5", color: SUB }}>
-                  강좌 차시(커리큘럼)는 강의실의 실제 콘텐츠·출석과 연결되어 있어 여기서 바로 수정하지 않습니다.
-                  차시 추가·수정은 담당자에게 <b style={{ color: BROWN }}>“{intro.title} n주차를 ~로 바꿔줘”</b> 처럼 요청하시면 반영됩니다.
-                </div>
-              ) : null}
-              {lessons.length > 0 ? <p className="mb-2 text-[14px] font-semibold" style={{ color: INK }}>총 {lessons.length}강</p> : null}
-              <ul>
-                {lessons.map((l) => (
-                  <li key={l.no} className="flex items-center gap-5 border-b py-4" style={{ borderColor: "#F0EBE0" }}>
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-bold" style={{ background: PANEL, color: BROWN }}>{l.no}</span>
-                    {l.scheduleLabel ? <span className="w-32 shrink-0 text-[13px]" style={{ color: BROWN }}>{l.scheduleLabel}</span> : null}
-                    <span className="min-w-0 flex-1 text-[15px]" style={{ color: BODY }}>{l.title}</span>
-                  </li>
-                ))}
-              </ul>
+                <CurriculumEditor courseId={courseId} initial={intro.modules} onChange={(mods) => setIntro((p) => (p ? { ...p, modules: mods } : p))} />
+              ) : (
+                <>
+                  {lessons.length > 0 ? <p className="mb-2 text-[14px] font-semibold" style={{ color: INK }}>총 {lessons.length}강</p> : null}
+                  <ul>
+                    {lessons.map((l) => (
+                      <li key={l.no} className="flex items-center gap-5 border-b py-4" style={{ borderColor: "#F0EBE0" }}>
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-bold" style={{ background: PANEL, color: BROWN }}>{l.no}</span>
+                        {l.scheduleLabel ? <span className="w-32 shrink-0 text-[13px]" style={{ color: BROWN }}>{l.scheduleLabel}</span> : null}
+                        <span className="min-w-0 flex-1 text-[15px]" style={{ color: BODY }}>{l.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </Section>
 
           </main>
@@ -536,6 +536,101 @@ function Section({ id, title, children }: { id: string; title: string; children:
       <h2 className="mb-6 text-[22px] font-normal md:text-[26px]" style={{ ...serif, color: INK, letterSpacing: "-0.02em" }}>{title}</h2>
       {children}
     </section>
+  );
+}
+
+/* ── 강좌 차시(커리큘럼) 인라인 에디터 — 저장 시 강의실·출석·이수에 그대로 반영 ── */
+type EditSession = { id: string; title: string; scheduleLabel: string };
+type EditModule = { id: string; label: string; weekStart: string; sessions: EditSession[] };
+
+function CurriculumEditor({ courseId, initial, onChange }: { courseId: string; initial: IntroModule[]; onChange: (mods: IntroModule[]) => void }) {
+  const [mods, setMods] = useState<EditModule[]>(() =>
+    initial.map((m) => ({
+      id: m.id || newId("m"),
+      label: m.label,
+      weekStart: m.weekStart || "",
+      sessions: m.sessions.map((s) => ({ id: s.id || newId("s"), title: s.title, scheduleLabel: s.scheduleLabel || "" })),
+    }))
+  );
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "done" | "error">("idle");
+
+  const toIntro = (ms: EditModule[]): IntroModule[] =>
+    ms.map((m) => ({ id: m.id, label: m.label, weekStart: m.weekStart || undefined, sessions: m.sessions.map((s) => ({ id: s.id, title: s.title, scheduleLabel: s.scheduleLabel || undefined })) }));
+
+  async function doSave(ms: EditModule[]) {
+    setSaveState("saving");
+    try {
+      const payload = { modules: ms.map((m) => ({ id: m.id, label: m.label.trim(), weekStart: m.weekStart || undefined, sessions: m.sessions.map((s) => ({ id: s.id, title: s.title.trim(), scheduleLabel: s.scheduleLabel.trim() || undefined })) })) };
+      const res = await fetch(`/api/courses/${courseId}/curriculum`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      setSaveState(res.ok ? "done" : "error");
+    } catch {
+      setSaveState("error");
+    }
+  }
+  // 로컬/미리보기 갱신(입력 중). save=true 면 즉시 저장(구조 변경).
+  function apply(next: EditModule[], save = false) {
+    setMods(next);
+    onChange(toIntro(next));
+    if (save) void doSave(next);
+  }
+  const saveNow = () => void doSave(mods);
+
+  const patchMod = (mi: number, patch: Partial<EditModule>) => apply(mods.map((m, i) => (i === mi ? { ...m, ...patch } : m)));
+  const patchSess = (mi: number, si: number, patch: Partial<EditSession>) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: m.sessions.map((s, j) => (j === si ? { ...s, ...patch } : s)) } : m)));
+  const addSess = (mi: number) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: [...m.sessions, { id: newId("s"), title: "", scheduleLabel: "" }] } : m)), true);
+  const delSess = (mi: number, si: number) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: m.sessions.filter((_, j) => j !== si) } : m)), true);
+  const moveSess = (mi: number, si: number, dir: -1 | 1) => {
+    const m = mods[mi]; const j = si + dir; if (j < 0 || j >= m.sessions.length) return;
+    const ss = m.sessions.slice(); [ss[si], ss[j]] = [ss[j], ss[si]];
+    apply(mods.map((mm, i) => (i === mi ? { ...mm, sessions: ss } : mm)), true);
+  };
+  const addMod = () => apply([...mods, { id: newId("m"), label: "", weekStart: "", sessions: [{ id: newId("s"), title: "", scheduleLabel: "" }] }], true);
+  const delMod = (mi: number) => { if (!confirm("이 주차(모듈)를 삭제할까요? 안의 차시도 함께 목록에서 제거됩니다.")) return; apply(mods.filter((_, i) => i !== mi), true); };
+  const moveMod = (mi: number, dir: -1 | 1) => { const j = mi + dir; if (j < 0 || j >= mods.length) return; const ms = mods.slice(); [ms[mi], ms[j]] = [ms[j], ms[mi]]; apply(ms, true); };
+
+  const iCls = "w-full rounded-[8px] border bg-white px-3 py-2 text-[14px] outline-none focus:border-[#8C6E59]";
+  const mBtn = "grid h-7 w-7 shrink-0 place-items-center rounded-md border text-[13px] disabled:opacity-30";
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <p className="text-[13px] leading-6" style={{ color: SUB }}>주차(모듈)와 차시를 추가·수정·정렬하세요. <b style={{ color: BROWN }}>강의실·출석·이수에 그대로 반영</b>됩니다. 각 차시의 학습 콘텐츠는 강의실에서 차시를 열어 편집합니다.</p>
+        <span className="shrink-0 text-[12px]" style={{ color: saveState === "error" ? "#C0392B" : SUB }}>
+          {saveState === "saving" ? "저장 중…" : saveState === "done" ? "저장됨 ✓" : saveState === "error" ? "⚠ 저장 실패" : ""}
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {mods.map((m, mi) => (
+          <div key={m.id} className="rounded-[12px] border p-4" style={{ borderColor: LINE, background: "#FCFAF5" }}>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-[12px] font-bold" style={{ color: NUM }}>{String(mi + 1).padStart(2, "0")}</span>
+              <input value={m.label} onChange={(e) => patchMod(mi, { label: e.target.value })} onBlur={saveNow} placeholder="주차/모듈명 (예: 1주차 · 미분의 기초)" className={`${iCls} flex-1`} style={{ borderColor: LINE, color: INK }} />
+              <input type="date" value={m.weekStart} onChange={(e) => patchMod(mi, { weekStart: e.target.value })} onBlur={saveNow} title="주차 시작일(이 날 00:00에 열림)" className="shrink-0 rounded-[8px] border bg-white px-2 py-2 text-[13px] outline-none" style={{ borderColor: LINE, color: BODY }} />
+              <button type="button" onClick={() => moveMod(mi, -1)} disabled={mi === 0} title="위로" className={mBtn} style={{ borderColor: LINE, color: SUB }}>↑</button>
+              <button type="button" onClick={() => moveMod(mi, 1)} disabled={mi === mods.length - 1} title="아래로" className={mBtn} style={{ borderColor: LINE, color: SUB }}>↓</button>
+              <button type="button" onClick={() => delMod(mi)} title="주차 삭제" className={mBtn} style={{ borderColor: LINE, color: "#a6402c" }}>×</button>
+            </div>
+
+            <div className="mt-3 space-y-2 pl-6">
+              {m.sessions.map((s, si) => (
+                <div key={s.id} className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold" style={{ background: PANEL, color: BROWN }}>{si + 1}</span>
+                  <input value={s.scheduleLabel} onChange={(e) => patchSess(mi, si, { scheduleLabel: e.target.value })} onBlur={saveNow} placeholder="일시(예: 8.17.(월) 19:00)" className="w-40 shrink-0 rounded-[8px] border bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BROWN }} />
+                  <input value={s.title} onChange={(e) => patchSess(mi, si, { title: e.target.value })} onBlur={saveNow} placeholder="차시 제목 (예: 1강 · 극한과 연속)" className="min-w-0 flex-1 rounded-[8px] border bg-white px-3 py-1.5 text-[14px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BODY }} />
+                  <button type="button" onClick={() => moveSess(mi, si, -1)} disabled={si === 0} title="위로" className={mBtn} style={{ borderColor: LINE, color: SUB }}>↑</button>
+                  <button type="button" onClick={() => moveSess(mi, si, 1)} disabled={si === m.sessions.length - 1} title="아래로" className={mBtn} style={{ borderColor: LINE, color: SUB }}>↓</button>
+                  <button type="button" onClick={() => delSess(mi, si)} title="차시 삭제" className={mBtn} style={{ borderColor: LINE, color: "#a6402c" }}>×</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => addSess(mi)} className="mt-1 inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>＋ 차시 추가</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" onClick={addMod} className="mt-4 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[13.5px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>＋ 주차(모듈) 추가</button>
+    </div>
   );
 }
 

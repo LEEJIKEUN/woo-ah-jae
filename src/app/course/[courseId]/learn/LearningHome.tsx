@@ -53,11 +53,11 @@ function KindIcon({ kind }: { kind: string }) {
   return <I size={18} style={{ color: BROWN }} />;
 }
 
-export default function LearningHome({ courseId, isStaff = false, isParent = false }: { courseId: string; isStaff?: boolean; isParent?: boolean }) {
+export default function LearningHome({ courseId, course, isStaff = false, isParent = false }: { courseId: string; course?: Course; isStaff?: boolean; isParent?: boolean }) {
   const seedRoom = useMemo(() => {
-    const c = getCourse(courseId);
+    const c = course ?? getCourse(courseId); // 서버가 넘긴 실효 강좌(커리큘럼 편집 반영) 우선
     return c ? fromSeed(c, isStaff) : null;
-  }, [courseId, isStaff]);
+  }, [courseId, course, isStaff]);
   const [room, setRoom] = useState<Classroom | null>(seedRoom);
   const [ready, setReady] = useState(false);
   useEffect(() => {

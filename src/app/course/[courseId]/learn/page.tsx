@@ -1,4 +1,5 @@
 import { getCourse } from "@/lib/course/content";
+import { getEffectiveCourse } from "@/lib/course/curriculum";
 import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
 import { loadDbCourse } from "@/lib/course/db-course";
 import LearningHome from "./LearningHome";
@@ -20,5 +21,7 @@ export default async function LearnPage({ params }: { params: Promise<{ courseId
     if (db) return <DbLearnView course={db} />;
   }
 
-  return <LearningHome courseId={courseId} isStaff={isStaffRole(session.role)} isParent={session.role === "PARENT"} />;
+  // 커리큘럼 오버라이드(관리자 편집)를 반영한 실효 강좌를 넘긴다(없으면 하드코딩 그대로).
+  const course = await getEffectiveCourse(courseId);
+  return <LearningHome courseId={courseId} course={course} isStaff={isStaffRole(session.role)} isParent={session.role === "PARENT"} />;
 }
