@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/guards";
-import { getCourse } from "@/lib/course/content";
 import { unenrollUser } from "@/lib/enrollment-store";
 import { publishEnrollment } from "@/lib/enrollment-bus";
+import { effectiveCapacity } from "@/lib/course/meta-store";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     await requireAdmin(request);
     const { applied } = await unenrollUser(courseId, studentId);
     // 정원 카운트가 줄었으니 홈 목록·강좌 소개 실시간 현황에 즉시 반영
-    const capacity = getCourse(courseId)?.format === "자기주도학습" ? 999 : 20;
+    const capacity = await effectiveCapacity(courseId);
     publishEnrollment(courseId, { applied, capacity, full: applied >= capacity });
     return NextResponse.json({ ok: true, applied });
   } catch (error) {

@@ -124,6 +124,16 @@ export type CourseMetaPatch = Partial<{
   status: CourseStatus;
 }>;
 
+/** 실효 정원 — 자기주도학습(SELF)=999, 그 외=CourseMeta.capacity(관리자 설정) 우선, 없으면 20. */
+export async function effectiveCapacity(courseId: string): Promise<number> {
+  const meta = await getCourseMeta(courseId);
+  const hard = getCourse(courseId);
+  const format = meta?.format ?? hard?.format;
+  if (format === "자기주도학습") return 999;
+  const cap = meta?.capacity;
+  return typeof cap === "number" && cap > 0 ? Math.floor(cap) : 20;
+}
+
 /** 강좌 첫 수업일(가장 이른 주차/시작일, KST 00:00)의 절대시각(ms). 하드코딩=주차, DB=fromDate. 없으면 null. */
 export async function firstClassMsById(courseId: string): Promise<number | null> {
   const hard = getCourse(courseId);

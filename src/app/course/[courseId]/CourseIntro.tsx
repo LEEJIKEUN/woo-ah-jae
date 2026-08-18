@@ -31,12 +31,22 @@ export type IntroData = {
   timetable?: { day: string; time: string }[];
   periodLabel?: string;
   country?: string;
+  capacity?: number;
   summary: string;
   realtimeInfo?: string;
   instructor?: { name: string; initials: string };
   modules: IntroModule[];
   firstHref?: string;
 };
+
+/** "매주 월·수 19:00~20:30 (…)" → [{day:'월',time:'19:00~20:30'}, …]. 요일·시간 표시용. */
+function parseTimetable(classDays?: string): { day: string; time: string }[] {
+  if (!classDays) return [];
+  const tm = classDays.match(/(\d{1,2}:\d{2}\s*[~\-]\s*\d{1,2}:\d{2})/);
+  const time = tm ? tm[1].replace(/\s+/g, "") : "";
+  const days = [...new Set(classDays.match(/[월화수목금토일]/g) ?? [])];
+  return days.map((day) => ({ day, time }));
+}
 
 const SECTIONS = [
   { id: "about", label: "강좌 소개" },
@@ -148,6 +158,14 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
   function commit(field: keyof IntroData, val: string) {
     const cur = ((intro?.[field] as string | undefined) ?? "").trim();
     if (cur !== val.trim()) patchField({ [field]: val } as Partial<IntroData>);
+  }
+  // 모집인원(정원) 편집 — 숫자. 저장 + 현재 표시(신청현황)도 즉시 반영.
+  function commitCapacity(val: string) {
+    const n = Math.floor(Number(val));
+    if (!Number.isFinite(n) || n < 1) return;
+    if (status?.capacity === n) return;
+    setStatus((s) => (s ? { ...s, capacity: n, full: s.applied >= n } : s));
+    patchField({ capacity: n });
   }
   // 세부 목표 편집: objs(배열) 를 authoritative 로 두고, 변경 시 줄바꿈 문자열로 저장
   const splitObjRaw = (s?: string) => (s ?? "").split("\n").map((x) => x.replace(/^\s*\d+\s*[.)]\s*/, ""));
@@ -301,31 +319,42 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
               <div className="grid gap-8 sm:grid-cols-2">
                 <div>
                   <p className="text-[13px]" style={{ color: SUB }}>수강 기간</p>
-                  <div className="mt-3 grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[13px]" style={{ color: SUB }}>시작일</p>
-                      <p className="mt-1 text-[17px] font-semibold" style={{ ...serif, color: INK }}>{periodStart || "-"}</p>
+                  {edit ? (
+                    <input defaultValue={intro.periodLabel ?? ""} key={`pl-${intro.periodLabel ?? ""}`} onBlur={(e) => commit("periodLabel", e.target.value)} placeholder="예: 2026.8.17.(월) ~ 2026.11.4.(수)" className={`${editFieldCls} mt-3 text-[15px]`} style={{ color: INK, borderColor: LINE }} />
+                  ) : (
+                    <div className="mt-3 grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-[13px]" style={{ color: SUB }}>시작일</p>
+                        <p className="mt-1 text-[17px] font-semibold" style={{ ...serif, color: INK }}>{periodStart || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[13px]" style={{ color: SUB }}>종료일</p>
+                        <p className="mt-1 text-[17px] font-semibold" style={{ ...serif, color: INK }}>{periodEnd || "-"}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[13px]" style={{ color: SUB }}>종료일</p>
-                      <p className="mt-1 text-[17px] font-semibold" style={{ ...serif, color: INK }}>{periodEnd || "-"}</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
                 <div>
                   <p className="text-[13px]" style={{ color: SUB }}>요일 및 시간</p>
-                  <div className="mt-3 space-y-2">
-                    {(intro.timetable ?? []).length > 0 ? (
-                      intro.timetable!.map((t, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className="grid h-9 w-9 place-items-center rounded-full text-[14px] font-bold" style={{ background: PANEL, color: BROWN }}>{t.day}</span>
-                          <span className="text-[15px]" style={{ color: BODY }}>{t.time}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[15px]" style={{ color: BODY }}>{intro.classDays ?? "-"}</p>
-                    )}
-                  </div>
+                  {edit ? (
+                    <>
+                      <input defaultValue={intro.classDays ?? ""} key={`cd2-${intro.classDays ?? ""}`} onBlur={(e) => commit("classDays", e.target.value)} placeholder="예: 매주 월·수 19:00~20:30" className={`${editFieldCls} mt-3 text-[15px]`} style={{ color: INK, borderColor: LINE }} />
+                      <p className="mt-1.5 text-[12px]" style={{ color: SUB }}>요일(월·수 등)과 시간을 적으면 아래 표에 자동 반영됩니다.</p>
+                    </>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      {(() => { const rows = parseTimetable(intro.classDays); return rows.length ? rows : (intro.timetable ?? []); })().length > 0 ? (
+                        (() => { const rows = parseTimetable(intro.classDays); return rows.length ? rows : (intro.timetable ?? []); })().map((t, i) => (
+                          <div key={i} className="flex items-center gap-3">
+                            <span className="grid h-9 w-9 place-items-center rounded-full text-[14px] font-bold" style={{ background: PANEL, color: BROWN }}>{t.day}</span>
+                            <span className="text-[15px]" style={{ color: BODY }}>{t.time}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[15px]" style={{ color: BODY }}>{intro.classDays ?? "-"}</p>
+                      )}
+                    </div>
+                  )}
                   <p className="mt-2 text-[12px]" style={{ color: SUB }}>* 싱가포르 표준시</p>
                 </div>
               </div>
@@ -333,6 +362,12 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
 
             {/* ③ 강좌 차시 */}
             <Section id="lessons" title="강좌 차시">
+              {edit ? (
+                <div className="mb-4 rounded-[10px] border border-dashed px-4 py-3 text-[13px] leading-6" style={{ borderColor: LINE, background: "#FCFAF5", color: SUB }}>
+                  강좌 차시(커리큘럼)는 강의실의 실제 콘텐츠·출석과 연결되어 있어 여기서 바로 수정하지 않습니다.
+                  차시 추가·수정은 담당자에게 <b style={{ color: BROWN }}>“{intro.title} n주차를 ~로 바꿔줘”</b> 처럼 요청하시면 반영됩니다.
+                </div>
+              ) : null}
               {lessons.length > 0 ? <p className="mb-2 text-[14px] font-semibold" style={{ color: INK }}>총 {lessons.length}강</p> : null}
               <ul>
                 {lessons.map((l) => (
@@ -385,13 +420,23 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                 )}
 
                 <p className="mt-5 text-[14px] font-semibold" style={{ color: INK }}>수업 일정</p>
-                <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>{intro.classDays ?? "-"}</p>
+                {edit ? (
+                  <input defaultValue={intro.classDays ?? ""} key={`cd-${intro.classDays ?? ""}`} onBlur={(e) => commit("classDays", e.target.value)} placeholder="예: 매주 월·수 19:00~20:30" className={`${editFieldCls} mt-1 text-[13.5px]`} style={{ color: BODY, borderColor: LINE }} />
+                ) : (
+                  <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>{intro.classDays ?? "-"}</p>
+                )}
 
                 {status ? (
                   <>
                     <p className="mt-4 text-[14px] font-semibold" style={{ color: INK }}>신청 현황</p>
-                    <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>
-                      <b style={{ color: full ? "#a6402c" : BROWN }}>{status.applied}</b> / {status.capacity}명
+                    <p className="mt-1 flex items-center gap-1 text-[13.5px]" style={{ color: SUB }}>
+                      <b style={{ color: full ? "#a6402c" : BROWN }}>{status.applied}</b> /{" "}
+                      {edit ? (
+                        <input type="number" min={1} defaultValue={status.capacity} key={`cap-${status.capacity}`} onBlur={(e) => commitCapacity(e.target.value)} className="w-16 rounded-[6px] border border-dashed px-2 py-0.5 text-center text-[13.5px] outline-none focus:border-[#8C6E59]" style={{ borderColor: NUM, color: INK }} />
+                      ) : (
+                        status.capacity
+                      )}
+                      명
                     </p>
                     <p className="mt-4 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: enrolled ? BROWN : (enrollBlock || full) ? "#a6402c" : "#3E7E5B" }}>
                       <span style={{ fontSize: 10 }}>●</span>

@@ -46,6 +46,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
       periodLabel: meta?.periodLabel ?? course.periodLabel,
       country: meta?.country ?? course.country,
       summary: meta?.summary ?? course.summary,
+      capacity: meta?.capacity ?? 20,
       realtimeInfo: meta?.realtimeInfo ?? undefined,
       instructor: { name: course.instructor.name, initials: course.instructor.initials },
       modules: course.modules.map((m) => ({
@@ -77,6 +78,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
         periodLabel: db.periodLabel,
         country: db.country,
         summary: db.summary,
+        capacity: db.capacity,
         realtimeInfo: db.realtimeInfo || undefined,
         instructor: { name: "우아재 서재", initials: "齋" },
         modules: db.modules.map((m) => ({ label: m.label, sessions: m.lessons.map((l) => ({ title: l.title, scheduleLabel: l.scheduleLabel || undefined })) })),

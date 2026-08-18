@@ -2,16 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
-import { getCourseMeta, getCourseDeadline, setCourseStatus, firstClassMsById, autoAdvanceStatus, enrollmentCloseMs, type CourseStatus } from "@/lib/course/meta-store";
+import { getCourseMeta, getCourseDeadline, setCourseStatus, firstClassMsById, autoAdvanceStatus, enrollmentCloseMs, effectiveCapacity, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
-
-/** 형식별 정원: 자기주도학습(SELF)=999, 그 외=모집인원(기본 20) */
-function capacityForCourse(courseId: string): number {
-  const course = getCourse(courseId);
-  return course?.format === "자기주도학습" ? 999 : 20;
-}
 
 /** 접수 상태별 안내 — 신청 가능한 상태는 "open" 뿐. */
 const ENROLL_BLOCK_MSG: Record<string, string> = {
@@ -49,7 +43,7 @@ async function sessionFromReq(request: NextRequest) {
 // 신청 현황 조회(+ 현재 사용자 신청 여부)
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const capacity = capacityForCourse(courseId);
+  const capacity = await effectiveCapacity(courseId);
   const applied = await getApplied(courseId);
   const s = await sessionFromReq(request);
   const enrolled = s ? isStaffRole(s.role) || (await isUserEnrolled(courseId, s.userId)) : false;
@@ -73,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const msg = ENROLL_BLOCK_MSG[status] ?? "지금은 수강신청을 받지 않습니다.";
     return NextResponse.json({ error: msg }, { status: status === "private" ? 404 : 409 });
   }
-  const capacity = capacityForCourse(courseId);
+  const capacity = await effectiveCapacity(courseId);
   const result = await enrollUser(courseId, s.userId, capacity);
   // 구독 중인 모든 SSE 스트림에 즉시 푸시
   publishEnrollment(courseId, { applied: result.applied, capacity, full: result.full });

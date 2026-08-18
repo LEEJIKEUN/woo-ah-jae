@@ -1,20 +1,14 @@
 import { NextRequest } from "next/server";
-import { getCourse } from "@/lib/course/content";
 import { subscribeEnrollment } from "@/lib/enrollment-bus";
 import { getApplied } from "@/lib/enrollment-store";
+import { effectiveCapacity } from "@/lib/course/meta-store";
 
 export const dynamic = "force-dynamic";
-
-/** 형식별 정원: 자기주도학습(SELF)=999, 그 외=모집인원(기본 20) */
-function capacityForCourse(courseId: string): number {
-  const course = getCourse(courseId);
-  return course?.format === "자기주도학습" ? 999 : 20;
-}
 
 /** 수강신청 현황 SSE 스트림: 접속 시 현재값 + 변경마다 즉시 푸시 */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const capacity = capacityForCourse(courseId);
+  const capacity = await effectiveCapacity(courseId);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
