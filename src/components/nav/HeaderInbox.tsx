@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, MessageCircle, X, Send, Paperclip, Download, Smile } from "lucide-react";
 import EmojiPicker from "@/components/ui/EmojiPicker";
+import LinkifiedText from "@/components/LinkifiedText";
 
 const BROWN = "#8c6e59";
 const INK = "#2C2823";
@@ -249,14 +250,14 @@ function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; 
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className="max-w-[82%]">
                   {!mine ? <p className="mb-0.5 text-[10px]" style={{ color: MUTED }}>{m.from === "teacher" ? "교사" : "학생"}</p> : null}
-                  <div className="rounded-[12px] px-3 py-1.5 text-[12.5px] leading-5" style={m.deleted ? { background: "#F3F1EC", color: MUTED, fontStyle: "italic" } : mine ? { background: BROWN, color: "#fff" } : { background: PANEL, color: BODY, border: `1px solid ${LINE}` }}>
+                  <div className="rounded-[12px] px-3 py-1.5 text-[12.5px] leading-5 break-words" style={m.deleted ? { background: "#F3F1EC", color: MUTED, fontStyle: "italic" } : mine ? { background: BROWN, color: "#fff" } : { background: PANEL, color: BODY, border: `1px solid ${LINE}` }}>
                     {m.deleted ? "삭제된 메시지입니다." : m.kind === "file" && m.file ? (
                       <span className="inline-flex items-center gap-1.5">
                         <a href={`/api/courses/${conv.courseId}/mentoring/file?studentId=${encodeURIComponent(conv.roomStudentId)}&id=${m.id}`} target="_blank" rel="noreferrer" className="underline" title="새 탭에서 보기">📎 {m.file.name}</a>
                         <a href={`/api/courses/${conv.courseId}/mentoring/file?studentId=${encodeURIComponent(conv.roomStudentId)}&id=${m.id}&download=1`} className="shrink-0 opacity-90 hover:opacity-100" aria-label="다운로드" title="다운로드"><Download size={12} /></a>
                       </span>
                     ) : (
-                      m.text
+                      <LinkifiedText text={m.text} linkColor={mine ? "#FCE9D8" : "#2563eb"} />
                     )}
                   </div>
                   <p className={`mt-0.5 text-[10px] ${mine ? "text-right" : ""}`} style={{ color: MUTED }}>{m.at}</p>
@@ -269,25 +270,27 @@ function ChatPopup({ conv, viewerId, onClose }: { conv: Conv; viewerId: string; 
       {conv.canSend ? (
         <div>
           {err ? <p className="px-3 pt-2 text-[11px]" style={{ color: "#a6402c" }}>{err}</p> : null}
-          <div className="flex items-center gap-1.5 border-t px-3 py-2.5" style={{ borderColor: LINE }}>
+          <div className="flex items-end gap-1.5 border-t px-3 py-2.5" style={{ borderColor: LINE }}>
             <div className="relative">
               <button type="button" onClick={() => setEmojiOpen((v) => !v)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={15} /></button>
               {emojiOpen ? <EmojiPicker onPick={(em) => setDraft((t) => t + em)} onClose={() => setEmojiOpen(false)} /> : null}
             </div>
             <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59] disabled:opacity-50" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부"><Paperclip size={15} /></button>
-            <input
+            <textarea
+              rows={1}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                  if (e.shiftKey || e.metaKey || e.altKey || e.ctrlKey) return; // 줄바꿈(⇧/Shift+Enter)
                   e.preventDefault();
                   void send();
                 }
               }}
-              placeholder={uploading ? "파일 업로드 중…" : "메시지 입력 후 Enter"}
-              className="h-9 flex-1 rounded-[8px] border px-3 text-[12.5px] outline-none focus:border-[#8C6E59]"
-              style={{ borderColor: "#E7E2D6", color: BODY }}
+              placeholder={uploading ? "파일 업로드 중…" : "메시지 입력 후 Enter (줄바꿈: ⇧/Shift+Enter)"}
+              className="max-h-28 flex-1 resize-none rounded-[8px] border px-3 py-2 text-[12.5px] leading-5 outline-none [field-sizing:content] focus:border-[#8C6E59]"
+              style={{ borderColor: "#E7E2D6", color: BODY, minHeight: 36 }}
             />
             <button type="button" onClick={() => void send()} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-white" style={{ background: BROWN }} aria-label="전송"><Send size={15} /></button>
           </div>
