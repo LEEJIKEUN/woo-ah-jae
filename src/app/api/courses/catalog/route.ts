@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       country: m?.country ?? c.country ?? "한국",
       capacity: m?.capacity ?? 20,
       deadline: m?.deadline ?? null,
-      status: m?.status ?? "open",
+      status: m?.status ?? c.defaultStatus ?? "open",
       href: `/course/${c.id}`,
     };
   });

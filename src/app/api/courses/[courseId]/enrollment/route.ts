@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
-import { getCourseDeadline, isEnrollmentClosed } from "@/lib/course/meta-store";
+import { getCourseDeadline, getCourseMeta, isEnrollmentClosed } from "@/lib/course/meta-store";
+import { loadDbCourse } from "@/lib/course/db-course";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
 
@@ -10,6 +11,16 @@ import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
 function capacityForCourse(courseId: string): number {
   const course = getCourse(courseId);
   return course?.format === "자기주도학습" ? 999 : 20;
+}
+
+/** 강좌의 실효 노출 상태(메타 > 하드코딩 defaultStatus > DB > 기본 open). */
+async function effectiveStatus(courseId: string): Promise<string> {
+  const meta = await getCourseMeta(courseId);
+  if (meta?.status) return meta.status;
+  const hard = getCourse(courseId);
+  if (hard) return hard.defaultStatus ?? "open";
+  const db = await loadDbCourse(courseId);
+  return db?.status ?? "open";
 }
 
 async function sessionFromReq(request: NextRequest) {
@@ -42,6 +53,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (s.role !== "STUDENT") {
     return NextResponse.json({ error: "수강신청은 학생 계정만 가능합니다." }, { status: 403 });
+  }
+  if ((await effectiveStatus(courseId)) === "private") {
+    return NextResponse.json({ error: "아직 공개되지 않은 강좌입니다." }, { status: 404 });
   }
   if (isEnrollmentClosed(await getCourseDeadline(courseId))) {
     return NextResponse.json({ error: "수강신청이 마감되었습니다." }, { status: 409 });

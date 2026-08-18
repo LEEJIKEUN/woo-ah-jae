@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { COURSES } from "@/lib/course/content";
+import { getAllCourseMeta } from "@/lib/course/meta-store";
 import { isUserEnrolled } from "@/lib/enrollment-store";
 import ParentProgressDonut from "@/components/course/ParentProgressDonut";
 
@@ -20,8 +21,10 @@ type Entry = { id: string; title: string; subtitle: string; classDays?: string; 
 export default async function MyCoursesPage() {
   const user = await requireUser("/login?next=/my-courses");
   const role = user.role;
+  const isAdmin = role === "ADMIN";
   const staff = role === "ADMIN" || role === "FACILITATOR";
   const isParent = role === "PARENT";
+  const metaMap = await getAllCourseMeta(); // 비공개 강좌 숨김 판정용
 
   let children: { id: string; name: string }[] = [];
   if (isParent) {
@@ -35,6 +38,9 @@ export default async function MyCoursesPage() {
   // 모든 강좌를 보여주되, 각 강좌마다 역할·수강 상태에 맞는 안내/액션을 붙인다(서재 + 내 강좌 통합).
   const entries: Entry[] = [];
   for (const c of COURSES) {
+    // 비공개 강좌(복제 직후 등)는 관리자에게만 노출
+    const effStatus = metaMap.get(c.id)?.status ?? c.defaultStatus ?? "open";
+    if (!isAdmin && effStatus === "private") continue;
     const base = { id: c.id, title: c.title, subtitle: c.subtitle, classDays: c.classDays };
     if (staff) {
       entries.push({ ...base, note: role === "ADMIN" ? "관리자 · 전체 접근" : "담당 · 퍼실리테이터", href: `/course/${c.id}/learn`, cta: "강의실 입장", manageHref: `/course/${c.id}/attendance` });

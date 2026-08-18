@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "db:up": "node -e \"console.log('SQLite mode: no separate DB server is required.')\"",
     "db:down": "node -e \"console.log('SQLite mode: no DB shutdown step is required.')\"",
+    "course:clone": "tsx scripts/clone-course.ts",
     "db:migrate": "node scripts/sqlite-migrate.mjs",
     "db:generate": "prisma generate",
     "db:seed": "node prisma/seed.mjs",

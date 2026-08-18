@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
-import CourseCreateForm from "./CourseCreateForm";
+import CloneGuide from "./CloneGuide";
 
-export const metadata = { title: "강좌 개설 · 우아재" };
+export const metadata = { title: "새 강좌 개설 · 우아재" };
 
 export default async function NewCoursePage() {
   let role: string | null = null;
@@ -19,5 +19,5 @@ export default async function NewCoursePage() {
 
   if (role !== "ADMIN") redirect("/course");
 
-  return <CourseCreateForm />;
+  return <CloneGuide />;
 }

@@ -23,8 +23,10 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   const enrolled = await canEnterClassroom(courseId, session);
   const meta = course ? await getCourseMeta(courseId) : null;
 
-  // 비공개 강좌는 관리자 외에는 접근 불가(목록에서도 숨김)
-  const hiddenPrivate = !!meta && meta.status === "private" && !isAdmin;
+  // 비공개 강좌는 관리자 외에는 접근 불가(목록에서도 숨김).
+  // 메타 오버라이드가 없으면 강좌의 defaultStatus(복제 강좌=private)를 따른다.
+  const effStatus = meta?.status ?? course?.defaultStatus ?? "open";
+  const hiddenPrivate = !!course && effStatus === "private" && !isAdmin;
 
   let seed: IntroData | null = null;
   if (course && !hiddenPrivate) {

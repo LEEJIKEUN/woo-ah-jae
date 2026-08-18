@@ -4,7 +4,15 @@
  * DB 없이 강의 포털 UI/UX 를 시연하기 위한 타입 + 데이터.
  * 구조: 코스 → 모듈(오리엔테이션 · 1~8주차 · 휴식기) → 블록 → 활동(세션).
  * 각 주차는 weekStart(시작일 00:00, KST)에 자동 활성화된다.
+ *
+ * 여러 강좌 등록: 시드 강좌(아래)는 그대로 두고, `npm run course:clone` 로 생성한
+ * 추가 강좌들을 `./courses` 배럴에서 불러와 합친다(맨 아래 COURSES). 새 강좌도
+ * 시드 강좌와 완전히 동일한 메뉴·기능(게시판·멘토링·시험·현황·출석·강의)을 갖는다.
  */
+
+import { EXTRA_COURSES } from "./courses";
+
+export type CourseStatus = "private" | "prep" | "open" | "full" | "ongoing";
 
 export type ActivityKind = "page" | "resource" | "folder" | "assignment" | "forum";
 export type MaterialType = "pdf" | "slide" | "doc" | "sheet" | "link";
@@ -90,6 +98,8 @@ export type Course = {
   timetable?: { day: string; time: string }[]; // 요일별 시간표
   periodLabel?: string;
   country?: string;
+  /** 메타(CourseMeta) 오버라이드가 없을 때 적용되는 기본 노출 상태. 복제 강좌는 "private". 없으면 "open". */
+  defaultStatus?: CourseStatus;
   modules: Module[];
 };
 
@@ -388,7 +398,12 @@ const linearAlgebraForAI: Course = {
   ],
 };
 
-export const COURSES: Course[] = [linearAlgebraForAI];
+export const COURSES: Course[] = [linearAlgebraForAI, ...EXTRA_COURSES];
+
+/** 메타 오버라이드가 없을 때의 강좌 기본 상태(복제 강좌=private, 시드=open). */
+export function courseDefaultStatus(course: Pick<Course, "defaultStatus">): CourseStatus {
+  return course.defaultStatus ?? "open";
+}
 
 // ─────────────────────────────────────────────────────────────
 // 조회 헬퍼
