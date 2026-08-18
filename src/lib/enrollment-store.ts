@@ -58,6 +58,13 @@ export async function enrollUser(
   return { ok: true, applied: next, full: next >= capacity, already: false };
 }
 
+/** 특정 학생의 수강신청만 취소(로스터에서 제외). 기존 기록(이수·글·시험 등)은 건드리지 않는다. */
+export async function unenrollUser(courseId: string, userId: string): Promise<{ applied: number }> {
+  await prisma.enrollment.deleteMany({ where: { courseId, userId } });
+  const applied = await getApplied(courseId);
+  return { applied };
+}
+
 /** 테스트/관리자용 리셋 */
 export async function resetEnrollment(courseId: string): Promise<void> {
   await prisma.enrollment.deleteMany({ where: { courseId } });

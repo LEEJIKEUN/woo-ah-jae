@@ -72,7 +72,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ cou
         각 회차에 참석한 수강생을 체크하세요. 체크하면 해당 학생의 이수(진도)로 기록되어 학생·학부모 화면에 반영됩니다.
       </p>
 
-      <AttendanceGrid courseId={courseId} sessions={sessions} students={students} initialDone={initialDone} />
+      <AttendanceGrid courseId={courseId} sessions={sessions} students={students} initialDone={initialDone} isAdmin={session.role === "ADMIN"} />
 
       <AchievementStandardsManager courseId={courseId} />
     </main>

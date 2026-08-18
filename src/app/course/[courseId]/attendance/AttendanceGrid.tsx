@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, UserMinus } from "lucide-react";
 
 const BROWN = "#8C6E59";
 const DEEP = "#6B5342";
@@ -19,16 +19,38 @@ function cellKey(userId: string, activityId: string) {
 export default function AttendanceGrid({
   courseId,
   sessions,
-  students,
+  students: initialStudents,
   initialDone,
+  isAdmin = false,
 }: {
   courseId: string;
   sessions: SessionItem[];
   students: Student[];
   initialDone: string[];
+  isAdmin?: boolean;
 }) {
+  const [students, setStudents] = useState<Student[]>(initialStudents);
   const [done, setDone] = useState<Set<string>>(new Set(initialDone));
   const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  async function unenroll(studentId: string, name: string) {
+    if (!confirm(`'${name}' 학생의 수강신청을 취소할까요?\n\n· 강좌 로스터·강의실 접근에서 제외됩니다(정원 1명 복원).\n· 출석·이수·게시글·시험 등 기존 기록은 그대로 남습니다.\n\n되돌릴 수 없습니다.`)) return;
+    setRemoving(studentId);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/members/${studentId}`, { method: "DELETE" });
+      if (res.ok) {
+        setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      } else {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(d.error ?? "수강 취소에 실패했습니다.");
+      }
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
+    } finally {
+      setRemoving(null);
+    }
+  }
 
   async function toggle(userId: string, activityId: string) {
     const key = cellKey(userId, activityId);
@@ -80,8 +102,22 @@ export default function AttendanceGrid({
               회차 · 세션
             </th>
             {students.map((s) => (
-              <th key={s.id} className="border-b px-3 py-2.5 text-center font-bold" style={{ borderColor: LINE, color: INK, minWidth: 92 }}>
-                {s.name}
+              <th key={s.id} className="border-b px-3 py-2 text-center font-bold" style={{ borderColor: LINE, color: INK, minWidth: 92 }}>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span>{s.name}</span>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => unenroll(s.id, s.name)}
+                      disabled={removing === s.id}
+                      title="수강 취소"
+                      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition hover:bg-[#F7ECEC] hover:text-[#B4544B] disabled:opacity-50"
+                      style={{ color: "#B49A86" }}
+                    >
+                      <UserMinus size={11} /> {removing === s.id ? "취소 중…" : "수강 취소"}
+                    </button>
+                  ) : null}
+                </div>
               </th>
             ))}
           </tr>
