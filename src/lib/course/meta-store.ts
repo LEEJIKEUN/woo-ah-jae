@@ -122,6 +122,15 @@ export type CourseMetaPatch = Partial<{
   status: CourseStatus;
 }>;
 
+/** 강좌 상태만 설정 — 하드코딩 강좌면 CourseMeta upsert, DB 강좌면 CourseDb 직접. (정원 마감 자동 전환 등) */
+export async function setCourseStatus(courseId: string, status: CourseStatus, isHardcoded: boolean): Promise<void> {
+  if (isHardcoded) {
+    await upsertCourseMeta(courseId, { status });
+  } else {
+    await prisma.courseDb.updateMany({ where: { slug: courseId }, data: { status } });
+  }
+}
+
 /** 강좌 메타 upsert(관리자 편집). */
 export async function upsertCourseMeta(courseId: string, patch: CourseMetaPatch): Promise<CourseMetaOverride> {
   const data: Record<string, unknown> = {};

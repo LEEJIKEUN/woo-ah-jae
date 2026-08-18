@@ -44,7 +44,7 @@ const SECTIONS = [
   { id: "lessons", label: "강좌 차시" },
 ] as const;
 
-export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, closed = false, editHref }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; closed?: boolean; editHref?: string }) {
+export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, closed = false, editHref, enrollBlock = null }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; closed?: boolean; editHref?: string; enrollBlock?: { label: string; message: string } | null }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -120,10 +120,14 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
     setEnrolling(true);
     try {
       const res = await fetch(`/api/courses/${courseId}/enrollment`, { method: "POST" });
-      const data = (await res.json()) as { applied: number; capacity: number; full: boolean };
-      setStatus(data);
-      if (res.ok) {
+      const data = (await res.json()) as { applied?: number; capacity?: number; full?: boolean; error?: string };
+      if (res.ok && typeof data.applied === "number") {
+        setStatus({ applied: data.applied, capacity: data.capacity ?? 20, full: !!data.full });
         setEnrolled(true);
+      } else {
+        // 신청 사이에 정원 마감·진행중 전환 등 상태 변동 → 안내 후 최신 상태로 새로고침
+        alert(data.error ?? "지금은 수강신청을 받을 수 없어요.");
+        window.location.reload();
       }
     } catch {
       /* 무시 */
@@ -354,6 +358,10 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                 <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-full text-white opacity-50" style={{ background: BROWN, fontSize: 15, fontWeight: 600, ...serif }}>
                   담당 강좌만 입장할 수 있어요
                 </button>
+              ) : enrollBlock ? (
+                <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-full text-white opacity-50" style={{ background: BROWN, fontSize: 15, fontWeight: 600, ...serif }}>
+                  {enrollBlock.label}
+                </button>
               ) : closed ? (
                 <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-full text-white opacity-50" style={{ background: BROWN, fontSize: 16, fontWeight: 600, ...serif }}>
                   신청 마감
@@ -367,6 +375,10 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                   {full ? "모집 마감" : enrolling ? "신청 중…" : "수강 신청하기"}
                 </button>
               )}
+
+              {!enrolled && !isFacilitator && enrollBlock ? (
+                <p className="mt-3 rounded-[10px] px-3.5 py-2.5 text-[13px] leading-6" style={{ background: "#FBF3EE", color: "#a6402c", border: "1px solid #F0D9CF" }}>{enrollBlock.message}</p>
+              ) : null}
 
               <div className="mt-6 rounded-[16px] border p-6" style={{ borderColor: LINE }}>
                 <h3 className="text-[16px] font-semibold" style={{ ...serif, color: INK }}>실시간 수업 안내</h3>
@@ -385,9 +397,9 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                     <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>
                       <b style={{ color: full ? "#a6402c" : BROWN }}>{status.applied}</b> / {status.capacity}명
                     </p>
-                    <p className="mt-4 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: enrolled ? BROWN : (full || closed) ? "#a6402c" : "#3E7E5B" }}>
+                    <p className="mt-4 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: enrolled ? BROWN : (enrollBlock || full || closed) ? "#a6402c" : "#3E7E5B" }}>
                       <span style={{ fontSize: 10 }}>●</span>
-                      {enrolled ? "수강신청 완료" : closed ? "신청 마감" : full ? "모집 마감" : "모집 중"}
+                      {enrolled ? "수강신청 완료" : enrollBlock ? enrollBlock.label : closed ? "신청 마감" : full ? "모집 마감" : "모집 중"}
                     </p>
                   </>
                 ) : null}

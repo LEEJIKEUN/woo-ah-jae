@@ -43,6 +43,29 @@ export async function approvedParentIds(studentId: string): Promise<string[]> {
 }
 
 /**
+ * 강좌 수강생 전원(+옵션: 승인된 학부모)에게 알림. 행위자 제외.
+ * 학습 콘텐츠 등록·수정 등 강좌 전체 대상 변동에서 호출한다.
+ */
+export async function notifyCourseStudents(
+  courseId: string,
+  actorUserId: string,
+  n: { kind: string; title: string; body?: string; href: string },
+  opts: { includeParents?: boolean } = {}
+): Promise<void> {
+  const studentIds = await getEnrolledUserIds(courseId);
+  const ids = new Set<string>(studentIds);
+  if (opts.includeParents !== false && studentIds.length) {
+    const links = await prisma.parentChildLink.findMany({
+      where: { childUserId: { in: studentIds }, status: "APPROVED" },
+      select: { parentUserId: true },
+    });
+    for (const l of links) ids.add(l.parentUserId);
+  }
+  ids.delete(actorUserId);
+  await createNotifications([...ids].map((uid) => ({ userId: uid, ...n })));
+}
+
+/**
  * 멘토링 방(강좌+학생) 변동 알림 — 학생 본인 + 승인된 학부모 (+옵션: 담당 퍼실리테이터). 행위자 제외.
  * 1:1 채팅 외 모든 변동(공지·세특·보고서·과제 등)에서 호출한다.
  */

@@ -27,6 +27,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   // 메타 오버라이드가 없으면 강좌의 defaultStatus(복제 강좌=private)를 따른다.
   const effStatus = meta?.status ?? course?.defaultStatus ?? "open";
   const hiddenPrivate = !!course && effStatus === "private" && !isAdmin;
+  let resolvedStatus: string = effStatus; // 하드코딩=effStatus, DB강좌는 아래에서 db.status 로 갱신
 
   let seed: IntroData | null = null;
   if (course && !hiddenPrivate) {
@@ -62,6 +63,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
     // DB 강좌(관리자가 새로 개설) — 하드코딩에 없으면 DB 조회
     const db = await loadDbCourse(courseId);
     if (db && !(db.status === "private" && !isAdmin)) {
+      resolvedStatus = db.status;
       seed = {
         id: db.slug,
         programme: db.programme,
@@ -87,5 +89,14 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   const editHref = isAdmin && !course && seed ? `/course/${courseId}/edit` : undefined;
   const isFacilitator = !!session && session.role === "FACILITATOR";
   const closed = isEnrollmentClosed(await getCourseDeadline(courseId));
-  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} closed={closed} editHref={editHref} />;
+
+  // 접수중(open)이 아니면 신규 수강신청 차단 + 안내 문구
+  const ENROLL_BLOCK_UI: Record<string, { label: string; message: string }> = {
+    ongoing: { label: "진행 중 — 신청 마감", message: "이미 진행 중인 강좌라 새로운 수강신청은 받지 않습니다." },
+    full: { label: "정원 마감", message: "정원(20명)이 모두 찼어요. 수강신청이 마감되었습니다." },
+    prep: { label: "오픈 준비 중", message: "곧 접수를 시작합니다. 잠시만 기다려 주세요." },
+  };
+  const enrollBlock = ENROLL_BLOCK_UI[resolvedStatus] ?? null;
+
+  return <CourseIntro seed={seed} courseId={courseId} authed={authed} enrolled={enrolled} isAdmin={isAdmin} isFacilitator={isFacilitator} closed={closed} editHref={editHref} enrollBlock={enrollBlock} />;
 }
