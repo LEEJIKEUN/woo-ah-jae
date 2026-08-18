@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
+import { getCourseMeta } from "@/lib/course/meta-store";
 import { canEnterClassroom, isStaffRole } from "@/lib/course/access";
 import { prisma } from "@/lib/prisma";
 
@@ -25,8 +26,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!s) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   if (!(await canEnterClassroom(courseId, s))) return NextResponse.json({ error: "접근 권한이 없습니다." }, { status: 403 });
 
-  const row = await prisma.courseSummary.findUnique({ where: { courseId }, select: { body: true } });
-  return NextResponse.json({ body: row?.body ?? course.summary });
+  // 우선순위: 사이드바 독립 편집(CourseSummary) > 소개화면 '강좌 설명'(CourseMeta.summary) > 시드
+  const [row, meta] = await Promise.all([
+    prisma.courseSummary.findUnique({ where: { courseId }, select: { body: true } }),
+    getCourseMeta(courseId),
+  ]);
+  return NextResponse.json({ body: row?.body ?? meta?.summary ?? course.summary });
 }
 
 // 강좌 소개 수정 — 관리자·퍼실리테이터만

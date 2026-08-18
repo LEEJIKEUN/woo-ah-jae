@@ -156,7 +156,9 @@ function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }:
   return (
     <>
       <div className="flex items-center gap-2 px-5 py-6 text-white" style={{ background: heroGrad }}>
-        <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-snug" style={serif}>{room.title}</h1>
+        <Link href={`/course/${room.id}/learn`} onClick={onNavigate} className="min-w-0 flex-1 truncate text-[18px] font-semibold leading-snug transition hover:underline" style={serif} title="강의실 홈으로">
+          <h1 className="truncate">{room.title}</h1>
+        </Link>
         {isParent ? (
           <ParentProgressDonut courseId={room.id} />
         ) : isStaff ? (
