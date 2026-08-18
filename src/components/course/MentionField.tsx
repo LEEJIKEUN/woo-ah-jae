@@ -74,7 +74,12 @@ export default function MentionField({
       if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pick(matches[hi]?.name ?? ""); return; }
       if (e.key === "Escape") { setOpen(false); return; }
     }
-    if (onEnter && as === "input" && e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (onEnter && e.key === "Enter" && !e.nativeEvent.isComposing) {
+      // 스프레드시트식: Shift/Cmd/Alt/Ctrl+Enter → 줄바꿈, 그냥 Enter → 전송
+      if (e.shiftKey || e.metaKey || e.altKey || e.ctrlKey) {
+        if (as === "input") e.preventDefault(); // input 은 줄바꿈 불가
+        return; // textarea 는 기본 줄바꿈 허용
+      }
       e.preventDefault();
       onEnter();
     }

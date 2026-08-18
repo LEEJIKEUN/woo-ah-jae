@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronDown, ChevronUp, PenLine, X, MessageSquare, Trash2, CornerDownRight, Send, Pencil, Heart, Eye, Smile, Paperclip, Download } from "lucide-react";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 import MentionField, { type Member } from "@/components/course/MentionField";
+import LinkifiedText from "@/components/LinkifiedText";
 import EmojiPicker from "@/components/ui/EmojiPicker";
 
 const BROWN = "#8C6E59";
@@ -350,8 +351,8 @@ export default function CourseBoard({
                           </div>
                         ) : (
                           <>
-                            <div className="rounded-[12px] px-5 py-4 text-[15px] leading-8 whitespace-pre-line" style={{ background: PANEL, color: BODY }}>
-                              {p.body || <span style={{ color: MUTED }}>(내용 없음)</span>}
+                            <div className="rounded-[12px] px-5 py-4" style={{ background: PANEL }}>
+                              {p.body ? <LinkifiedText text={p.body} className="block text-[15px] leading-8" style={{ color: BODY }} /> : <span className="text-[15px]" style={{ color: MUTED }}>(내용 없음)</span>}
                             </div>
                             {canEditPost || canDeletePost ? (
                               <div className="mt-2 flex justify-end gap-3">
@@ -462,7 +463,7 @@ function CommentComposer({ members, onSubmit, placeholder, compact = false }: { 
           <button type="button" onClick={() => setFile(null)} aria-label="첨부 취소" style={{ color: MUTED }}><X size={12} /></button>
         </div>
       ) : null}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-end gap-1.5">
         <div className="relative">
           <button type="button" onClick={() => setEmojiOpen((v) => !v)} className={iconBtn} style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={16} /></button>
           {emojiOpen ? <EmojiPicker onPick={(em) => setText((t) => t + em)} onClose={() => setEmojiOpen(false)} /> : null}
@@ -470,7 +471,7 @@ function CommentComposer({ members, onSubmit, placeholder, compact = false }: { 
         <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
         <button type="button" onClick={() => fileRef.current?.click()} className={iconBtn} style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부"><Paperclip size={15} /></button>
         <div className="min-w-0 flex-1">
-          <MentionField as="input" value={text} onChange={setText} members={members} onEnter={() => void submit()} placeholder={placeholder} className={`${h} w-full rounded-[8px] border px-3 text-[13.5px] outline-none focus:border-[#8C6E59]`} style={{ borderColor: "#E7E2D6", color: BODY }} />
+          <MentionField as="textarea" rows={1} value={text} onChange={setText} members={members} onEnter={() => void submit()} placeholder={placeholder} className={`max-h-40 w-full resize-none rounded-[8px] border px-3 py-2 text-[13.5px] leading-6 outline-none [field-sizing:content] focus:border-[#8C6E59]`} style={{ borderColor: "#E7E2D6", color: BODY, minHeight: 38 }} />
         </div>
         <button type="button" onClick={() => void submit()} disabled={busy} className={`grid ${h} w-9 shrink-0 place-items-center rounded-[8px] text-white disabled:opacity-50`} style={{ background: BROWN }} aria-label="등록"><Send size={compact ? 14 : 16} /></button>
       </div>
@@ -618,7 +619,7 @@ function CommentNode({
           </div>
         ) : (
           <>
-            {node.body ? <p className="mt-1 whitespace-pre-line text-[14px] leading-6" style={{ color: BODY }}>{node.body}</p> : null}
+            {node.body ? <LinkifiedText text={node.body} className="mt-1 block text-[14px] leading-6" style={{ color: BODY }} /> : null}
             {node.file ? (
               <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-[8px] border px-2.5 py-1.5 text-[12.5px]" style={{ borderColor: LINE, color: DEEP }}>
                 <a href={`/api/courses/${courseId}/posts/${postId}/comments/${node.id}/file`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline" title="새 탭에서 보기">📎 <span className="max-w-[220px] truncate">{node.file.name}</span></a>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download, Pencil, Paperclip, Trash2, Megaphone, Check, Smile } from "lucide-react";
 import EmojiPicker from "@/components/ui/EmojiPicker";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
+import LinkifiedText from "@/components/LinkifiedText";
 
 /* 우아재 서재 톤 */
 const BROWN = "#8C6E59";
@@ -861,7 +862,7 @@ export default function MentoringView({
                 {editingSete ? (
                   <textarea value={seteDraft} onChange={(e) => setSeteDraft(truncateToBytes(e.target.value, Math.floor(SETE_LIMIT * 1.1)))} rows={6} placeholder="이 학생의 과목별 세부능력 특기사항을 작성하세요." className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(seteDraft) > SETE_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
                 ) : sete ? (
-                  <p className="whitespace-pre-line text-[13.5px] leading-7" style={{ color: BODY }}>{sete}</p>
+                  <LinkifiedText text={sete} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
                 ) : (
                   <p className="text-[13px]" style={{ color: SUB }}>{isStaff ? "이 학생의 세특을 작성하세요." : "아직 작성된 세특이 없습니다."}</p>
                 )}
@@ -916,7 +917,7 @@ export default function MentoringView({
                           ) : (
                             <div className={`flex items-end gap-1 ${mine ? "flex-row-reverse" : ""}`}>
                               <div
-                                className="rounded-[12px] px-3.5 py-2 text-[13px] leading-5"
+                                className="break-words rounded-[12px] px-3.5 py-2 text-[13px] leading-5"
                                 style={m.deleted ? { background: "#F3F1EC", color: MUTED, fontStyle: "italic", border: `1px solid ${LINE}` } : mine ? { background: BROWN, color: "#fff" } : { background: PANEL, color: BODY, border: `1px solid ${LINE}` }}
                               >
                                 {m.deleted ? (
@@ -924,7 +925,7 @@ export default function MentoringView({
                                 ) : m.kind === "file" && m.file ? (
                                   <ChatFileBubble url={fileUrl(m.id)} name={m.file.name} size={m.file.size} mime={m.fileMime} caption={m.text} mine={mine} />
                                 ) : (
-                                  m.text
+                                  <LinkifiedText text={m.text} linkColor={mine ? "#FCE9D8" : "#2563eb"} />
                                 )}
                               </div>
                               {!m.deleted && mine ? (
@@ -951,7 +952,7 @@ export default function MentoringView({
                 )}
               </div>
               {canChat ? (
-              <div className="flex items-center gap-2 border-t px-3 py-3" style={{ borderColor: CARD }}>
+              <div className="flex items-end gap-2 border-t px-3 py-3" style={{ borderColor: CARD }}>
                 <div className="relative">
                   <button type="button" onClick={() => setChatEmojiOpen((v) => !v)} className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="이모지"><Smile size={16} /></button>
                   {chatEmojiOpen ? <EmojiPicker onPick={(em) => setDraft((t) => t + em)} onClose={() => setChatEmojiOpen(false)} /> : null}
@@ -968,18 +969,20 @@ export default function MentoringView({
                 >
                   <Paperclip size={16} />
                 </button>
-                <input
+                <textarea
+                  rows={1}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                      if (e.shiftKey || e.metaKey || e.altKey || e.ctrlKey) return; // 줄바꿈
                       e.preventDefault();
                       void send();
                     }
                   }}
-                  placeholder={uploadingChat ? "파일 업로드 중…" : "메시지 입력 후 Enter"}
-                  className="h-10 flex-1 rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
-                  style={{ borderColor: "#E7E2D6", color: BODY }}
+                  placeholder={uploadingChat ? "파일 업로드 중…" : "메시지 입력 후 Enter (줄바꿈: ⌘/Alt+Enter)"}
+                  className="max-h-32 flex-1 resize-none rounded-[8px] border px-3 py-2 text-[13px] leading-6 outline-none [field-sizing:content] focus:border-[#8C6E59]"
+                  style={{ borderColor: "#E7E2D6", color: BODY, minHeight: 40 }}
                 />
                 <button type="button" onClick={() => void send()} className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] text-white transition hover:opacity-90" style={{ background: BROWN }} aria-label="전송">
                   <Send size={16} />
@@ -1070,7 +1073,7 @@ export default function MentoringView({
                     ) : (
                       <div key={n.id} className="rounded-[10px] p-3" style={{ background: "#FBF6EC", border: `1px solid ${LINE}` }}>
                         <div className="flex items-start justify-between gap-2">
-                          <p className="whitespace-pre-line text-[13px] leading-6" style={{ color: BODY }}>{n.body}</p>
+                          <LinkifiedText text={n.body} className="block text-[13px] leading-6" style={{ color: BODY }} />
                           {canPostNotice ? (
                             <div className="flex shrink-0 items-center gap-1.5">
                               <button type="button" onClick={() => startEditNotice(n)} aria-label="수정" style={{ color: MUTED }}><Pencil size={13} /></button>
@@ -1226,7 +1229,7 @@ function BookReadField({ label, value, limit }: { label: string; value: string; 
           <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{limit}byte</b>
         </span>
       </div>
-      <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-6" style={{ color: BODY }}>{value}</p>
+      <LinkifiedText text={value} className="mt-0.5 block text-[12.5px] leading-6" style={{ color: BODY }} />
     </div>
   );
 }

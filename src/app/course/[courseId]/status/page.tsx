@@ -6,6 +6,7 @@ import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { getCourse } from "@/lib/course/content";
 import { prisma } from "@/lib/prisma";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
+import LinkifiedText from "@/components/LinkifiedText";
 import PeerReviewButton from "./PeerReviewButton";
 
 export const dynamic = "force-dynamic";
@@ -116,7 +117,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
                       </Link>
                     </td>
                     <td className={td} style={{ borderColor: CARD, color: BODY }}>
-                      {r.sete ? <span className="whitespace-pre-line leading-6">{r.sete}</span> : <span style={{ color: MUTED }}>-</span>}
+                      {r.sete ? <LinkifiedText text={r.sete} className="leading-6" /> : <span style={{ color: MUTED }}>-</span>}
                     </td>
                     <td className={td} style={{ borderColor: CARD, color: r.byte > 500 ? "#a6402c" : MUTED, textAlign: "right" }}>{r.byte}</td>
                     <td className={td} style={{ borderColor: CARD, color: BODY }}>
