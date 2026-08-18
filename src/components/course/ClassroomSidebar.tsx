@@ -68,7 +68,7 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
     }
   }, [courseId, seedRoom]);
 
-  // 관리자가 편집한 커리큘럼 오버라이드가 있으면 사이드바 커리큘럼도 그것으로 교체(없으면 하드코딩 유지)
+  // 편집(강좌명·커리큘럼)을 사이드바에 반영: 실효 강좌명 + 차시 편집 반영(없으면 하드코딩과 동일)
   useEffect(() => {
     if (!seedRoom) return; // 하드코딩 강좌만 대상
     let alive = true;
@@ -76,17 +76,17 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
       try {
         const res = await fetch(`/api/courses/${courseId}/curriculum`, { cache: "no-store" });
         if (!res.ok) return;
-        const d = (await res.json()) as { override?: { label: string; weekStart?: string; sessions: { id: string; title: string }[] }[] | null };
-        if (!alive || !d.override) return;
+        const d = (await res.json()) as { title?: string; modules?: { label: string; weekStart?: string; sessions: { id: string; title: string; completable?: boolean }[] }[] };
+        if (!alive || !d.modules) return;
         const nowMs = Date.now();
-        const mods: ClassModule[] = d.override.map((m) => ({
+        const mods: ClassModule[] = d.modules.map((m) => ({
           label: m.label,
           locked: !!m.weekStart && !isStaff && nowMs < weekActivationMs(m.weekStart),
           openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
-          completableIds: m.sessions.map((s) => s.id),
+          completableIds: m.sessions.filter((s) => s.completable !== false).map((s) => s.id),
           lessons: m.sessions.map((s) => ({ id: s.id, title: s.title })),
         }));
-        setRoom((prev) => (prev ? { ...prev, modules: mods } : prev));
+        setRoom((prev) => (prev ? { ...prev, title: d.title ?? prev.title, modules: mods } : prev));
       } catch {
         /* 무시 — 하드코딩 유지 */
       }

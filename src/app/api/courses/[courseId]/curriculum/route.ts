@@ -2,19 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/guards";
 import { getCourse } from "@/lib/course/content";
 import { getSession, canEnterClassroom } from "@/lib/course/access";
-import { setCurriculumOverride, getCurriculumOverride, type OverrideModule } from "@/lib/course/curriculum";
+import { getCourseMeta } from "@/lib/course/meta-store";
+import { setCurriculumOverride, getEffectiveCourse, type OverrideModule } from "@/lib/course/curriculum";
 
 export const dynamic = "force-dynamic";
 
-/** 저장된 커리큘럼 오버라이드(없으면 null=하드코딩 사용) — 강의실 사이드바 동기화용. 강의실 구성원. */
+/**
+ * 강의실 사이드바 동기화용 — 실효 강좌명(CourseMeta 오버라이드 반영)과 커리큘럼(차시 편집 반영)을
+ * 사이드바가 쓰는 형태로 반환. 강의실 구성원 접근.
+ */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   try {
     const { courseId } = await params;
     if (!getCourse(courseId)) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
     const session = await getSession();
     if (!(await canEnterClassroom(courseId, session))) return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-    const override = await getCurriculumOverride(courseId);
-    return NextResponse.json({ override: override ?? null });
+    const [eff, meta] = await Promise.all([getEffectiveCourse(courseId), getCourseMeta(courseId)]);
+    if (!eff) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({
+      title: meta?.title ?? eff.title, // 강좌명 편집(CourseMeta) 반영
+      modules: eff.modules.map((m) => ({
+        label: m.label,
+        weekStart: m.weekStart ?? undefined,
+        sessions: m.blocks.flatMap((b) => b.activities).map((a) => ({ id: a.id, title: a.title, completable: a.completion !== "none" })),
+      })),
+    });
   } catch (error) {
     return jsonError(error);
   }
