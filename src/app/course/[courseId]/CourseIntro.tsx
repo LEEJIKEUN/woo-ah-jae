@@ -57,7 +57,6 @@ const SECTIONS = [
 export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, editHref, enrollBlock = null }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; editHref?: string; enrollBlock?: { label: string; statusLabel: string; message?: string } | null }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [edit, setEdit] = useState(false); // 화면 직접(인라인) 편집 모드
   const [objs, setObjs] = useState<string[]>([]); // 편집 모드에서의 세부 목표 초안
   const [enrolled, setEnrolled] = useState(enrolledInitial);
@@ -109,13 +108,16 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
   const [periodStart, periodEnd] = (intro.periodLabel ?? "").split("~").map((s) => s.trim());
   // 히어로 스탯은 한 줄로 간결하게(시간대 괄호는 사이드바·강좌 일정에서 노출)
   const scheduleShort = intro.classDays ? intro.classDays.replace(/\s*\([^)]*\)\s*$/, "") : intro.deliveryMode;
-  const stats = [
-    ["수강 대상", intro.audience],
-    ["형식", intro.format],
-    ["방식", intro.deliveryMode],
-    ["수업 일정", scheduleShort],
-    ["수강 기간", intro.periodLabel],
-  ].filter(([, v]) => v) as [string, string][];
+  // 히어로 스탯 — 편집 모드에서 select/input 으로 그 자리 편집(CourseMeta 저장). country 는 편집 시에만 노출.
+  const statFields: { key: keyof IntroData; label: string; options?: string[]; display?: string; editOnly?: boolean }[] = [
+    { key: "audience", label: "수강 대상", options: ["초등학생", "중학생", "고등학생", "학부모"] },
+    { key: "format", label: "형식", options: ["자기주도학습", "관리형학습", "실시간수업", "세미나"] },
+    { key: "deliveryMode", label: "방식", options: ["온라인", "오프라인"] },
+    { key: "classDays", label: "수업 일정", display: scheduleShort ?? undefined },
+    { key: "periodLabel", label: "수강 기간" },
+    { key: "country", label: "국가", options: ["한국", "호치민", "하노이", "상해", "북경", "자카르타", "싱가포르"], editOnly: true },
+  ];
+  const statVisible = (f: { key: keyof IntroData; display?: string; editOnly?: boolean }) => f.display ?? (intro[f.key] as string | undefined);
 
   // 세부 목표 리스트 — 줄바꿈 구분, 관리자가 직접 입력한 앞머리 번호(1. / 1)) 는 제거하고 자체 번호로 렌더
   const objectiveList = (intro.objectives ?? "")
@@ -212,13 +214,8 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                   커리큘럼 편집
                 </Link>
               ) : null}
-              {!edit ? (
-                <button type="button" onClick={() => setEditing(true)} className="rounded-full border px-4 py-1.5 text-[13px] font-semibold transition hover:bg-white" style={{ borderColor: BROWN, color: BROWN }}>
-                  강좌 정보 편집
-                </button>
-              ) : null}
               <button type="button" onClick={() => (edit ? setEdit(false) : enterEdit())} className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-white transition hover:opacity-90" style={{ background: edit ? DEEP : BROWN }}>
-                {edit ? "편집 완료" : "화면 직접 편집"}
+                {edit ? "편집 완료" : "편집"}
               </button>
             </div>
           ) : null}
@@ -237,14 +234,27 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
           ) : intro.subtitle ? (
             <p className="mt-3 text-[16px] leading-7" style={{ color: SUB }}>{intro.subtitle}</p>
           ) : null}
-          {stats.length > 0 ? (
+          {edit || statFields.some((f) => !f.editOnly && statVisible(f)) ? (
             <div className="mt-9 flex flex-wrap gap-x-12 gap-y-5 border-t pt-6" style={{ borderColor: "rgba(140,110,89,0.2)" }}>
-              {stats.map(([k, v]) => (
-                <div key={k} className="min-w-0">
-                  <p className="text-[12.5px]" style={{ color: SUB }}>{k}</p>
-                  <p className="mt-1.5 text-[15px] font-semibold" style={{ color: DEEP }}>{v}</p>
-                </div>
-              ))}
+              {statFields.filter((f) => edit || (!f.editOnly && statVisible(f))).map((f) => {
+                const val = (intro[f.key] as string | undefined) ?? "";
+                return (
+                  <div key={f.key} className="min-w-0">
+                    <p className="text-[12.5px]" style={{ color: SUB }}>{f.label}</p>
+                    {edit ? (
+                      f.options ? (
+                        <select value={val || f.options[0]} onChange={(e) => commit(f.key, e.target.value)} className="mt-1.5 rounded-[8px] border border-dashed bg-white/70 px-2.5 py-1.5 text-[14px] font-semibold outline-none focus:border-[#8C6E59]" style={{ color: DEEP, borderColor: LINE }}>
+                          {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <input defaultValue={val} key={`st-${String(f.key)}-${val}`} onBlur={(e) => commit(f.key, e.target.value)} placeholder={f.label} className="mt-1.5 w-48 rounded-[8px] border border-dashed bg-white/70 px-2.5 py-1.5 text-[14px] font-semibold outline-none focus:border-[#8C6E59]" style={{ color: DEEP, borderColor: LINE }} />
+                      )
+                    ) : (
+                      <p className="mt-1.5 text-[15px] font-semibold" style={{ color: DEEP }}>{f.display ?? val}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -450,82 +460,6 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
         </div>
       </div>
 
-      {editing && isAdmin ? (
-        <CourseEditModal courseId={courseId} intro={intro} onClose={() => setEditing(false)} onSaved={(next) => setIntro((p) => (p ? { ...p, ...next } : p))} />
-      ) : null}
-    </div>
-  );
-}
-
-function CourseEditModal({ courseId, intro, onClose, onSaved }: { courseId: string; intro: IntroData; onClose: () => void; onSaved: (next: Partial<IntroData>) => void }) {
-  const [f, setF] = useState({
-    programme: intro.programme ?? "",
-    title: intro.title ?? "",
-    subtitle: intro.subtitle ?? "",
-    objectives: intro.objectives ?? "",
-    summary: intro.summary ?? "",
-    audience: intro.audience ?? "",
-    format: intro.format ?? "실시간수업",
-    deliveryMode: intro.deliveryMode ?? "온라인",
-    classDays: intro.classDays ?? "",
-    periodLabel: intro.periodLabel ?? "",
-    country: intro.country ?? "",
-    realtimeInfo: intro.realtimeInfo ?? "",
-  });
-  const [saving, setSaving] = useState(false);
-  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
-  const inputCls = "mt-1 w-full rounded-[8px] border bg-white px-3 py-2 text-[14px] outline-none focus:border-[#8C6E59]";
-  async function save() {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/courses/${courseId}/meta`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
-      if (res.ok) { onSaved(f); onClose(); }
-    } catch {
-      /* 무시 */
-    } finally {
-      setSaving(false);
-    }
-  }
-  const rows: { key: keyof typeof f; label: string; area?: boolean; options?: string[]; placeholder?: string; rows?: number }[] = [
-    { key: "programme", label: "상단 라벨(교육과정 등)" },
-    { key: "title", label: "강좌명" },
-    { key: "subtitle", label: "강좌 목표(부제)" },
-    { key: "objectives", label: "세부 목표 (한 줄에 하나씩 · 엔터로 줄 추가)", area: true, rows: 5, placeholder: "예)\n벡터·행렬을 정의하고 계산할 수 있다.\n고유값·고유벡터를 직접 구할 수 있다.\n특이값 분해로 데이터를 차원 축소할 수 있다." },
-    { key: "summary", label: "강좌 설명", area: true },
-    { key: "audience", label: "수강 대상" },
-    { key: "format", label: "형식", options: ["자기주도학습", "관리형학습", "실시간수업", "세미나"] },
-    { key: "deliveryMode", label: "방식", options: ["온라인", "오프라인"] },
-    { key: "classDays", label: "수업 일정" },
-    { key: "periodLabel", label: "수강 기간" },
-    { key: "country", label: "국가" },
-    { key: "realtimeInfo", label: "실시간 수업 안내", area: true },
-  ];
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-[16px] bg-white p-6" style={{ border: `1px solid ${LINE}` }} onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-[18px] font-semibold" style={{ ...serif, color: INK }}>강좌 정보 편집</h3>
-        <p className="mt-1 text-[12.5px]" style={{ color: SUB }}>관리자만 보입니다. 마감일·상태는 홈 강좌 목록에서 수정하세요.</p>
-        <div className="mt-4 space-y-3">
-          {rows.map((r) => (
-            <label key={r.key} className="block">
-              <span className="text-[13px] font-semibold" style={{ color: INK }}>{r.label}</span>
-              {r.options ? (
-                <select value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} className={inputCls} style={{ borderColor: LINE, color: BODY }}>
-                  {r.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : r.area ? (
-                <textarea value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} rows={r.rows ?? 4} placeholder={r.placeholder} className={`${inputCls} resize-y leading-7`} style={{ borderColor: LINE, color: BODY }} />
-              ) : (
-                <input value={f[r.key]} onChange={(e) => set(r.key, e.target.value)} placeholder={r.placeholder} className={inputCls} style={{ borderColor: LINE, color: BODY }} />
-              )}
-            </label>
-          ))}
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-[8px] border px-4 py-2 text-[14px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
-          <button type="button" onClick={save} disabled={saving} className="rounded-[8px] px-5 py-2 text-[14px] font-bold text-white disabled:opacity-60" style={{ background: BROWN }}>{saving ? "저장 중…" : "저장"}</button>
-        </div>
-      </div>
     </div>
   );
 }
