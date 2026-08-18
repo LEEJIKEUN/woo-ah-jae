@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { getCourse, courseFirstClassMs, dateStrToKstMs } from "./content";
+import { loadDbCourse } from "./db-course";
 
 export type CourseStatus = "private" | "prep" | "open" | "full" | "ongoing";
 export const STATUS_ORDER: CourseStatus[] = ["private", "prep", "open", "full", "ongoing"];
@@ -121,6 +123,38 @@ export type CourseMetaPatch = Partial<{
   deadline: string | null; // ISO or "" to clear
   status: CourseStatus;
 }>;
+
+/** 강좌 첫 수업일(가장 이른 주차/시작일, KST 00:00)의 절대시각(ms). 하드코딩=주차, DB=fromDate. 없으면 null. */
+export async function firstClassMsById(courseId: string): Promise<number | null> {
+  const hard = getCourse(courseId);
+  if (hard) return courseFirstClassMs(hard);
+  const db = await loadDbCourse(courseId);
+  return db ? dateStrToKstMs(db.fromDate) : null;
+}
+
+/**
+ * 정원 마감(full) 상태가 첫 수업일 00:00 을 지났으면 진행중(ongoing)으로 자동 승격.
+ * (순수 함수 — 저장은 별도. 어디서 상태를 읽든 동일 규칙을 적용하기 위함.)
+ */
+export function autoAdvanceStatus(stored: CourseStatus, firstClassMs: number | null, nowMs: number = Date.now()): CourseStatus {
+  if (stored === "full" && firstClassMs != null && nowMs >= firstClassMs) return "ongoing";
+  return stored;
+}
+
+/** 저장된 상태에 자동 승격 규칙을 적용하고, 승격이 발생하면 DB 에도 반영(best-effort) 후 실효 상태 반환. */
+export async function resolveCourseStatus(courseId: string, stored: CourseStatus): Promise<CourseStatus> {
+  if (stored !== "full") return stored; // full 일 때만 시간 승격 대상
+  const firstClassMs = await firstClassMsById(courseId);
+  const eff = autoAdvanceStatus(stored, firstClassMs);
+  if (eff !== stored) {
+    try {
+      await setCourseStatus(courseId, eff, !!getCourse(courseId));
+    } catch {
+      /* 승격 저장 실패는 무시(다음 조회 때 재시도) */
+    }
+  }
+  return eff;
+}
 
 /** 강좌 상태만 설정 — 하드코딩 강좌면 CourseMeta upsert, DB 강좌면 CourseDb 직접. (정원 마감 자동 전환 등) */
 export async function setCourseStatus(courseId: string, status: CourseStatus, isHardcoded: boolean): Promise<void> {

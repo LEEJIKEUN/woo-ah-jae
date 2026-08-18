@@ -1,6 +1,6 @@
 import { getCourse, courseActivityHref, isModuleLocked, weekOpenLabel, weekPeriodLabel } from "@/lib/course/content";
 import { canEnterClassroom, getSession, isStaffRole } from "@/lib/course/access";
-import { getCourseMeta, getCourseDeadline, isEnrollmentClosed } from "@/lib/course/meta-store";
+import { getCourseMeta, getCourseDeadline, isEnrollmentClosed, resolveCourseStatus, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import CourseIntro from "./CourseIntro";
 import type { IntroData } from "./CourseIntro";
@@ -90,11 +90,15 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   const isFacilitator = !!session && session.role === "FACILITATOR";
   const closed = isEnrollmentClosed(await getCourseDeadline(courseId));
 
-  // 접수중(open)이 아니면 신규 수강신청 차단 + 안내 문구
-  const ENROLL_BLOCK_UI: Record<string, { label: string; message: string }> = {
-    ongoing: { label: "진행 중 — 신청 마감", message: "이미 진행 중인 강좌라 새로운 수강신청은 받지 않습니다." },
-    full: { label: "정원 마감", message: "정원(20명)이 모두 찼어요. 수강신청이 마감되었습니다." },
-    prep: { label: "오픈 준비 중", message: "곧 접수를 시작합니다. 잠시만 기다려 주세요." },
+  // 정원 마감(full)은 첫 수업일 00:00 을 지나면 '진행중'으로 자동 승격(+DB 반영)
+  if (resolvedStatus === "full") resolvedStatus = await resolveCourseStatus(courseId, "full" as CourseStatus);
+
+  // 접수중(open)이 아니면 신규 수강신청 차단 + 상태 라벨/안내
+  // statusLabel = 신청 현황의 짧은 상태, message = 있을 때만 안내 박스 노출(마감은 '20/20 · 마감' 으로 충분)
+  const ENROLL_BLOCK_UI: Record<string, { label: string; statusLabel: string; message?: string }> = {
+    ongoing: { label: "진행 중 — 신청 마감", statusLabel: "진행 중", message: "이미 진행 중이라 신청을 받지 않습니다." },
+    full: { label: "정원 마감", statusLabel: "마감" },
+    prep: { label: "오픈 준비 중", statusLabel: "오픈 준비 중", message: "곧 접수를 시작합니다. 잠시만 기다려 주세요." },
   };
   const enrollBlock = ENROLL_BLOCK_UI[resolvedStatus] ?? null;
 

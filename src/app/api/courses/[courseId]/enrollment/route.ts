@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
-import { getCourseDeadline, getCourseMeta, isEnrollmentClosed, setCourseStatus } from "@/lib/course/meta-store";
+import { getCourseDeadline, getCourseMeta, isEnrollmentClosed, setCourseStatus, firstClassMsById, autoAdvanceStatus, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
@@ -21,14 +21,16 @@ const ENROLL_BLOCK_MSG: Record<string, string> = {
   ongoing: "이미 진행 중인 강좌라 새로운 수강신청을 받지 않습니다.",
 };
 
-/** 강좌의 실효 노출 상태(메타 > 하드코딩 defaultStatus > DB > 기본 open). */
+/** 강좌의 실효 노출 상태(메타 > 하드코딩 defaultStatus > DB > 기본 open). full 은 첫 수업일 지나면 ongoing. */
 async function effectiveStatus(courseId: string): Promise<string> {
   const meta = await getCourseMeta(courseId);
-  if (meta?.status) return meta.status;
   const hard = getCourse(courseId);
-  if (hard) return hard.defaultStatus ?? "open";
-  const db = await loadDbCourse(courseId);
-  return db?.status ?? "open";
+  let stored: string;
+  if (meta?.status) stored = meta.status;
+  else if (hard) stored = hard.defaultStatus ?? "open";
+  else { const db = await loadDbCourse(courseId); stored = db?.status ?? "open"; }
+  if (stored === "full") return autoAdvanceStatus("full" as CourseStatus, await firstClassMsById(courseId));
+  return stored;
 }
 
 async function sessionFromReq(request: NextRequest) {
@@ -76,10 +78,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // 구독 중인 모든 SSE 스트림에 즉시 푸시
   publishEnrollment(courseId, { applied: result.applied, capacity, full: result.full });
 
-  // 정원(20명) 도달 시 자동으로 '진행중' 전환 → 이후 신규 신청 차단
+  // 정원(20명) 도달 시 자동으로 '마감(full)' 전환 → 이후 신규 신청 차단.
+  // (마감 상태는 첫 수업일 00:00 에 '진행중'으로 자동 승격된다 — resolveCourseStatus)
   if (result.ok && result.full && capacity < 999) {
     try {
-      await setCourseStatus(courseId, "ongoing", !!getCourse(courseId));
+      await setCourseStatus(courseId, "full", !!getCourse(courseId));
     } catch {
       /* 상태 전환 실패는 신청 성공을 막지 않음 */
     }

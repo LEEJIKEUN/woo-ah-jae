@@ -44,7 +44,7 @@ const SECTIONS = [
   { id: "lessons", label: "강좌 차시" },
 ] as const;
 
-export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, closed = false, editHref, enrollBlock = null }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; closed?: boolean; editHref?: string; enrollBlock?: { label: string; message: string } | null }) {
+export default function CourseIntro({ seed, courseId, authed = false, enrolled: enrolledInitial = false, isAdmin = false, isFacilitator = false, closed = false, editHref, enrollBlock = null }: { seed: IntroData | null; courseId: string; authed?: boolean; enrolled?: boolean; isAdmin?: boolean; isFacilitator?: boolean; closed?: boolean; editHref?: string; enrollBlock?: { label: string; statusLabel: string; message?: string } | null }) {
   const [intro, setIntro] = useState<IntroData | null>(seed);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -376,8 +376,8 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                 </button>
               )}
 
-              {!enrolled && !isFacilitator && enrollBlock ? (
-                <p className="mt-3 rounded-[10px] px-3.5 py-2.5 text-[13px] leading-6" style={{ background: "#FBF3EE", color: "#a6402c", border: "1px solid #F0D9CF" }}>{enrollBlock.message}</p>
+              {!enrolled && !isFacilitator && enrollBlock?.message ? (
+                <p className="mt-3 whitespace-nowrap rounded-[10px] px-3.5 py-2.5 text-center text-[12.5px]" style={{ background: "#FBF3EE", color: "#a6402c", border: "1px solid #F0D9CF" }}>{enrollBlock.message}</p>
               ) : null}
 
               <div className="mt-6 rounded-[16px] border p-6" style={{ borderColor: LINE }}>
@@ -399,7 +399,7 @@ export default function CourseIntro({ seed, courseId, authed = false, enrolled: 
                     </p>
                     <p className="mt-4 flex items-center gap-1.5 text-[14px] font-bold" style={{ color: enrolled ? BROWN : (enrollBlock || full || closed) ? "#a6402c" : "#3E7E5B" }}>
                       <span style={{ fontSize: 10 }}>●</span>
-                      {enrolled ? "수강신청 완료" : enrollBlock ? enrollBlock.label : closed ? "신청 마감" : full ? "모집 마감" : "모집 중"}
+                      {enrolled ? "수강신청 완료" : enrollBlock ? enrollBlock.statusLabel : closed ? "신청 마감" : full ? "모집 마감" : "모집 중"}
                     </p>
                   </>
                 ) : null}

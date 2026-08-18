@@ -480,3 +480,18 @@ export function weekOpenLabel(weekStart: string): string {
   const [y, m, d] = weekStart.split("-").map(Number);
   return `${fmtMD(y, m, d)} 오픈`;
 }
+
+/** 강좌 첫 수업일(가장 이른 주차 시작, KST 00:00)의 절대시각(ms). 주차 정보 없으면 null. */
+export function courseFirstClassMs(course: Course): number | null {
+  const starts = course.modules
+    .map((m) => m.weekStart)
+    .filter((w): w is string => !!w)
+    .map(weekActivationMs);
+  return starts.length ? Math.min(...starts) : null;
+}
+
+/** "YYYY-MM-DD" → 그 날 KST 00:00 의 절대시각(ms). 형식이 아니면 null. */
+export function dateStrToKstMs(dateStr: string | null | undefined): number | null {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  return weekActivationMs(dateStr);
+}
