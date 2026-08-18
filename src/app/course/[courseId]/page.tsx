@@ -60,7 +60,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
         openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
         sessions: m.blocks
           .flatMap((b) => b.activities)
-          .map((a) => ({ id: a.id, title: a.title, scheduleLabel: a.scheduleLabel })),
+          .map((a) => ({ id: a.id, title: a.title, scheduleLabel: a.scheduleLabel, durationMin: a.durationMin })),
       })),
       firstHref: activities[0] ? courseActivityHref(course.id, activities[0].id) : undefined,
     };

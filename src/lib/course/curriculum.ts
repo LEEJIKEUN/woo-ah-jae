@@ -13,7 +13,7 @@ import { getCourse, allActivities, type Course, type Module, type Activity, type
  */
 const CURRICULUM_KEY = "__curriculum__";
 
-export type OverrideSession = { id: string; title: string; scheduleLabel?: string; kind?: string };
+export type OverrideSession = { id: string; title: string; scheduleLabel?: string; durationMin?: number; kind?: string };
 export type OverrideModule = { id: string; label: string; weekStart?: string; weekEnd?: string; sessions: OverrideSession[] };
 
 export function newCurriculumId(prefix: string): string {
@@ -39,6 +39,7 @@ function cleanModules(mods: OverrideModule[]): OverrideModule[] {
           id: String(s.id || newCurriculumId("s")).slice(0, 80),
           title: String(s.title ?? "").slice(0, 300),
           scheduleLabel: s.scheduleLabel ? String(s.scheduleLabel).slice(0, 120) : undefined,
+          durationMin: typeof s.durationMin === "number" && s.durationMin > 0 ? Math.min(600, Math.floor(s.durationMin)) : undefined,
           kind: s.kind === "assignment" || s.kind === "resource" || s.kind === "forum" ? s.kind : undefined,
         }))
         .filter((s) => s.title || s.scheduleLabel),
@@ -82,7 +83,7 @@ export function hardcodedOverride(course: Course): OverrideModule[] {
     label: m.label,
     weekStart: m.weekStart,
     weekEnd: m.weekEnd,
-    sessions: m.blocks.flatMap((b) => b.activities).map((a) => ({ id: a.id, title: a.title, scheduleLabel: a.scheduleLabel, kind: a.kind })),
+    sessions: m.blocks.flatMap((b) => b.activities).map((a) => ({ id: a.id, title: a.title, scheduleLabel: a.scheduleLabel, durationMin: a.durationMin, kind: a.kind })),
   }));
 }
 
@@ -99,8 +100,8 @@ function overrideToModules(base: Course, override: OverrideModule[]): Module[] {
         banner: m.label,
         activities: m.sessions.map((s): Activity => {
           const hard = hardActs.get(s.id);
-          if (hard) return { ...hard, title: s.title || hard.title, scheduleLabel: s.scheduleLabel ?? hard.scheduleLabel };
-          return { id: s.id, kind: (s.kind as ActivityKind) ?? "page", title: s.title, scheduleLabel: s.scheduleLabel, completion: "auto", body: [], materials: [] };
+          if (hard) return { ...hard, title: s.title || hard.title, scheduleLabel: s.scheduleLabel ?? hard.scheduleLabel, durationMin: s.durationMin ?? hard.durationMin };
+          return { id: s.id, kind: (s.kind as ActivityKind) ?? "page", title: s.title, scheduleLabel: s.scheduleLabel, durationMin: s.durationMin, completion: "auto", body: [], materials: [] };
         }),
       },
     ],

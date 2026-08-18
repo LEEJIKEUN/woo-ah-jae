@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/lib/guards";
 import { getCourse } from "@/lib/course/content";
-import { setCurriculumOverride, getCurriculumOverride, hardcodedOverride, type OverrideModule } from "@/lib/course/curriculum";
+import { getSession, canEnterClassroom } from "@/lib/course/access";
+import { setCurriculumOverride, getCurriculumOverride, type OverrideModule } from "@/lib/course/curriculum";
 
 export const dynamic = "force-dynamic";
 
-/** 현재 커리큘럼(오버라이드 있으면 그것, 없으면 하드코딩) — 편집 초기값. 관리자 전용. */
+/** 저장된 커리큘럼 오버라이드(없으면 null=하드코딩 사용) — 강의실 사이드바 동기화용. 강의실 구성원. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   try {
-    await requireAdmin(request);
     const { courseId } = await params;
-    const base = getCourse(courseId);
-    if (!base) return NextResponse.json({ error: "하드코딩 강좌만 커리큘럼 편집을 지원합니다." }, { status: 404 });
+    if (!getCourse(courseId)) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
+    const session = await getSession();
+    if (!(await canEnterClassroom(courseId, session))) return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     const override = await getCurriculumOverride(courseId);
-    return NextResponse.json({ modules: override ?? hardcodedOverride(base), overridden: !!override });
+    return NextResponse.json({ override: override ?? null });
   } catch (error) {
     return jsonError(error);
   }

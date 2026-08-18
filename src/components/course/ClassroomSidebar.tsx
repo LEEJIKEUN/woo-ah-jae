@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Lock, ClipboardCheck, Menu, X } from "lucide-react";
-import { getCourse, isModuleLocked, weekOpenLabel, type Course } from "@/lib/course/content";
+import { getCourse, isModuleLocked, weekOpenLabel, weekActivationMs, type Course } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
 import CourseSummaryBox from "@/components/course/CourseSummaryBox";
@@ -67,6 +67,32 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
       if (s) setRoom(fromStored(s));
     }
   }, [courseId, seedRoom]);
+
+  // 관리자가 편집한 커리큘럼 오버라이드가 있으면 사이드바 커리큘럼도 그것으로 교체(없으면 하드코딩 유지)
+  useEffect(() => {
+    if (!seedRoom) return; // 하드코딩 강좌만 대상
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/curriculum`, { cache: "no-store" });
+        if (!res.ok) return;
+        const d = (await res.json()) as { override?: { label: string; weekStart?: string; sessions: { id: string; title: string }[] }[] | null };
+        if (!alive || !d.override) return;
+        const nowMs = Date.now();
+        const mods: ClassModule[] = d.override.map((m) => ({
+          label: m.label,
+          locked: !!m.weekStart && !isStaff && nowMs < weekActivationMs(m.weekStart),
+          openLabel: m.weekStart ? weekOpenLabel(m.weekStart) : undefined,
+          completableIds: m.sessions.map((s) => s.id),
+          lessons: m.sessions.map((s) => ({ id: s.id, title: s.title })),
+        }));
+        setRoom((prev) => (prev ? { ...prev, modules: mods } : prev));
+      } catch {
+        /* 무시 — 하드코딩 유지 */
+      }
+    })();
+    return () => { alive = false; };
+  }, [courseId, isStaff, seedRoom]);
 
   if (!room) return null;
   return (

@@ -16,7 +16,7 @@ const PANEL = "#FBF8F2";
 const serif = { fontFamily: "var(--font-serif)" } as const;
 const heroGrad = "linear-gradient(180deg, #F7F1E6 0%, #F0E6D5 100%)";
 
-export type IntroSession = { id?: string; title: string; scheduleLabel?: string };
+export type IntroSession = { id?: string; title: string; scheduleLabel?: string; durationMin?: number };
 export type IntroModule = { id?: string; label: string; weekStart?: string; weekEnd?: string; period?: string; locked?: boolean; openLabel?: string; sessions: IntroSession[] };
 export type IntroData = {
   id: string;
@@ -474,7 +474,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 /* ── 강좌 차시(커리큘럼) 인라인 에디터 — 저장 시 강의실·출석·이수에 그대로 반영 ── */
-type EditSession = { id: string; title: string; scheduleLabel: string };
+type EditSession = { id: string; title: string; scheduleLabel: string; durationMin: string };
 type EditModule = { id: string; label: string; weekStart: string; sessions: EditSession[] };
 
 function CurriculumEditor({ courseId, initial, onChange }: { courseId: string; initial: IntroModule[]; onChange: (mods: IntroModule[]) => void }) {
@@ -483,18 +483,18 @@ function CurriculumEditor({ courseId, initial, onChange }: { courseId: string; i
       id: m.id || newId("m"),
       label: m.label,
       weekStart: m.weekStart || "",
-      sessions: m.sessions.map((s) => ({ id: s.id || newId("s"), title: s.title, scheduleLabel: s.scheduleLabel || "" })),
+      sessions: m.sessions.map((s) => ({ id: s.id || newId("s"), title: s.title, scheduleLabel: s.scheduleLabel || "", durationMin: s.durationMin ? String(s.durationMin) : "" })),
     }))
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "done" | "error">("idle");
 
   const toIntro = (ms: EditModule[]): IntroModule[] =>
-    ms.map((m) => ({ id: m.id, label: m.label, weekStart: m.weekStart || undefined, sessions: m.sessions.map((s) => ({ id: s.id, title: s.title, scheduleLabel: s.scheduleLabel || undefined })) }));
+    ms.map((m) => ({ id: m.id, label: m.label, weekStart: m.weekStart || undefined, sessions: m.sessions.map((s) => ({ id: s.id, title: s.title, scheduleLabel: s.scheduleLabel || undefined, durationMin: s.durationMin ? Number(s.durationMin) : undefined })) }));
 
   async function doSave(ms: EditModule[]) {
     setSaveState("saving");
     try {
-      const payload = { modules: ms.map((m) => ({ id: m.id, label: m.label.trim(), weekStart: m.weekStart || undefined, sessions: m.sessions.map((s) => ({ id: s.id, title: s.title.trim(), scheduleLabel: s.scheduleLabel.trim() || undefined })) })) };
+      const payload = { modules: ms.map((m) => ({ id: m.id, label: m.label.trim(), weekStart: m.weekStart || undefined, sessions: m.sessions.map((s) => ({ id: s.id, title: s.title.trim(), scheduleLabel: s.scheduleLabel.trim() || undefined, durationMin: s.durationMin ? Number(s.durationMin) : undefined })) })) };
       const res = await fetch(`/api/courses/${courseId}/curriculum`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       setSaveState(res.ok ? "done" : "error");
     } catch {
@@ -511,14 +511,14 @@ function CurriculumEditor({ courseId, initial, onChange }: { courseId: string; i
 
   const patchMod = (mi: number, patch: Partial<EditModule>) => apply(mods.map((m, i) => (i === mi ? { ...m, ...patch } : m)));
   const patchSess = (mi: number, si: number, patch: Partial<EditSession>) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: m.sessions.map((s, j) => (j === si ? { ...s, ...patch } : s)) } : m)));
-  const addSess = (mi: number) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: [...m.sessions, { id: newId("s"), title: "", scheduleLabel: "" }] } : m)), true);
+  const addSess = (mi: number) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: [...m.sessions, { id: newId("s"), title: "", scheduleLabel: "", durationMin: "" }] } : m)), true);
   const delSess = (mi: number, si: number) => apply(mods.map((m, i) => (i === mi ? { ...m, sessions: m.sessions.filter((_, j) => j !== si) } : m)), true);
   const moveSess = (mi: number, si: number, dir: -1 | 1) => {
     const m = mods[mi]; const j = si + dir; if (j < 0 || j >= m.sessions.length) return;
     const ss = m.sessions.slice(); [ss[si], ss[j]] = [ss[j], ss[si]];
     apply(mods.map((mm, i) => (i === mi ? { ...mm, sessions: ss } : mm)), true);
   };
-  const addMod = () => apply([...mods, { id: newId("m"), label: "", weekStart: "", sessions: [{ id: newId("s"), title: "", scheduleLabel: "" }] }], true);
+  const addMod = () => apply([...mods, { id: newId("m"), label: "", weekStart: "", sessions: [{ id: newId("s"), title: "", scheduleLabel: "", durationMin: "" }] }], true);
   const delMod = (mi: number) => { if (!confirm("이 주차(모듈)를 삭제할까요? 안의 차시도 함께 목록에서 제거됩니다.")) return; apply(mods.filter((_, i) => i !== mi), true); };
   const moveMod = (mi: number, dir: -1 | 1) => { const j = mi + dir; if (j < 0 || j >= mods.length) return; const ms = mods.slice(); [ms[mi], ms[j]] = [ms[j], ms[mi]]; apply(ms, true); };
 
@@ -550,7 +550,11 @@ function CurriculumEditor({ courseId, initial, onChange }: { courseId: string; i
               {m.sessions.map((s, si) => (
                 <div key={s.id} className="flex items-center gap-2">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold" style={{ background: PANEL, color: BROWN }}>{si + 1}</span>
-                  <input value={s.scheduleLabel} onChange={(e) => patchSess(mi, si, { scheduleLabel: e.target.value })} onBlur={saveNow} placeholder="일시(예: 8.17.(월) 19:00)" className="w-40 shrink-0 rounded-[8px] border bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BROWN }} />
+                  <input value={s.scheduleLabel} onChange={(e) => patchSess(mi, si, { scheduleLabel: e.target.value })} onBlur={saveNow} placeholder="일시(예: 8.17.(월) 19:00)" className="w-36 shrink-0 rounded-[8px] border bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BROWN }} />
+                  <div className="flex shrink-0 items-center gap-1">
+                    <input type="number" min={0} value={s.durationMin} onChange={(e) => patchSess(mi, si, { durationMin: e.target.value })} onBlur={saveNow} placeholder="운영시간" title="운영시간(분)" className="w-20 rounded-[8px] border bg-white px-2 py-1.5 text-[13px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BODY }} />
+                    <span className="text-[12px]" style={{ color: SUB }}>분</span>
+                  </div>
                   <input value={s.title} onChange={(e) => patchSess(mi, si, { title: e.target.value })} onBlur={saveNow} placeholder="차시 제목 (예: 1강 · 극한과 연속)" className="min-w-0 flex-1 rounded-[8px] border bg-white px-3 py-1.5 text-[14px] outline-none focus:border-[#8C6E59]" style={{ borderColor: LINE, color: BODY }} />
                   <button type="button" onClick={() => moveSess(mi, si, -1)} disabled={si === 0} title="위로" className={mBtn} style={{ borderColor: LINE, color: SUB }}>↑</button>
                   <button type="button" onClick={() => moveSess(mi, si, 1)} disabled={si === m.sessions.length - 1} title="아래로" className={mBtn} style={{ borderColor: LINE, color: SUB }}>↓</button>
