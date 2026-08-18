@@ -6,6 +6,7 @@ import Footer from "@/components/nav/Footer";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import MaintenanceBanner from "@/components/system/MaintenanceBanner";
+import StyleGuard from "@/components/system/StyleGuard";
 import ParentLinkRequests from "@/components/account/ParentLinkRequests";
 import "./globals.css";
 
@@ -72,6 +73,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="ko">
       <body id="top" className={`${notoSansKr.variable} ${notoSerifKr.variable} min-h-screen antialiased`}>
+        <StyleGuard />
         <MaintenanceBanner />
         <Header
           session={
