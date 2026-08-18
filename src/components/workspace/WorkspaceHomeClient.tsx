@@ -498,7 +498,7 @@ export default function WorkspaceHomeClient(props: Props) {
               onChange={(e) => setInput(e.target.value)}
               rows={3}
               className="w-full rounded-md border border-slate-200/80 bg-[color:var(--surface)] px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400"
-              placeholder="메시지를 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)"
+              placeholder="메시지를 입력하세요 (Enter 전송 · 줄바꿈 ⇧/Shift+Enter)"
               onKeyDown={async (e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

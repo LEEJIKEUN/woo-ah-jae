@@ -980,7 +980,7 @@ export default function MentoringView({
                       void send();
                     }
                   }}
-                  placeholder={uploadingChat ? "파일 업로드 중…" : "메시지 입력 후 Enter (줄바꿈: ⌘/Alt+Enter)"}
+                  placeholder={uploadingChat ? "파일 업로드 중…" : "메시지 입력 후 Enter (줄바꿈: ⇧/Shift+Enter)"}
                   className="max-h-32 flex-1 resize-none rounded-[8px] border px-3 py-2 text-[13px] leading-6 outline-none [field-sizing:content] focus:border-[#8C6E59]"
                   style={{ borderColor: "#E7E2D6", color: BODY, minHeight: 40 }}
                 />

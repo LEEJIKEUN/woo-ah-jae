@@ -542,7 +542,7 @@ function CommentsSection({
       )}
 
       {canComment ? (
-        <CommentComposer members={members} placeholder="댓글을 입력하세요 (@이름 언급 가능)" onSubmit={(body, file) => onSubmit(body, null, file)} />
+        <CommentComposer members={members} placeholder="댓글을 입력하세요 (@이름 언급 · 줄바꿈 ⇧/Shift+Enter)" onSubmit={(body, file) => onSubmit(body, null, file)} />
       ) : null}
     </div>
   );
@@ -648,7 +648,7 @@ function CommentNode({
           <CommentComposer
             compact
             members={members}
-            placeholder="답글을 입력하세요 (@이름 언급 가능)"
+            placeholder="답글을 입력하세요 (@이름 언급 · 줄바꿈 ⇧/Shift+Enter)"
             onSubmit={async (body, file) => {
               const ok = await onSubmit(body, node.id, file);
               if (ok) setReplyingTo(null);
