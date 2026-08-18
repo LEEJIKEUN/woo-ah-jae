@@ -132,25 +132,42 @@ export async function firstClassMsById(courseId: string): Promise<number | null>
   return db ? dateStrToKstMs(db.fromDate) : null;
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
 /**
- * 정원 마감(full) 상태가 첫 수업일 00:00 을 지났으면 진행중(ongoing)으로 자동 승격.
- * (순수 함수 — 저장은 별도. 어디서 상태를 읽든 동일 규칙을 적용하기 위함.)
+ * 신청 마감 시각 = 신청마감일 '다음날' 00:00(KST). 마감일 당일까지는 신청 가능.
+ * (예: 마감일 9/1 → 9/2 00:00 KST 에 마감으로 전환) 없으면 null.
  */
-export function autoAdvanceStatus(stored: CourseStatus, firstClassMs: number | null, nowMs: number = Date.now()): CourseStatus {
-  if (stored === "full" && firstClassMs != null && nowMs >= firstClassMs) return "ongoing";
-  return stored;
+export function enrollmentCloseMs(deadlineISO: string | null | undefined): number | null {
+  if (!deadlineISO) return null;
+  const dt = new Date(deadlineISO);
+  if (Number.isNaN(dt.getTime())) return null;
+  return Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate() + 1) - KST_OFFSET_MS;
 }
 
-/** 저장된 상태에 자동 승격 규칙을 적용하고, 승격이 발생하면 DB 에도 반영(best-effort) 후 실효 상태 반환. */
+/**
+ * 시간 기반 상태 자동 전환(순수 함수 — 어디서 읽든 동일 규칙 적용):
+ *  1) 접수중(open) 인데 신청마감일이 지났으면 → 마감(full)  [정원 미충족이어도]
+ *  2) 마감(full) 인데 개강일(첫 수업일)이 지났으면 → 진행중(ongoing)
+ * 두 규칙은 연쇄 적용된다(마감일·개강일이 모두 지난 접수중 강좌 → 진행중).
+ */
+export function autoAdvanceStatus(stored: CourseStatus, firstClassMs: number | null, closeMs: number | null, nowMs: number = Date.now()): CourseStatus {
+  let s = stored;
+  if (s === "open" && closeMs != null && nowMs >= closeMs) s = "full";
+  if (s === "full" && firstClassMs != null && nowMs >= firstClassMs) s = "ongoing";
+  return s;
+}
+
+/** 저장된 상태에 자동 전환 규칙을 적용하고, 변경 시 DB 에도 반영(best-effort) 후 실효 상태 반환. */
 export async function resolveCourseStatus(courseId: string, stored: CourseStatus): Promise<CourseStatus> {
-  if (stored !== "full") return stored; // full 일 때만 시간 승격 대상
-  const firstClassMs = await firstClassMsById(courseId);
-  const eff = autoAdvanceStatus(stored, firstClassMs);
+  if (stored !== "open" && stored !== "full") return stored; // 시간 규칙 대상은 open/full 뿐
+  const [firstClassMs, deadlineISO] = await Promise.all([firstClassMsById(courseId), getCourseDeadline(courseId)]);
+  const eff = autoAdvanceStatus(stored, firstClassMs, enrollmentCloseMs(deadlineISO));
   if (eff !== stored) {
     try {
       await setCourseStatus(courseId, eff, !!getCourse(courseId));
     } catch {
-      /* 승격 저장 실패는 무시(다음 조회 때 재시도) */
+      /* 전환 저장 실패는 무시(다음 조회 때 재시도) */
     }
   }
   return eff;

@@ -89,8 +89,10 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
   const editHref = isAdmin && !course && seed ? `/course/${courseId}/edit` : undefined;
   const isFacilitator = !!session && session.role === "FACILITATOR";
 
-  // 정원 마감(full)은 첫 수업일 00:00 을 지나면 '진행중'으로 자동 승격(+DB 반영)
-  if (resolvedStatus === "full") resolvedStatus = await resolveCourseStatus(courseId, "full" as CourseStatus);
+  // 시간 자동 전환(+DB 반영): 접수중→(신청마감일 지남)→마감, 마감→(개강일 지남)→진행중
+  if (resolvedStatus === "open" || resolvedStatus === "full") {
+    resolvedStatus = await resolveCourseStatus(courseId, resolvedStatus as CourseStatus);
+  }
 
   // 접수중(open)이 아니면 신규 수강신청 차단 + 상태 라벨/안내
   // statusLabel = 신청 현황의 짧은 상태, message = 있을 때만 안내 박스 노출(마감은 '20/20 · 마감' 으로 충분)

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { getCourse } from "@/lib/course/content";
 import { isStaffRole } from "@/lib/course/access";
-import { getCourseMeta, setCourseStatus, firstClassMsById, autoAdvanceStatus, type CourseStatus } from "@/lib/course/meta-store";
+import { getCourseMeta, getCourseDeadline, setCourseStatus, firstClassMsById, autoAdvanceStatus, enrollmentCloseMs, type CourseStatus } from "@/lib/course/meta-store";
 import { loadDbCourse } from "@/lib/course/db-course";
 import { publishEnrollment } from "@/lib/enrollment-bus";
 import { enrollUser, getApplied, isUserEnrolled } from "@/lib/enrollment-store";
@@ -29,7 +29,10 @@ async function effectiveStatus(courseId: string): Promise<string> {
   if (meta?.status) stored = meta.status;
   else if (hard) stored = hard.defaultStatus ?? "open";
   else { const db = await loadDbCourse(courseId); stored = db?.status ?? "open"; }
-  if (stored === "full") return autoAdvanceStatus("full" as CourseStatus, await firstClassMsById(courseId));
+  if (stored === "open" || stored === "full") {
+    const [fc, dl] = await Promise.all([firstClassMsById(courseId), getCourseDeadline(courseId)]);
+    return autoAdvanceStatus(stored as CourseStatus, fc, enrollmentCloseMs(dl));
+  }
   return stored;
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { COURSES, courseFirstClassMs, dateStrToKstMs } from "@/lib/course/content";
-import { getAllCourseMeta, autoAdvanceStatus, type CourseStatus } from "@/lib/course/meta-store";
+import { getAllCourseMeta, autoAdvanceStatus, enrollmentCloseMs, type CourseStatus } from "@/lib/course/meta-store";
 import { listDbCourses } from "@/lib/course/db-course";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       country: m?.country ?? c.country ?? "한국",
       capacity: m?.capacity ?? 20,
       deadline: m?.deadline ?? null,
-      status: autoAdvanceStatus((m?.status ?? c.defaultStatus ?? "open") as CourseStatus, courseFirstClassMs(c)),
+      status: autoAdvanceStatus((m?.status ?? c.defaultStatus ?? "open") as CourseStatus, courseFirstClassMs(c), enrollmentCloseMs(m?.deadline)),
       href: `/course/${c.id}`,
     };
   });
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     country: c.country,
     capacity: c.capacity,
     deadline: c.deadline,
-    status: autoAdvanceStatus(c.status as CourseStatus, dateStrToKstMs(c.fromDate)),
+    status: autoAdvanceStatus(c.status as CourseStatus, dateStrToKstMs(c.fromDate), enrollmentCloseMs(c.deadline)),
     href: `/course/${c.slug}`,
   }));
 
