@@ -24,13 +24,27 @@ function fmtKst(iso: string | null | undefined): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
 type Student = { id: string; name: string };
-type Cell = { status: string; score?: number; total?: number };
+type Cell = { status: string; score?: number; total?: number; correct?: number; answered?: number; unanswered?: number; qCount?: number };
 type Roster = { exams: ExamCol[]; students: Student[]; cells: Record<string, Record<string, Cell>> };
 
 function CellView({ cell, onClick }: { cell: Cell | undefined; onClick?: () => void }) {
   if (!cell || cell.status === "unassigned") return <span className="text-[13px]" style={{ color: "#C9C2B4" }}>–</span>;
   if (cell.status === "not_started") return <span className="text-[12.5px]" style={{ color: SUB }}>미응시</span>;
-  if (cell.status === "in_progress") return <span className="text-[12.5px] font-semibold" style={{ color: "#B06B2E" }}>응시중</span>;
+  if (cell.status === "in_progress") {
+    // 실시간 진행: 맞춘 수 · 체크한 수/총문항 · 미응답 수
+    const q = cell.qCount ?? 0;
+    const answered = cell.answered ?? 0;
+    return (
+      <div className="flex flex-col items-center gap-[3px] leading-none">
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ color: "#B06B2E" }}>
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "#B06B2E" }} />응시중
+        </span>
+        <span className="text-[11px] font-bold tabular-nums" style={{ color: "#3E7E5B" }}>정답 {cell.correct ?? 0}</span>
+        <span className="text-[10.5px] tabular-nums" style={{ color: DEEP }}>체크 {answered}/{q}</span>
+        <span className="text-[10.5px] tabular-nums" style={{ color: SUB }}>미응답 {cell.unanswered ?? Math.max(0, q - answered)}</span>
+      </div>
+    );
+  }
   if (cell.status === "zero") {
     // 마감 후 미응시 → 0점. 클릭하면 문제·정답 리뷰(빈 답안)
     return (
@@ -67,6 +81,34 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
   }, [courseId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // 실시간 응시 현황(SSE) — 학생이 마킹/제출/응시시작하면 해당 셀 즉시 갱신
+  useEffect(() => {
+    const es = new EventSource(`/api/courses/${courseId}/exam/roster/stream`);
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data) as { type?: string; examId?: string; studentId?: string; cell?: Cell };
+        if (msg.type !== "cell" || !msg.examId || !msg.studentId || !msg.cell) return;
+        setData((prev) => {
+          if (!prev || !prev.cells[msg.studentId!]) return prev; // 현재 표에 있는 학생만 반영
+          return {
+            ...prev,
+            cells: { ...prev.cells, [msg.studentId!]: { ...prev.cells[msg.studentId!], [msg.examId!]: msg.cell! } },
+          };
+        });
+      } catch {
+        /* 무시 */
+      }
+    };
+    es.onerror = () => { /* 브라우저가 자동 재연결 */ };
+    return () => es.close();
+  }, [courseId]);
+
+  // 제출 수 실시간 집계(셀 상태 기준) — 헤더 "제출 X/Y" 를 새로고침 없이 갱신
+  const liveSubmitted = useCallback(
+    (examId: string) => (data ? data.students.filter((s) => { const st = data.cells[s.id]?.[examId]?.status; return st === "submitted" || st === "expired"; }).length : 0),
+    [data]
+  );
 
   async function deleteExam(examId: string, title: string) {
     if (!confirm(`'${title}' 시험을 삭제할까요?\n학생 응시·채점 기록과 업로드한 PDF까지 모두 삭제되며 되돌릴 수 없습니다.`)) return;
@@ -126,13 +168,13 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
                   <tr style={{ background: PANEL }}>
                     <th className="sticky left-0 z-10 min-w-[120px] border-b px-4 py-3 text-[13px] font-bold" style={{ borderColor: LINE, color: INK, background: PANEL }}>수강생</th>
                     {data.exams.map((e) => (
-                      <th key={e.id} className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 104 }}>
+                      <th key={e.id} className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 128 }}>
                         <div className="flex items-center justify-center gap-1">
                           <span className="truncate" title={e.title}>{e.title}</span>
                           <button type="button" onClick={() => router.push(`/course/${courseId}/exam/${e.id}/edit`)} title="시험 수정" className="shrink-0 rounded p-0.5 transition hover:bg-[#F1EADD]" style={{ color: BROWN }}><Pencil size={12} /></button>
                           <button type="button" onClick={() => void deleteExam(e.id, e.title)} title="시험 삭제" className="shrink-0 rounded p-0.5 transition hover:bg-[#F2ECEC]" style={{ color: "#B4544B" }}><Trash2 size={13} /></button>
                         </div>
-                        <div className="text-[11px] font-medium" style={{ color: SUB }}>제출 {e.submittedCount}/{e.assignedCount} · {e.total}점</div>
+                        <div className="text-[11px] font-medium" style={{ color: SUB }}>제출 {liveSubmitted(e.id)}/{e.assignedCount} · {e.total}점</div>
                         {e.opensAt || e.closesAt ? <div className="text-[10.5px] font-medium" style={{ color: SUB }}>{fmtKst(e.opensAt) || "즉시"}~{fmtKst(e.closesAt) || "무제한"}</div> : null}
                       </th>
                     ))}
@@ -167,7 +209,7 @@ export default function ExamRoster({ courseId }: { courseId: string }) {
               </table>
             </div>
           )}
-          <p className="mt-3 text-[12.5px]" style={{ color: SUB }}>점수를 누르면 해당 학생의 답안을 채점 결과(맞/틀)와 함께 볼 수 있습니다. 주관식은 자동채점이 표기와 다를 수 있어 확인이 필요합니다.</p>
+          <p className="mt-3 text-[12.5px]" style={{ color: SUB }}>응시 중인 학생은 <b style={{ color: "#B06B2E" }}>정답·체크·미응답 수</b>가 실시간으로 갱신됩니다(마킹 즉시 반영). 점수를 누르면 채점 결과(맞/틀)를 볼 수 있고, 주관식 자동채점은 표기와 다를 수 있어 확인이 필요합니다.</p>
         </div>
       </main>
     </div>

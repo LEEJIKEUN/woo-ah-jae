@@ -121,12 +121,14 @@ export function useAutosave({ url, attemptId, getAnswers, active, onLocked }: Pa
   );
 
   const markChanged = useCallback(
-    (questionNo: number) => {
+    (questionNo: number, opts?: { immediate?: boolean }) => {
       dirtyRef.current.add(questionNo);
       localUpdatedRef.current[questionNo] = Date.now();
       writeLocal(); // 즉시 로컬 백업
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => void flush(), DEBOUNCE_MS);
+      // 객관식 마킹 등 이산 변경은 즉시 저장 → 스태프 명렬표에 실시간 반영. 주관식 타이핑은 debounce.
+      if (opts?.immediate) void flush();
+      else debounceRef.current = setTimeout(() => void flush(), DEBOUNCE_MS);
     },
     [flush, writeLocal]
   );

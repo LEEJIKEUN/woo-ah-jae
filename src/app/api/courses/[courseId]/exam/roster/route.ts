@@ -3,6 +3,7 @@ import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { isStaffRole, isFacilitatorOfCourse } from "@/lib/course/access";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { gradeExam } from "@/lib/exam/grade";
+import { isAnswerFilled } from "@/lib/exam/progress";
 import { expireOverdueAttempts } from "@/lib/exam/store";
 import { prisma } from "@/lib/prisma";
 
@@ -42,8 +43,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const assignedSet = new Set(assigns.map((a) => `${a.examId}:${a.studentId}`));
     const terminalAttempts = attempts.filter((a) => a.status !== "in_progress");
-    const answers = terminalAttempts.length
-      ? await prisma.examAnswer.findMany({ where: { attemptId: { in: terminalAttempts.map((a) => a.id) } }, select: { attemptId: true, questionNo: true, choice: true, textAnswer: true } })
+    // 종료 응시(채점) + 진행중 응시(실시간 진행) 모두 답안 필요
+    const answers = attempts.length
+      ? await prisma.examAnswer.findMany({ where: { attemptId: { in: attempts.map((a) => a.id) } }, select: { attemptId: true, questionNo: true, choice: true, textAnswer: true } })
       : [];
     const ansByAttempt = new Map<string, { questionNo: number; choice: number | null; textAnswer: string | null }[]>();
     for (const a of answers) { const arr = ansByAttempt.get(a.attemptId) ?? []; arr.push(a); ansByAttempt.set(a.attemptId, arr); }
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // 셀 구성
     const now = new Date();
-    const cells: Record<string, Record<string, { status: string; score?: number; total?: number }>> = {};
+    const cells: Record<string, Record<string, { status: string; score?: number; total?: number; correct?: number; answered?: number; unanswered?: number; qCount?: number }>> = {};
     for (const s of students) {
       cells[s.id] = {};
       for (const e of exams) {
@@ -66,7 +68,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           cells[s.id][e.id] = closed ? { status: "zero", score: 0, total: examTotal } : { status: "not_started" };
           continue;
         }
-        if (at.status === "in_progress") { cells[s.id][e.id] = { status: "in_progress" }; continue; }
+        if (at.status === "in_progress") {
+          const qs = qByExam.get(e.id) ?? [];
+          const ans = ansByAttempt.get(at.id) ?? [];
+          const answered = ans.filter(isAnswerFilled).length;
+          const g = gradeExam(qs, ans);
+          cells[s.id][e.id] = { status: "in_progress", correct: g.correctCount, answered, unanswered: Math.max(0, qs.length - answered), qCount: qs.length };
+          continue;
+        }
         const g = gradeExam(qByExam.get(e.id) ?? [], ansByAttempt.get(at.id) ?? []);
         cells[s.id][e.id] = { status: at.status, score: g.score, total: g.total };
       }

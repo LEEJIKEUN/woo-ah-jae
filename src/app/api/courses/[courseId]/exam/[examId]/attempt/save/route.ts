@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { saveAnswers, type AnswerInput } from "@/lib/exam/store";
+import { notifyExamProgress } from "@/lib/exam/exam-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         // 시간 종료/제출됨 — 오류가 아니라 상태를 알려 클라가 읽기전용 전환하도록 200 으로 반환
         return NextResponse.json({ rejected: true, status: res.status });
       case "OK":
+        // 스태프 명렬표로 실시간 진행(맞춘 수·체크 수·미응답 수) 즉시 푸시 — 학생 응답은 지연시키지 않음
+        void notifyExamProgress(courseId, examId, auth.userId);
         return NextResponse.json({ ok: true, serverNow: res.serverNow, status: res.status, lastSavedAt: res.lastSavedAt, savedCount: res.savedCount });
     }
   } catch (error) {

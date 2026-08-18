@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { submitAttempt, type AnswerInput } from "@/lib/exam/store";
+import { notifyExamProgress } from "@/lib/exam/exam-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       case "NO_ATTEMPT":
         return NextResponse.json({ error: "응시 세션이 없습니다." }, { status: 409 });
       case "OK":
+        // 제출 완료 시 명렬표에 점수(채점 결과) 즉시 반영
+        void notifyExamProgress(courseId, examId, auth.userId);
         return NextResponse.json({ ok: true, serverNow: res.serverNow, status: res.status, submittedAt: res.submittedAt });
     }
   } catch (error) {

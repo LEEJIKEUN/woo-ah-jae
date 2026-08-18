@@ -644,14 +644,14 @@ export default function MentoringView({
                 const over = limit != null && used > limit;
                 return (
                   <div key={f.key}>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <label className="text-[13.5px] font-bold" style={{ color: INK }}>{f.label}</label>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <label className="min-w-0 break-keep text-[13.5px] font-bold" style={{ color: INK }}>{f.label}</label>
                       {limit != null ? (
-                        <span className="text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
+                        <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
                           <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{limit}byte</b>
                         </span>
                       ) : (
-                        <span className="text-[11px]" style={{ color: MUTED }}>{used} byte</span>
+                        <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: MUTED }}>{used} byte</span>
                       )}
                     </div>
                     <textarea
@@ -843,16 +843,16 @@ export default function MentoringView({
 
             {/* 과목별 세부능력 특기사항(세특) — 학생별, 관리자·퍼실 작성 */}
             <div className={`order-2 rounded-[14px] bg-white ${vis("sete")}`} style={{ border: `1px solid ${CARD}` }}>
-              <div className="flex items-center justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
-                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
-                  과목별 세부능력 특기사항(참고)
-                  {!isStaff ? <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
+              <div className="flex items-start justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
+                <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] font-bold" style={{ color: INK }}>
+                  <span className="break-keep">과목별 세부능력 특기사항(참고)</span>
+                  {!isStaff ? <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 읽기 전용</span> : null}
                 </p>
                 {(() => {
                   const used = byteLen(editingSete ? seteDraft : sete);
                   const over = used > SETE_LIMIT;
                   return (
-                    <span className="shrink-0 text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
+                    <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
                       <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{SETE_LIMIT}byte</b>
                     </span>
                   );
@@ -1201,7 +1201,7 @@ function BookArea({ label, value, onChange, limit }: { label: string; value: str
       <span className="mb-1 flex items-center justify-between">
         <span className="text-[12px] font-bold" style={{ color: INK }}>{label}</span>
         {limit != null ? (
-          <span className="text-[10.5px]" style={{ color: over ? OVER_RED : MUTED }}>
+          <span className="shrink-0 whitespace-nowrap text-[10.5px]" style={{ color: over ? OVER_RED : MUTED }}>
             <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{limit}byte</b>
           </span>
         ) : null}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthFromRequest, jsonError } from "@/lib/guards";
 import { startAttempt } from "@/lib/exam/store";
+import { notifyExamProgress } from "@/lib/exam/exam-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           { status: 403 }
         );
       case "OK":
+        // 응시 시작 시 명렬표를 '응시중(진행 0)'으로 즉시 전환
+        void notifyExamProgress(courseId, examId, auth.userId);
         return NextResponse.json(res.data);
     }
   } catch (error) {

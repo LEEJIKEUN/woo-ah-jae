@@ -129,7 +129,7 @@ export default function ExamAnswerView({ courseId, examId, isStudent }: { course
     const next = { ...answersRef.current, [no]: { choice: v, textAnswer: null } };
     answersRef.current = next;
     setAnswers(next);
-    autosave.markChanged(no);
+    autosave.markChanged(no, { immediate: true }); // 마킹 즉시 저장 → 스태프 명렬표 실시간 반영
   }, [readOnly, autosave]);
 
   const setText = useCallback((no: number, v: string) => {
