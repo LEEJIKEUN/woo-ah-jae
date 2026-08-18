@@ -1,5 +1,6 @@
 import type { Course } from "../content";
 
+import { calculus1 } from "./calculus-1";
 // clone:imports — `npm run course:clone` 이 이 줄 위에 강좌 import 를 추가합니다. (직접 수정 가능)
 
 /**
@@ -12,5 +13,6 @@ import type { Course } from "../content";
  * 기본 상태는 비공개(private) 이므로 관리자에게만 보입니다.
  */
 export const EXTRA_COURSES: Course[] = [
+  calculus1,
   // clone:register — 생성기가 이 줄 위에 강좌를 추가합니다. (직접 수정 가능)
 ];
