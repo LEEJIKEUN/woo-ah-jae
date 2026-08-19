@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Search, MapPin, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, MapPin, X, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 /* 서재 톤 강좌 찾기 — 필터 + 강좌 리스트. */
 const PANEL = "#FBF8F2";
@@ -39,6 +39,7 @@ type Row = {
   deadline?: string | null; // 마감일 ISO
   status: string; // private|prep|open|full|ongoing
   href: string;
+  deletable?: boolean; // DB 강좌만 화면에서 삭제 가능
 };
 
 // 신청현황 정원: 자기주도학습(SELF)은 999, 나머지는 모집인원(기본 20)
@@ -115,6 +116,17 @@ export default function HomeWorkshopFinder() {
       await fetch(`/api/admin/courses/${id}/meta`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     } catch {
       /* 무시 */
+    }
+  }
+  // 관리자 강좌 삭제(DB 강좌만) — 확인 후 삭제·목록에서 제거
+  async function deleteCourse(id: string, name: string) {
+    if (!confirm(`'${name}' 강좌를 삭제할까요?\n수강신청·콘텐츠 등 이 강좌 데이터가 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+    try {
+      const res = await fetch(`/api/admin/courses/${id}`, { method: "DELETE" });
+      if (res.ok) { setRows((prev) => prev.filter((r) => r.id !== id)); }
+      else { const d = (await res.json().catch(() => ({}))) as { error?: string }; alert(d.error ?? "삭제에 실패했습니다."); }
+    } catch {
+      alert("네트워크 오류가 발생했습니다.");
     }
   }
   function normalizePatch(patch: Record<string, unknown>): Partial<Row> {
@@ -275,11 +287,16 @@ export default function HomeWorkshopFinder() {
                   {/* 상태 */}
                   <td className="whitespace-nowrap py-5 text-[14px]">
                     {isAdmin ? (
-                      <select value={r.status} onChange={(e) => patchMeta(r.id, { status: e.target.value })} className="rounded-[8px] border bg-white px-1 py-1 text-[12px] font-semibold" style={{ borderColor: LINE, color: STATUS_COLOR[r.status] ?? INK }}>
-                        {STATUS_LIST.map((s) => (
-                          <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-                        ))}
-                      </select>
+                      <span className="inline-flex items-center gap-2">
+                        <select value={r.status} onChange={(e) => patchMeta(r.id, { status: e.target.value })} className="rounded-[8px] border bg-white px-1 py-1 text-[12px] font-semibold" style={{ borderColor: LINE, color: STATUS_COLOR[r.status] ?? INK }}>
+                          {STATUS_LIST.map((s) => (
+                            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+                          ))}
+                        </select>
+                        {r.deletable ? (
+                          <button type="button" onClick={() => deleteCourse(r.id, r.name)} title="강좌 삭제" aria-label="강좌 삭제" className="grid h-7 w-7 place-items-center rounded-md transition hover:bg-[#F7ECEC]" style={{ color: "#B4544B" }}><Trash2 size={15} /></button>
+                        ) : null}
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: STATUS_COLOR[r.status] ?? INK }}>
                         <span style={{ fontSize: 9 }}>●</span>{STATUS_LABEL[r.status] ?? r.status}

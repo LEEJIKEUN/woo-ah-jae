@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       deadline: m?.deadline ?? null,
       status: autoAdvanceStatus((m?.status ?? c.defaultStatus ?? "open") as CourseStatus, courseFirstClassMs(c), enrollmentCloseMs(m?.deadline)),
       href: `/course/${c.id}`,
+      deletable: false, // 하드코딩(코드 관리) 강좌 — 화면 삭제 불가
     };
   });
 
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
     deadline: c.deadline,
     status: autoAdvanceStatus(c.status as CourseStatus, dateStrToKstMs(c.fromDate), enrollmentCloseMs(c.deadline)),
     href: `/course/${c.slug}`,
+    deletable: true, // DB 강좌 — 관리자 화면에서 삭제 가능
   }));
 
   const rows = [...hardRows, ...dbRows].filter((r) => isAdmin || r.status !== "private");
