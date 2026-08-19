@@ -64,17 +64,19 @@ export default function WatchProgressView({ courseId }: { courseId: string }) {
   }, [courseId]);
 
   useEffect(() => { void load(); }, [load]);
-  // 실시간 갱신 — 학생 시청 보고(≈10초)에 맞춰 12초마다 폴링
+  // 실시간 갱신 — 2초마다 폴링
   useEffect(() => {
-    const t = setInterval(() => void load(), 12000);
+    const t = setInterval(() => void load(), 2000);
     return () => clearInterval(t);
   }, [load]);
 
-  // 학생별 평균 시청률(동영상 차시 기준)
-  const avgFor = (studentId: string): number | null => {
+  // 수강 진도율 = 완강(90%↑)한 동영상 차시 수 / 전체 동영상 차시 수
+  const COMPLETE_PCT = 90;
+  const progressFor = (studentId: string): { completed: number; total: number; pct: number } | null => {
     if (!data || !data.sessions.length) return null;
-    const ps = data.sessions.map((s) => pctOf(data.cells[studentId]?.[s.activityId] ?? { watchedSec: 0, totalSec: s.durationSec }));
-    return Math.round(ps.reduce((a, b) => a + b, 0) / ps.length);
+    const completed = data.sessions.filter((s) => pctOf(data.cells[studentId]?.[s.activityId] ?? { watchedSec: 0, totalSec: s.durationSec }) >= COMPLETE_PCT).length;
+    const total = data.sessions.length;
+    return { completed, total, pct: Math.round((completed / total) * 100) };
   };
 
   return (
@@ -107,15 +109,17 @@ export default function WatchProgressView({ courseId }: { courseId: string }) {
                     {data.sessions.map((s) => (
                       <th key={s.activityId} className="border-b border-l px-3 py-2.5 text-center text-[12px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 120 }}>
                         <span className="block truncate" title={`${s.module} · ${s.title}`}>{s.title}</span>
-                        <span className="text-[10.5px] font-medium" style={{ color: SUB }}>{s.durationSec ? clock(s.durationSec) : "길이 미상"}</span>
+                        {s.durationSec ? <span className="text-[10.5px] font-medium" style={{ color: SUB }}>{clock(s.durationSec)}</span> : null}
                       </th>
                     ))}
-                    <th className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 84, background: "#F3EDE0" }}>평균</th>
+                    <th className="border-b border-l px-3 py-2.5 text-center text-[12.5px] font-bold" style={{ borderColor: LINE, color: INK, minWidth: 96, background: "#F3EDE0" }}>
+                      수강 진도율<span className="block text-[10.5px] font-medium" style={{ color: SUB }}>완강 강좌수/총</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.students.map((s) => {
-                    const avg = avgFor(s.id);
+                    const prog = progressFor(s.id);
                     return (
                       <tr key={s.id}>
                         <td className="sticky left-0 z-10 border-b px-4 py-2.5 text-[13.5px] font-semibold" style={{ borderColor: "#F0EBE0", color: INK, background: "#fff" }}>{s.name}</td>
@@ -125,7 +129,12 @@ export default function WatchProgressView({ courseId }: { courseId: string }) {
                           </td>
                         ))}
                         <td className="border-b border-l px-3 py-2.5 text-center" style={{ borderColor: "#F0EBE0", background: "#FBF8F2" }}>
-                          {avg == null ? <span className="text-[12.5px]" style={{ color: "#C9C2B4" }}>–</span> : <span className="text-[14px] font-extrabold tabular-nums" style={{ color: pctColor(avg) }}>{avg}%</span>}
+                          {prog == null ? <span className="text-[12.5px]" style={{ color: "#C9C2B4" }}>–</span> : (
+                            <div className="flex flex-col items-center gap-0.5 leading-none">
+                              <span className="text-[14px] font-extrabold tabular-nums" style={{ color: pctColor(prog.pct) }}>{prog.pct}%</span>
+                              <span className="text-[10.5px] tabular-nums" style={{ color: SUB }}>{prog.completed}/{prog.total}강</span>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -134,7 +143,7 @@ export default function WatchProgressView({ courseId }: { courseId: string }) {
               </table>
             </div>
           )}
-          <p className="mt-3 text-[12.5px]" style={{ color: SUB }}>시청 진도는 학생이 재생한 최대 위치를 기준으로 합니다(뒤로 감아도 최대 시청 유지). 평균은 동영상 차시 전체의 시청률 평균입니다.</p>
+          <p className="mt-3 text-[12.5px]" style={{ color: SUB }}>시청 진도는 학생이 재생한 최대 위치를 기준으로 합니다(뒤로 감아도 최대 시청 유지). 수강 진도율 = 90% 이상 시청(완강)한 강좌 수 / 전체 동영상 강좌 수.</p>
         </div>
       </main>
     </div>

@@ -34,14 +34,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (vids.length) videoByActivity.set(c.activityId, Math.max(0, ...vids.map((v) => Math.floor(v.durationSec || 0))));
     }
 
+    const watch = await courseWatchMap(courseId);
+    // 블록에 길이가 없으면(구 업로드) 학생들이 보고한 최대 totalSec 으로 총 길이 추정
+    const reportedTotal = (activityId: string): number => {
+      let mx = 0;
+      for (const m of watch.values()) { const c = m.get(activityId); if (c && c.totalSec > mx) mx = c.totalSec; }
+      return mx;
+    };
+
     // 동영상이 있는 차시만(커리큘럼 순서 유지)
-    const sessions = acts.filter((a) => videoByActivity.has(a.id)).map((a) => ({ activityId: a.id, title: a.title, module: a.module, durationSec: videoByActivity.get(a.id) ?? 0 }));
+    const sessions = acts.filter((a) => videoByActivity.has(a.id)).map((a) => {
+      const blockDur = videoByActivity.get(a.id) ?? 0;
+      return { activityId: a.id, title: a.title, module: a.module, durationSec: blockDur > 0 ? blockDur : reportedTotal(a.id) };
+    });
 
     const enrolledIds = await getEnrolledUserIds(courseId);
     const users = enrolledIds.length ? await prisma.user.findMany({ where: { id: { in: enrolledIds } }, select: { id: true, email: true, studentProfile: { select: { realName: true } } } }) : [];
     const students = users.map((u) => ({ id: u.id, name: u.studentProfile?.realName?.trim() || u.email })).sort((a, b) => a.name.localeCompare(b.name, "ko"));
-
-    const watch = await courseWatchMap(courseId);
     const cells: Record<string, Record<string, { watchedSec: number; totalSec: number }>> = {};
     for (const s of students) {
       cells[s.id] = {};

@@ -64,7 +64,7 @@ function WatchVideo({ courseId, activityId, src }: { courseId: string; activityI
       preload="metadata"
       controlsList="nodownload"
       onContextMenu={(e) => e.preventDefault()}
-      onTimeUpdate={() => { const now = Date.now(); if (now - lastMs.current >= 10000) { lastMs.current = now; report(); } }}
+      onTimeUpdate={() => { const now = Date.now(); if (now - lastMs.current >= 5000) { lastMs.current = now; report(); } }}
       onPause={() => report()}
       onEnded={() => report()}
       className="w-full"
