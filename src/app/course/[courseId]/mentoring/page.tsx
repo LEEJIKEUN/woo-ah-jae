@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
+import { courseIsSelfDirected } from "@/lib/course/meta-store";
 import { getEnrolledUserIds, isUserEnrolled } from "@/lib/enrollment-store";
 import { prisma } from "@/lib/prisma";
 import MentoringView from "./MentoringView";
@@ -13,6 +15,7 @@ export default async function MentoringPage({ params, searchParams }: { params: 
   const { courseId } = await params;
   const sp = await searchParams;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/mentoring`);
+  if (await courseIsSelfDirected(courseId)) redirect(`/course/${courseId}/learn`); // 자기주도학습은 멘토링 잠금
   const staff = isStaffRole(session.role); // 관리자·퍼실리테이터 = 멘토(teacher)
   const isParent = session.role === "PARENT";
   const isStudent = session.role === "STUDENT";

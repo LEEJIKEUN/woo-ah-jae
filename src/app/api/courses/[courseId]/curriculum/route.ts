@@ -21,6 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!eff) return NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 });
     return NextResponse.json({
       title: meta?.title ?? eff.title, // 강좌명 편집(CourseMeta) 반영
+      format: meta?.format ?? eff.format, // 자기주도학습 등 형식(사이드바 메뉴 잠금)
       modules: eff.modules.map((m) => ({
         label: m.label,
         weekStart: m.weekStart ?? undefined,

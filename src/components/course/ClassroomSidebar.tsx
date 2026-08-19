@@ -22,13 +22,14 @@ const heroGrad = "linear-gradient(135deg, #A98B6E, #6B5342)";
 
 type ClassLesson = { id: string; title: string };
 type ClassModule = { label: string; locked: boolean; openLabel?: string; completableIds: string[]; lessons: ClassLesson[] };
-type Classroom = { id: string; title: string; summary: string; modules: ClassModule[] };
+type Classroom = { id: string; title: string; summary: string; format?: string; modules: ClassModule[] };
 
 function fromSeed(c: Course, isStaff = false): Classroom {
   return {
     id: c.id,
     title: c.title,
     summary: c.summary,
+    format: c.format,
     modules: c.modules.map((m) => {
       const acts = m.blocks.flatMap((b) => b.activities);
       return {
@@ -76,7 +77,7 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
       try {
         const res = await fetch(`/api/courses/${courseId}/curriculum`, { cache: "no-store" });
         if (!res.ok) return;
-        const d = (await res.json()) as { title?: string; modules?: { label: string; weekStart?: string; sessions: { id: string; title: string; completable?: boolean }[] }[] };
+        const d = (await res.json()) as { title?: string; format?: string; modules?: { label: string; weekStart?: string; sessions: { id: string; title: string; completable?: boolean }[] }[] };
         if (!alive || !d.modules) return;
         const nowMs = Date.now();
         const mods: ClassModule[] = d.modules.map((m) => ({
@@ -86,7 +87,7 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
           completableIds: m.sessions.filter((s) => s.completable !== false).map((s) => s.id),
           lessons: m.sessions.map((s) => ({ id: s.id, title: s.title })),
         }));
-        setRoom((prev) => (prev ? { ...prev, title: d.title ?? prev.title, modules: mods } : prev));
+        setRoom((prev) => (prev ? { ...prev, title: d.title ?? prev.title, format: d.format ?? prev.format, modules: mods } : prev));
       } catch {
         /* 무시 — 하드코딩 유지 */
       }
@@ -174,9 +175,10 @@ function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }:
         <div className="mt-5 space-y-2">
           <SideBox label="공지사항" href={`/course/${room.id}/notices`} onNavigate={onNavigate} />
           <SideBox label="수강생 토론 게시판" href={`/course/${room.id}/board`} onNavigate={onNavigate} />
-          <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} onNavigate={onNavigate} />
+          {/* 자기주도학습 형식은 멘토링·세특 잠금 */}
+          {room.format !== "자기주도학습" ? <SideBox label="탐구활동 멘토링" href={`/course/${room.id}/mentoring`} onNavigate={onNavigate} /> : null}
           <SideBox label="시험" href={`/course/${room.id}/exam`} onNavigate={onNavigate} />
-          {isStaff ? <SideBox label="세특·과제 현황" href={`/course/${room.id}/status`} onNavigate={onNavigate} /> : null}
+          {isStaff && room.format !== "자기주도학습" ? <SideBox label="세특·과제 현황" href={`/course/${room.id}/status`} onNavigate={onNavigate} /> : null}
           {isStaff ? <SideBox label="강의 수강 현황" href={`/course/${room.id}/watch`} onNavigate={onNavigate} /> : null}
         </div>
 

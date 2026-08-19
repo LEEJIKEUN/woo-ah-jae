@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, Download } from "lucide-react";
 import { requireClassroomAccess, isStaffRole } from "@/lib/course/access";
+import { courseIsSelfDirected } from "@/lib/course/meta-store";
 import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { getCourse } from "@/lib/course/content";
 import { prisma } from "@/lib/prisma";
@@ -30,6 +31,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
   const { courseId } = await params;
   const session = await requireClassroomAccess(courseId, `/course/${courseId}/status`);
   if (!isStaffRole(session.role)) redirect(`/course/${courseId}/learn`);
+  if (await courseIsSelfDirected(courseId)) redirect(`/course/${courseId}/learn`); // 자기주도학습은 세특·과제 현황 잠금
 
   const course = getCourse(courseId);
   const ids = await getEnrolledUserIds(courseId);

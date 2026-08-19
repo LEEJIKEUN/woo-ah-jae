@@ -125,6 +125,17 @@ export type CourseMetaPatch = Partial<{
   status: CourseStatus;
 }>;
 
+/** 강좌 실효 형식(메타 > 하드코딩). 자기주도학습 등 형식별 기능 잠금 판정용. */
+export async function effectiveFormat(courseId: string): Promise<string | undefined> {
+  const meta = await getCourseMeta(courseId);
+  return meta?.format ?? getCourse(courseId)?.format;
+}
+
+/** 자기주도학습 형식이면 true — 탐구활동 멘토링·세특/과제 현황 잠금 판정. */
+export async function courseIsSelfDirected(courseId: string): Promise<boolean> {
+  return (await effectiveFormat(courseId)) === "자기주도학습";
+}
+
 /** 실효 정원 — 자기주도학습(SELF)=999, 그 외=CourseMeta.capacity(관리자 설정) 우선, 없으면 20. */
 export async function effectiveCapacity(courseId: string): Promise<number> {
   const meta = await getCourseMeta(courseId);
