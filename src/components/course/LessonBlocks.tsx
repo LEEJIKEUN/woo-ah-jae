@@ -1,7 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, ArrowUp, ArrowDown, Paperclip, Link2, Type, Heading, Minus, Download, Pencil, X, Video } from "lucide-react";
+
+/** 업로드 전 동영상 파일의 길이(초)를 브라우저에서 읽는다. 실패 시 0. */
+function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = () => { const d = Math.floor(v.duration || 0); URL.revokeObjectURL(url); resolve(Number.isFinite(d) ? d : 0); };
+      v.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      v.src = url;
+    } catch {
+      resolve(0);
+    }
+  });
+}
+
+/**
+ * 학생용 시청 추적 동영상 — 재생 위치를 주기적으로 서버에 보고(강의 수강 현황).
+ * 10초마다 + 일시정지·종료·탭 이탈 시 보고. 스태프·학부모에는 사용하지 않는다.
+ */
+function WatchVideo({ courseId, activityId, src }: { courseId: string; activityId: string; src: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const lastMs = useRef(0);
+
+  const report = (keepalive = false) => {
+    const v = ref.current;
+    if (!v) return;
+    const watchedSec = Math.floor(v.currentTime || 0);
+    const totalSec = Math.floor(v.duration || 0);
+    if (!totalSec) return;
+    try {
+      void fetch(`/api/courses/${courseId}/lessons/${activityId}/watch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watchedSec, totalSec }),
+        keepalive,
+      });
+    } catch {
+      /* 무시 */
+    }
+  };
+
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === "hidden") report(true); };
+    window.addEventListener("pagehide", () => report(true));
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      report(true); // 언마운트(다른 차시 이동 등) 시 마지막 보고
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, activityId]);
+
+  return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption
+    <video
+      ref={ref}
+      controls
+      preload="metadata"
+      controlsList="nodownload"
+      onContextMenu={(e) => e.preventDefault()}
+      onTimeUpdate={() => { const now = Date.now(); if (now - lastMs.current >= 10000) { lastMs.current = now; report(); } }}
+      onPause={() => report()}
+      onEnded={() => report()}
+      className="w-full"
+      style={{ maxHeight: 520 }}
+      src={src}
+    />
+  );
+}
 
 /* 우아재 서재 톤 */
 const BROWN = "#8C6E59";
@@ -71,7 +142,7 @@ function download(name: string, dataUrl: string) {
   a.remove();
 }
 
-export default function LessonBlocks({ courseId, activityId, isAdmin }: { courseId: string; activityId: string; isAdmin: boolean }) {
+export default function LessonBlocks({ courseId, activityId, isAdmin, trackWatch = false }: { courseId: string; activityId: string; isAdmin: boolean; trackWatch?: boolean }) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Block[]>([]);
@@ -208,7 +279,7 @@ export default function LessonBlocks({ courseId, activityId, isAdmin }: { course
           {list.map((b) => (editing ? (
             <BlockEditor key={b.id} courseId={courseId} activityId={activityId} block={b} onPatch={(p) => patch(b.id, p)} onRemove={() => remove(b.id)} onUp={() => move(b.id, -1)} onDown={() => move(b.id, 1)} onFile={(e) => onPickFile(b.id, e)} />
           ) : (
-            <BlockView key={b.id} courseId={courseId} activityId={activityId} block={b} />
+            <BlockView key={b.id} courseId={courseId} activityId={activityId} block={b} trackWatch={trackWatch} />
           )))}
         </div>
       )}
@@ -247,8 +318,9 @@ function VideoBlockEditor({ courseId, activityId, block, onPatch }: { courseId: 
     setUploading(true);
     setPct(0);
     try {
+      const durationSec = await readVideoDuration(f); // 업로드 전 길이 파악(강의 수강 현황 표에서 총 시간 표시)
       const meta = await uploadVideo(courseId, activityId, f, setPct);
-      onPatch({ name: meta.name, size: meta.size, videoKey: meta.videoKey } as Partial<Block>);
+      onPatch({ name: meta.name, size: meta.size, videoKey: meta.videoKey, durationSec } as Partial<Block>);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "업로드에 실패했습니다.");
     } finally {
@@ -306,27 +378,25 @@ function AddBtn({ onClick, icon, label }: { onClick: () => void; icon: React.Rea
 }
 
 /* ── 뷰 ── */
-function BlockView({ block, courseId, activityId }: { block: Block; courseId: string; activityId: string }) {
+function BlockView({ block, courseId, activityId, trackWatch = false }: { block: Block; courseId: string; activityId: string; trackWatch?: boolean }) {
   if (block.type === "heading") return <h3 className="pt-2 text-[19px] font-bold" style={{ ...serif, color: BROWN }}>{block.text || "제목"}</h3>;
   if (block.type === "text") return <p className="whitespace-pre-line text-[15px] leading-8" style={{ color: BODY }}>{block.text}</p>;
   if (block.type === "divider") return <hr style={{ borderColor: CARD }} />;
-  if (block.type === "video")
+  if (block.type === "video") {
+    const src = `/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`;
     return block.videoKey ? (
       <div className="overflow-hidden rounded-[10px] border" style={{ borderColor: LINE, background: "#000" }}>
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video
-          controls
-          preload="metadata"
-          controlsList="nodownload"
-          onContextMenu={(e) => e.preventDefault()}
-          className="w-full"
-          style={{ maxHeight: 520 }}
-          src={`/api/courses/${courseId}/lessons/${activityId}/video?blockId=${block.id}`}
-        />
+        {trackWatch ? (
+          <WatchVideo courseId={courseId} activityId={activityId} src={src} />
+        ) : (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video controls preload="metadata" controlsList="nodownload" onContextMenu={(e) => e.preventDefault()} className="w-full" style={{ maxHeight: 520 }} src={src} />
+        )}
       </div>
     ) : (
       <p className="rounded-[10px] py-3 text-center text-[13px]" style={{ background: PANEL, color: SUB }}>동영상이 아직 업로드되지 않았습니다.</p>
     );
+  }
   if (block.type === "file")
     return (
       <button type="button" onClick={() => block.dataUrl && download(block.name, block.dataUrl)} className="flex items-center gap-3 rounded-[10px] border px-4 py-3 text-left transition hover:border-[#8C6E59]" style={{ borderColor: LINE, background: PANEL }}>

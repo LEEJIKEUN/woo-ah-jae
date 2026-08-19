@@ -11,7 +11,7 @@ import { r2Enabled, decodeDataUrl, storeUploadDataUrl } from "@/lib/private-file
 export type Block =
   | { id: string; type: "heading"; text: string }
   | { id: string; type: "file"; name: string; size: number; dataUrl: string; fileKey?: string; fileMime?: string }
-  | { id: string; type: "video"; name: string; size: number; videoKey?: string }
+  | { id: string; type: "video"; name: string; size: number; videoKey?: string; durationSec?: number }
   | { id: string; type: "text"; text: string }
   | { id: string; type: "link"; title: string; url: string; desc: string }
   | { id: string; type: "divider" };

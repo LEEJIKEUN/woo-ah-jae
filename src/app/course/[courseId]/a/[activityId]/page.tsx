@@ -64,7 +64,7 @@ export default async function ActivityPage({
           <div className="mx-auto max-w-[860px]">
             <CompletionProvider courseId={courseId}>
               <ActivityView course={course} module={found.module} activity={found.activity} autoComplete={session.role === "STUDENT"} />
-              <LessonBlocks courseId={courseId} activityId={activityId} isAdmin={isStaff} />
+              <LessonBlocks courseId={courseId} activityId={activityId} isAdmin={isStaff} trackWatch={session.role === "STUDENT"} />
             </CompletionProvider>
           </div>
         </main>

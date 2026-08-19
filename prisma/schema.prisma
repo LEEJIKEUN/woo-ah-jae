@@ -135,6 +135,7 @@ model User {
   auditLogs               AuditLog[]
   entitlements            Entitlement[]
   lessonCompletions       LessonCompletion[]
+  videoProgress           VideoProgress[]
   enrollments             Enrollment[]
   coursePosts             CoursePost[]
   coursePostComments      CoursePostComment[]
@@ -517,6 +518,22 @@ model LessonCompletion {
 
   @@id([userId, courseId, activityId])
   @@index([userId, courseId])
+}
+
+/** 강의 동영상 시청 진도 — 학생별·차시별 최대 시청 위치(초)/영상 길이(초). 관리형 강의 수강 현황용. */
+model VideoProgress {
+  userId     String
+  courseId   String
+  activityId String
+  watchedSec Int      @default(0)
+  totalSec   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, courseId, activityId])
+  @@index([courseId, activityId])
 }
 
 /** 학부모↔자녀(학생) 연결. 학부모가 자녀 이메일로 요청 → 자녀가 수락해야 APPROVED. */
