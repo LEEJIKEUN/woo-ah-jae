@@ -20,24 +20,30 @@ function readVideoDuration(file: File): Promise<number> {
 }
 
 /**
- * 학생용 시청 추적 동영상 — 재생 위치를 주기적으로 서버에 보고(강의 수강 현황).
- * 10초마다 + 일시정지·종료·탭 이탈 시 보고. 스태프·학부모에는 사용하지 않는다.
+ * 학생용 시청 추적 동영상 — 실제로 '재생'한 5초 버킷만 집계(건너뛰기·정지 중 제외).
+ * 재생 중 지나간 버킷을 모아 5초마다 + 일시정지·종료·탭 이탈 시 델타만 서버에 보고.
+ * 스태프·학부모에는 사용하지 않는다.
  */
+const WATCH_BUCKET = 5;
 function WatchVideo({ courseId, activityId, src }: { courseId: string; activityId: string; src: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const watched = useRef<Set<number>>(new Set());  // 이번 세션에 재생한 버킷
+  const reported = useRef<Set<number>>(new Set());  // 이미 보고한 버킷
   const lastMs = useRef(0);
 
   const report = (keepalive = false) => {
     const v = ref.current;
     if (!v) return;
-    const watchedSec = Math.floor(v.currentTime || 0);
     const totalSec = Math.floor(v.duration || 0);
-    if (!totalSec) return;
+    const delta: number[] = [];
+    watched.current.forEach((b) => { if (!reported.current.has(b)) delta.push(b); });
+    if (!delta.length) return;
+    delta.forEach((b) => reported.current.add(b));
     try {
       void fetch(`/api/courses/${courseId}/lessons/${activityId}/watch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ watchedSec, totalSec }),
+        body: JSON.stringify({ buckets: delta, totalSec }),
         keepalive,
       });
     } catch {
@@ -47,9 +53,11 @@ function WatchVideo({ courseId, activityId, src }: { courseId: string; activityI
 
   useEffect(() => {
     const onVis = () => { if (document.visibilityState === "hidden") report(true); };
-    window.addEventListener("pagehide", () => report(true));
+    const onHide = () => report(true);
+    window.addEventListener("pagehide", onHide);
     document.addEventListener("visibilitychange", onVis);
     return () => {
+      window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onVis);
       report(true); // 언마운트(다른 차시 이동 등) 시 마지막 보고
     };
@@ -64,7 +72,13 @@ function WatchVideo({ courseId, activityId, src }: { courseId: string; activityI
       preload="metadata"
       controlsList="nodownload"
       onContextMenu={(e) => e.preventDefault()}
-      onTimeUpdate={() => { const now = Date.now(); if (now - lastMs.current >= 5000) { lastMs.current = now; report(); } }}
+      onTimeUpdate={() => {
+        const v = ref.current;
+        if (!v || v.paused) return; // 재생 중일 때만 카운트 — 건너뛰기(seek)·정지는 집계 안 됨
+        watched.current.add(Math.floor(v.currentTime / WATCH_BUCKET));
+        const now = Date.now();
+        if (now - lastMs.current >= 5000) { lastMs.current = now; report(); }
+      }}
       onPause={() => report()}
       onEnded={() => report()}
       className="w-full"
