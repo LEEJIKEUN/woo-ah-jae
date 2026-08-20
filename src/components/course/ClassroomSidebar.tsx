@@ -169,8 +169,8 @@ function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }:
           ) : (
             <Link href={`/course/${room.id}/attendance`} onClick={onNavigate} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
           )
-        ) : room.format === "자기주도학습" ? (
-          // 자기주도학습: 학생 진도율 도넛 → 내 수강 현황 페이지
+        ) : room.format === "자기주도학습" || room.format === "관리형학습" ? (
+          // 관리형·자기주도: 학생 진도율 도넛 → 내 수강 현황 페이지
           <Link href={`/course/${room.id}/my-progress`} onClick={onNavigate} className="shrink-0 rounded-full transition hover:opacity-90" title="내 수강 현황 보기" aria-label="내 수강 현황 보기"><Donut percent={pct} /></Link>
         ) : (
           <Donut percent={pct} />

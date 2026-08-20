@@ -26,8 +26,8 @@ function mergeBuckets(base64: string | null | undefined, buckets: number[]): { b
   return { b64: bytes.toString("base64"), count: popcount(bytes) };
 }
 
-/** 학생이 실제 재생한 버킷(5초 단위 인덱스)들을 누적 반영. */
-export async function recordWatchSegments(userId: string, courseId: string, activityId: string, buckets: number[], totalSec: number): Promise<void> {
+/** 학생이 실제 재생한 버킷(5초 단위 인덱스)들을 누적 반영. 반영 후 { watchedSec, totalSec } 반환. */
+export async function recordWatchSegments(userId: string, courseId: string, activityId: string, buckets: number[], totalSec: number): Promise<WatchCell> {
   const t = Math.max(0, Math.floor(totalSec || 0));
   try {
     const prev = await prisma.videoProgress.findUnique({ where: { userId_courseId_activityId: { userId, courseId, activityId } }, select: { watchedBits: true, totalSec: true } });
@@ -40,8 +40,9 @@ export async function recordWatchSegments(userId: string, courseId: string, acti
       create: { userId, courseId, activityId, watchedSec, totalSec: total, watchedBits: b64 },
       update: { watchedSec, totalSec: total, watchedBits: b64 },
     });
+    return { watchedSec, totalSec: total };
   } catch {
-    /* 테이블/컬럼 미생성 등 — 무시 */
+    return { watchedSec: 0, totalSec: t };
   }
 }
 

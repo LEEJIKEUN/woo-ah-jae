@@ -49,7 +49,9 @@ export default function MyProgressView({ courseId }: { courseId: string }) {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { const t = setInterval(() => void load(), 4000); return () => clearInterval(t); }, [load]);
 
-  const done = data ? data.sessions.filter((s) => pctOf(s) >= 90).length : 0;
+  // 완료(완강) = 100% 시청 — 강의실 완료 기준과 동일
+  const isDone = (s: Session) => s.totalSec > 0 && s.watchedSec >= s.totalSec;
+  const done = data ? data.sessions.filter(isDone).length : 0;
   const total = data ? data.sessions.length : 0;
   const overall = total ? Math.round((done / total) * 100) : 0;
 
@@ -97,7 +99,10 @@ export default function MyProgressView({ courseId }: { courseId: string }) {
                           <p className="mt-0.5 text-[12px]" style={{ color: SUB }}>{s.module}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <span className="text-[16px] font-extrabold tabular-nums" style={{ color: pctColor(pct) }}>{pct}%</span>
+                          <span className="inline-flex items-center gap-1.5">
+                            {isDone(s) ? <span className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold" style={{ background: "#E9F3EC", color: "#3E7E5B" }}>완료</span> : null}
+                            <span className="text-[16px] font-extrabold tabular-nums" style={{ color: pctColor(pct) }}>{pct}%</span>
+                          </span>
                           <p className="text-[11.5px] tabular-nums" style={{ color: SUB }}>{clock(s.watchedSec)}{s.totalSec ? ` / ${clock(s.totalSec)}` : ""}</p>
                         </div>
                         <Link href={`/course/${courseId}/a/${s.activityId}`} title="이어보기" className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition hover:bg-[#F1EADD]" style={{ color: BROWN }}><PlayCircle size={20} /></Link>
