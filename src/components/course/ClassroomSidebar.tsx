@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Lock, ClipboardCheck, Menu, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, ClipboardCheck, MonitorPlay, Menu, X } from "lucide-react";
 import { getCourse, isModuleLocked, weekOpenLabel, weekActivationMs, type Course } from "@/lib/course/content";
 import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
@@ -163,7 +163,12 @@ function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }:
         {isParent ? (
           <ParentProgressDonut courseId={room.id} />
         ) : isStaff ? (
-          <Link href={`/course/${room.id}/attendance`} onClick={onNavigate} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
+          // 형식별: 실시간수업=출석·이수 관리 / 관리형·자기주도=강의 수강 현황
+          room.format === "자기주도학습" || room.format === "관리형학습" ? (
+            <Link href={`/course/${room.id}/watch`} onClick={onNavigate} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="강의 수강 현황" aria-label="강의 수강 현황"><MonitorPlay size={19} /></Link>
+          ) : (
+            <Link href={`/course/${room.id}/attendance`} onClick={onNavigate} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 transition hover:bg-white/30" title="출석 체크" aria-label="출석 체크"><ClipboardCheck size={19} /></Link>
+          )
         ) : room.format === "자기주도학습" ? (
           // 자기주도학습: 학생 진도율 도넛 → 내 수강 현황 페이지
           <Link href={`/course/${room.id}/my-progress`} onClick={onNavigate} className="shrink-0 rounded-full transition hover:opacity-90" title="내 수강 현황 보기" aria-label="내 수강 현황 보기"><Donut percent={pct} /></Link>
