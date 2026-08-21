@@ -6,7 +6,7 @@
  */
 import { createContext, useContext } from "react";
 
-export type CourseMetaInitial = { title?: string; format?: string; watchPct?: number | null };
+export type CourseMetaInitial = { title?: string; format?: string; summary?: string; watchPct?: number | null };
 
 const Ctx = createContext<CourseMetaInitial>({});
 

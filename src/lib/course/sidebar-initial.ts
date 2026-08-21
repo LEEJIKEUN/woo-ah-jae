@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
  * 그리도록 한다(새로고침 시 하드코딩 기본값·완료 기준값이 잠깐 스치는 깜빡임 제거).
  * 실패해도 빈 값 반환 → 사이드바는 기존 클라이언트 seed/폴링으로 폴백(안전).
  */
-export type SidebarInitial = { title?: string; format?: string; watchPct?: number | null };
+export type SidebarInitial = { title?: string; format?: string; summary?: string; watchPct?: number | null };
 
 type VideoBlock = { type?: string; durationSec?: number; videoKey?: string };
 
@@ -41,10 +41,16 @@ async function computeWatchPct(courseId: string, userId: string, course: Course)
 export async function getSidebarInitial(courseId: string): Promise<SidebarInitial> {
   try {
     if (!getCourse(courseId)) return {}; // 하드코딩 강좌만 (DB 강좌는 클라이언트 seed 사용)
-    const [eff, meta] = await Promise.all([getEffectiveCourse(courseId), getCourseMeta(courseId)]);
+    const [eff, meta, sumRow] = await Promise.all([
+      getEffectiveCourse(courseId),
+      getCourseMeta(courseId),
+      prisma.courseSummary.findUnique({ where: { courseId }, select: { body: true } }).catch(() => null),
+    ]);
     if (!eff) return {};
     const title = meta?.title ?? eff.title;
     const format = meta?.format ?? eff.format;
+    // 강좌 소개 우선순위: CourseSummary(사이드바 편집) > CourseMeta.summary(소개화면) > 시드
+    const summary = sumRow?.body ?? meta?.summary ?? eff.summary;
     let watchPct: number | null = null;
     // 도넛이 시청 진도율을 쓰는 형식(관리형·자기주도)에서 학생 본인 진도율을 미리 계산
     if (format === "관리형학습" || format === "자기주도학습") {
@@ -53,7 +59,7 @@ export async function getSidebarInitial(courseId: string): Promise<SidebarInitia
         watchPct = await computeWatchPct(courseId, session.userId, eff);
       }
     }
-    return { title, format, watchPct };
+    return { title, format, summary, watchPct };
   } catch {
     return {};
   }

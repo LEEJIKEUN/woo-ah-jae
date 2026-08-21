@@ -64,8 +64,8 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
     const c = getCourse(courseId);
     if (!c) return null;
     const r = fromSeed(c, isStaff);
-    return { ...r, title: initial.title ?? r.title, format: initial.format ?? r.format };
-  }, [courseId, isStaff, initial.title, initial.format]);
+    return { ...r, title: initial.title ?? r.title, format: initial.format ?? r.format, summary: initial.summary ?? r.summary };
+  }, [courseId, isStaff, initial.title, initial.format, initial.summary]);
   const [room, setRoom] = useState<Classroom | null>(seedRoom);
   useEffect(() => {
     if (!seedRoom) {
