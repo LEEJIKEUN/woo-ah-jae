@@ -58,6 +58,8 @@ export default function AdminMembersPage() {
   const [draftFilterValues, setDraftFilterValues] = useState<string[]>([]);
   const [filterOptionQuery, setFilterOptionQuery] = useState("");
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
+  // 강좌 필터 라벨 — 편집(CourseMeta) 반영된 실효 강좌명. 로드 전엔 하드코딩 기본값으로 표시.
+  const [courseOptions, setCourseOptions] = useState<{ id: string; title: string }[]>(() => COURSES.map((c) => ({ id: c.id, title: c.title })));
 
   const qs = useMemo(() => {
     const params = new URLSearchParams();
@@ -91,6 +93,22 @@ export default function AdminMembersPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 실효 강좌명(하드코딩+DB, CourseMeta 반영)으로 강좌 필터 라벨 갱신
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/courses/assignable", { cache: "no-store" });
+        if (!res.ok || !alive) return;
+        const d = (await res.json()) as { courses?: { id: string; title: string }[] };
+        if (alive && Array.isArray(d.courses) && d.courses.length) setCourseOptions(d.courses);
+      } catch {
+        /* 무시 — 기본값 유지 */
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   const getFilterRawValue = useCallback((item: MemberItem, key: ColumnFilterKey) => {
     switch (key) {
@@ -249,7 +267,7 @@ export default function AdminMembersPage() {
             aria-label="강좌별 필터"
           >
             <option value="">전체 강좌</option>
-            {COURSES.map((c) => (
+            {courseOptions.map((c) => (
               <option key={c.id} value={c.id}>{c.title}</option>
             ))}
           </select>

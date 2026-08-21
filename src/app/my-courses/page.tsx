@@ -39,9 +39,11 @@ export default async function MyCoursesPage() {
   const entries: Entry[] = [];
   for (const c of COURSES) {
     // 비공개 강좌(복제 직후 등)는 관리자에게만 노출
-    const effStatus = metaMap.get(c.id)?.status ?? c.defaultStatus ?? "open";
+    const meta = metaMap.get(c.id);
+    const effStatus = meta?.status ?? c.defaultStatus ?? "open";
     if (!isAdmin && effStatus === "private") continue;
-    const base = { id: c.id, title: c.title, subtitle: c.subtitle, classDays: c.classDays };
+    // 편집(CourseMeta) 반영: 강좌명·부제·일정을 실효값으로(하드코딩 기본값이 아니라)
+    const base = { id: c.id, title: meta?.title ?? c.title, subtitle: meta?.subtitle ?? c.subtitle, classDays: meta?.classDays ?? c.classDays };
     if (staff) {
       entries.push({ ...base, note: role === "ADMIN" ? "관리자 · 전체 접근" : "담당 · 퍼실리테이터", href: `/course/${c.id}/learn`, cta: "강의실 입장", manageHref: `/course/${c.id}/attendance` });
     } else if (isParent) {
