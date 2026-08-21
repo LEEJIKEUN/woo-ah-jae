@@ -101,6 +101,9 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
   const [watchPct, setWatchPct] = useState<number | null>(null);
   useEffect(() => {
     if (!watchFormat || isStaff || isParent) { setWatchPct(null); return; }
+    const cacheKey = `watchpct:${courseId}`;
+    // 새로고침 시 완료 기준 값이 잠깐 스치지 않도록 마지막 시청 진도율을 즉시 표시(캐시)
+    try { const c = window.localStorage.getItem(cacheKey); if (c != null) setWatchPct(Number(c) || 0); } catch { /* 무시 */ }
     let alive = true;
     const pull = async () => {
       try {
@@ -109,7 +112,10 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
         const d = (await res.json()) as { sessions?: { watchedSec: number; totalSec: number }[] };
         const sessions = d.sessions ?? [];
         const done = sessions.filter((s) => s.totalSec > 0 && s.watchedSec >= s.totalSec).length;
-        if (alive) setWatchPct(sessions.length ? Math.round((done / sessions.length) * 100) : 0);
+        const p = sessions.length ? Math.round((done / sessions.length) * 100) : 0;
+        if (!alive) return;
+        setWatchPct(p);
+        try { window.localStorage.setItem(cacheKey, String(p)); } catch { /* 무시 */ }
       } catch {
         /* 무시 */
       }
@@ -176,9 +182,10 @@ function SidebarContent({ room, isStaff = false, isParent = false, watchPct = nu
   const { done } = useCompletion();
   const completable = room.modules.flatMap((m) => m.completableIds);
   const completionPct = completable.length ? Math.round((completable.filter((id) => done.has(id)).length / completable.length) * 100) : 0;
-  // 관리형·자기주도: '내 수강 현황'과 동일한 시청 진도율(watchPct), 그 외(실시간)는 완료 기준
+  // 관리형·자기주도: '내 수강 현황'과 동일한 시청 진도율(watchPct)만 사용(완료 기준값이 잠깐 스치지 않도록).
+  // 그 외(실시간)는 완료 기준. 시청 진도율 로딩 전에는 0%로 시작해 채워짐(과대값 깜빡임 없음).
   const watchFormat = room.format === "자기주도학습" || room.format === "관리형학습";
-  const pct = watchFormat && watchPct != null ? watchPct : completionPct;
+  const pct = watchFormat ? (watchPct ?? 0) : completionPct;
   const [open, setOpen] = useState<number>(0);
 
   return (
