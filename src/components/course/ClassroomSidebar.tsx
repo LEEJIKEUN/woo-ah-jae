@@ -72,6 +72,17 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
   // 편집(강좌명·커리큘럼)을 사이드바에 반영: 실효 강좌명 + 차시 편집 반영(없으면 하드코딩과 동일)
   useEffect(() => {
     if (!seedRoom) return; // 하드코딩 강좌만 대상
+    const metaKey = `coursemeta:${courseId}`;
+    // 새로고침 시 하드코딩 기본값(강좌명·형식)이 잠깐 스치지 않도록 마지막 실효값을 즉시 반영(캐시)
+    try {
+      const raw = window.localStorage.getItem(metaKey);
+      if (raw) {
+        const m = JSON.parse(raw) as { title?: string; format?: string };
+        setRoom((prev) => (prev ? { ...prev, title: m.title ?? prev.title, format: m.format ?? prev.format } : prev));
+      }
+    } catch {
+      /* 무시 */
+    }
     let alive = true;
     (async () => {
       try {
@@ -88,6 +99,7 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
           lessons: m.sessions.map((s) => ({ id: s.id, title: s.title })),
         }));
         setRoom((prev) => (prev ? { ...prev, title: d.title ?? prev.title, format: d.format ?? prev.format, modules: mods } : prev));
+        try { window.localStorage.setItem(metaKey, JSON.stringify({ title: d.title, format: d.format })); } catch { /* 무시 */ }
       } catch {
         /* 무시 — 하드코딩 유지 */
       }
