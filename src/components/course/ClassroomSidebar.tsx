@@ -8,6 +8,7 @@ import { getStoredCourse, type StoredCourse } from "@/lib/course/store";
 import { CompletionProvider, useCompletion } from "@/components/course/completion";
 import CourseSummaryBox from "@/components/course/CourseSummaryBox";
 import ParentProgressDonut from "@/components/course/ParentProgressDonut";
+import { useCourseMetaInitial } from "@/components/course/course-meta-context";
 
 /**
  * 강의실(LearningHome) 좌측 사이드바를 다른 페이지(탐구활동 멘토링 등)에서도
@@ -57,10 +58,14 @@ function fromStored(c: StoredCourse): Classroom {
 }
 
 export default function ClassroomSidebar({ courseId, isStaff = false, isParent = false }: { courseId: string; isStaff?: boolean; isParent?: boolean }) {
+  // 서버 레이아웃이 내려준 초기값(실효 강좌명·형식·시청 진도율) — SSR부터 정확히 렌더(깜빡임 방지)
+  const initial = useCourseMetaInitial();
   const seedRoom = useMemo(() => {
     const c = getCourse(courseId);
-    return c ? fromSeed(c, isStaff) : null;
-  }, [courseId, isStaff]);
+    if (!c) return null;
+    const r = fromSeed(c, isStaff);
+    return { ...r, title: initial.title ?? r.title, format: initial.format ?? r.format };
+  }, [courseId, isStaff, initial.title, initial.format]);
   const [room, setRoom] = useState<Classroom | null>(seedRoom);
   useEffect(() => {
     if (!seedRoom) {
@@ -72,17 +77,7 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
   // 편집(강좌명·커리큘럼)을 사이드바에 반영: 실효 강좌명 + 차시 편집 반영(없으면 하드코딩과 동일)
   useEffect(() => {
     if (!seedRoom) return; // 하드코딩 강좌만 대상
-    const metaKey = `coursemeta:${courseId}`;
-    // 새로고침 시 하드코딩 기본값(강좌명·형식)이 잠깐 스치지 않도록 마지막 실효값을 즉시 반영(캐시)
-    try {
-      const raw = window.localStorage.getItem(metaKey);
-      if (raw) {
-        const m = JSON.parse(raw) as { title?: string; format?: string };
-        setRoom((prev) => (prev ? { ...prev, title: m.title ?? prev.title, format: m.format ?? prev.format } : prev));
-      }
-    } catch {
-      /* 무시 */
-    }
+    // 강좌명·형식은 서버 레이아웃 초기값(컨텍스트)으로 이미 정확 — 여기선 차시(모듈)만 최신화.
     let alive = true;
     (async () => {
       try {
@@ -99,7 +94,6 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
           lessons: m.sessions.map((s) => ({ id: s.id, title: s.title })),
         }));
         setRoom((prev) => (prev ? { ...prev, title: d.title ?? prev.title, format: d.format ?? prev.format, modules: mods } : prev));
-        try { window.localStorage.setItem(metaKey, JSON.stringify({ title: d.title, format: d.format })); } catch { /* 무시 */ }
       } catch {
         /* 무시 — 하드코딩 유지 */
       }
@@ -110,12 +104,11 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
   // 관리형·자기주도: 도넛 %를 '내 수강 현황' 페이지와 동일하게(완강=100% 시청 / 전체 동영상) 계산·폴링.
   // 실시간수업은 기존 완료(LessonCompletion) 기준 유지.
   const watchFormat = room?.format === "자기주도학습" || room?.format === "관리형학습";
-  const [watchPct, setWatchPct] = useState<number | null>(null);
+  // 서버가 미리 계산한 시청 진도율로 시작(SSR부터 정확) → 이후 폴링으로 갱신
+  const [watchPct, setWatchPct] = useState<number | null>(initial.watchPct ?? null);
   useEffect(() => {
     if (!watchFormat || isStaff || isParent) { setWatchPct(null); return; }
-    const cacheKey = `watchpct:${courseId}`;
-    // 새로고침 시 완료 기준 값이 잠깐 스치지 않도록 마지막 시청 진도율을 즉시 표시(캐시)
-    try { const c = window.localStorage.getItem(cacheKey); if (c != null) setWatchPct(Number(c) || 0); } catch { /* 무시 */ }
+    // 초기값은 서버 레이아웃이 제공(SSR부터 정확) — 여기선 폴링으로만 최신화
     let alive = true;
     const pull = async () => {
       try {
@@ -124,10 +117,7 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
         const d = (await res.json()) as { sessions?: { watchedSec: number; totalSec: number }[] };
         const sessions = d.sessions ?? [];
         const done = sessions.filter((s) => s.totalSec > 0 && s.watchedSec >= s.totalSec).length;
-        const p = sessions.length ? Math.round((done / sessions.length) * 100) : 0;
-        if (!alive) return;
-        setWatchPct(p);
-        try { window.localStorage.setItem(cacheKey, String(p)); } catch { /* 무시 */ }
+        if (alive) setWatchPct(sessions.length ? Math.round((done / sessions.length) * 100) : 0);
       } catch {
         /* 무시 */
       }
