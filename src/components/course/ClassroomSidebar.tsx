@@ -95,22 +95,46 @@ export default function ClassroomSidebar({ courseId, isStaff = false, isParent =
     return () => { alive = false; };
   }, [courseId, isStaff, seedRoom]);
 
+  // 관리형·자기주도: 도넛 %를 '내 수강 현황' 페이지와 동일하게(완강=100% 시청 / 전체 동영상) 계산·폴링.
+  // 실시간수업은 기존 완료(LessonCompletion) 기준 유지.
+  const watchFormat = room?.format === "자기주도학습" || room?.format === "관리형학습";
+  const [watchPct, setWatchPct] = useState<number | null>(null);
+  useEffect(() => {
+    if (!watchFormat || isStaff || isParent) { setWatchPct(null); return; }
+    let alive = true;
+    const pull = async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}/watch/me`, { cache: "no-store" });
+        if (!res.ok || !alive) return;
+        const d = (await res.json()) as { sessions?: { watchedSec: number; totalSec: number }[] };
+        const sessions = d.sessions ?? [];
+        const done = sessions.filter((s) => s.totalSec > 0 && s.watchedSec >= s.totalSec).length;
+        if (alive) setWatchPct(sessions.length ? Math.round((done / sessions.length) * 100) : 0);
+      } catch {
+        /* 무시 */
+      }
+    };
+    void pull();
+    const t = setInterval(() => void pull(), 4000);
+    return () => { alive = false; clearInterval(t); };
+  }, [courseId, watchFormat, isStaff, isParent]);
+
   if (!room) return null;
   return (
     <CompletionProvider courseId={courseId}>
-      <SidebarInner room={room} isStaff={isStaff} isParent={isParent} />
+      <SidebarInner room={room} isStaff={isStaff} isParent={isParent} watchPct={watchPct} />
     </CompletionProvider>
   );
 }
 
-function SidebarInner({ room, isStaff = false, isParent = false }: { room: Classroom; isStaff?: boolean; isParent?: boolean }) {
+function SidebarInner({ room, isStaff = false, isParent = false, watchPct = null }: { room: Classroom; isStaff?: boolean; isParent?: boolean; watchPct?: number | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
       {/* 데스크톱(lg+): 좌측 고정 사이드바 */}
       <aside className="sticky top-[68px] hidden w-[320px] shrink-0 self-start overflow-y-auto border-r lg:block" style={{ borderColor: LINE, maxHeight: "calc(100vh - 68px)" }}>
-        <SidebarContent room={room} isStaff={isStaff} isParent={isParent} />
+        <SidebarContent room={room} isStaff={isStaff} isParent={isParent} watchPct={watchPct} />
       </aside>
 
       {/* 모바일: 좌하단 '강의 메뉴' 토글 버튼 */}
@@ -142,16 +166,19 @@ function SidebarInner({ room, isStaff = false, isParent = false }: { room: Class
           <span className="text-[14px] font-bold" style={{ color: INK }}>강의 메뉴</span>
           <button type="button" onClick={() => setMobileOpen(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-[#F0EBE0]" style={{ color: SUB }} aria-label="닫기"><X size={18} /></button>
         </div>
-        <SidebarContent room={room} isStaff={isStaff} isParent={isParent} onNavigate={() => setMobileOpen(false)} />
+        <SidebarContent room={room} isStaff={isStaff} isParent={isParent} watchPct={watchPct} onNavigate={() => setMobileOpen(false)} />
       </div>
     </>
   );
 }
 
-function SidebarContent({ room, isStaff = false, isParent = false, onNavigate }: { room: Classroom; isStaff?: boolean; isParent?: boolean; onNavigate?: () => void }) {
+function SidebarContent({ room, isStaff = false, isParent = false, watchPct = null, onNavigate }: { room: Classroom; isStaff?: boolean; isParent?: boolean; watchPct?: number | null; onNavigate?: () => void }) {
   const { done } = useCompletion();
   const completable = room.modules.flatMap((m) => m.completableIds);
-  const pct = completable.length ? Math.round((completable.filter((id) => done.has(id)).length / completable.length) * 100) : 0;
+  const completionPct = completable.length ? Math.round((completable.filter((id) => done.has(id)).length / completable.length) * 100) : 0;
+  // 관리형·자기주도: '내 수강 현황'과 동일한 시청 진도율(watchPct), 그 외(실시간)는 완료 기준
+  const watchFormat = room.format === "자기주도학습" || room.format === "관리형학습";
+  const pct = watchFormat && watchPct != null ? watchPct : completionPct;
   const [open, setOpen] = useState<number>(0);
 
   return (
