@@ -34,16 +34,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   let buffer: Buffer | null = null;
   try {
-    buffer = await readUpload({ key: ref.key });
+    buffer = await readUpload({ key: ref.key, data: ref.data });
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }
   if (!buffer) return new NextResponse("Not found", { status: 404 });
 
+  // ?download=1 → 첨부(파일명 유지 다운로드), 기본 → 인라인(새 탭 미리보기·탭 제목=파일명)
+  const wantDownload = new URL(request.url).searchParams.get("download") === "1";
+  const disposition = wantDownload ? "attachment" : "inline";
+
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": ref.mime || "application/octet-stream",
-      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(ref.name)}`,
+      "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(ref.name)}`,
       "Cache-Control": "private, max-age=60",
     },
   });

@@ -412,17 +412,17 @@ function BlockView({ block, courseId, activityId, trackWatch = false }: { block:
     );
   }
   if (block.type === "file") {
-    // dataUrl 은 운영(R2)에선 서빙 URL(inline), 로컬에선 data: URL.
-    // 배너 본문 = 링크(커서 손모양·클릭 시 새 탭에서 열기), 우측 = 다운로드 버튼.
-    const href = block.dataUrl;
-    return href ? (
+    // 항상 서버 서빙 라우트로 연다: R2 파일이든 레거시 인라인(data:) 파일이든 동일하게
+    // 인라인 응답(탭 제목=파일명)·다운로드(파일명 유지)가 되도록. (data: URL 을 직접 열면 탭 제목이 '제목 없음')
+    const viewUrl = `/api/courses/${courseId}/lessons/${activityId}/file?blockId=${encodeURIComponent(block.id)}`;
+    return block.dataUrl ? (
       <div className="flex items-center gap-3 rounded-[10px] border px-4 py-3 transition hover:border-[#8C6E59]" style={{ borderColor: LINE, background: PANEL }}>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white" style={{ background: BROWN }}><Paperclip size={16} /></span>
-        <a href={href} target="_blank" rel="noreferrer" className="group min-w-0 flex-1" title="새 탭에서 열기">
+        <a href={viewUrl} target="_blank" rel="noreferrer" className="group min-w-0 flex-1" title="새 탭에서 열기">
           <span className="block truncate text-[14px] font-semibold group-hover:underline" style={{ color: DEEP }}>{block.name || "파일"}</span>
           <span className="text-[12px]" style={{ color: MUTED }}>{block.size ? `${fmtSize(block.size)} · ` : ""}클릭하여 새 탭에서 열기</span>
         </a>
-        <a href={href} download={block.name || "file"} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: BROWN }} title="다운로드" aria-label="다운로드"><Download size={15} /></a>
+        <a href={`${viewUrl}&download=1`} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: BROWN }} title="다운로드" aria-label="다운로드"><Download size={15} /></a>
       </div>
     ) : (
       <div className="flex items-center gap-3 rounded-[10px] border px-4 py-3" style={{ borderColor: LINE, background: PANEL }}>

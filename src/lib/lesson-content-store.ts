@@ -77,12 +77,22 @@ export async function setBlocks(courseId: string, activityId: string, blocks: Bl
   return processed;
 }
 
-/** 강의 콘텐츠 파일 블록의 R2 참조(키·mime) 조회 — 서빙 라우트용. */
-export async function getLessonFileRef(courseId: string, activityId: string, blockId: string): Promise<{ name: string; mime: string; key: string } | null> {
+/**
+ * 강의 콘텐츠 파일 블록 참조 조회 — 서빙 라우트용.
+ * - R2 이전 완료 블록: fileKey 반환.
+ * - 레거시(미이전) 블록: dataUrl 에 base64 인라인 저장돼 있으므로 그 data 를 그대로 반환 → 라우트가 서빙.
+ *   (그래야 인라인 파일도 새 탭 열기·파일명 유지가 R2 파일과 동일하게 동작)
+ */
+export async function getLessonFileRef(courseId: string, activityId: string, blockId: string): Promise<{ name: string; mime: string; key: string | null; data: string | null } | null> {
   const blocks = await getBlocks(courseId, activityId);
   const b = blocks.find((x) => x.id === blockId && x.type === "file") as Extract<Block, { type: "file" }> | undefined;
-  if (!b || !b.fileKey) return null;
-  return { name: b.name || "file", mime: b.fileMime || "application/octet-stream", key: b.fileKey };
+  if (!b) return null;
+  if (b.fileKey) return { name: b.name || "file", mime: b.fileMime || "application/octet-stream", key: b.fileKey, data: null };
+  if (b.dataUrl && b.dataUrl.startsWith("data:")) {
+    const mime = b.fileMime || decodeDataUrl(b.dataUrl)?.mime || "application/octet-stream";
+    return { name: b.name || "file", mime, key: null, data: b.dataUrl };
+  }
+  return null;
 }
 
 /** 강의 동영상 블록의 R2 키 조회 — 재생(서명 URL) 라우트용. */
