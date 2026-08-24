@@ -411,16 +411,29 @@ function BlockView({ block, courseId, activityId, trackWatch = false }: { block:
       <p className="rounded-[10px] py-3 text-center text-[13px]" style={{ background: PANEL, color: SUB }}>동영상이 아직 업로드되지 않았습니다.</p>
     );
   }
-  if (block.type === "file")
-    return (
-      <button type="button" onClick={() => block.dataUrl && download(block.name, block.dataUrl)} className="flex items-center gap-3 rounded-[10px] border px-4 py-3 text-left transition hover:border-[#8C6E59]" style={{ borderColor: LINE, background: PANEL }}>
+  if (block.type === "file") {
+    // dataUrl 은 운영(R2)에선 서빙 URL(inline), 로컬에선 data: URL.
+    // 배너 본문 = 링크(커서 손모양·클릭 시 새 탭에서 열기), 우측 = 다운로드 버튼.
+    const href = block.dataUrl;
+    return href ? (
+      <div className="flex items-center gap-3 rounded-[10px] border px-4 py-3 transition hover:border-[#8C6E59]" style={{ borderColor: LINE, background: PANEL }}>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white" style={{ background: BROWN }}><Paperclip size={16} /></span>
+        <a href={href} target="_blank" rel="noreferrer" className="group min-w-0 flex-1" title="새 탭에서 열기">
+          <span className="block truncate text-[14px] font-semibold group-hover:underline" style={{ color: DEEP }}>{block.name || "파일"}</span>
+          <span className="text-[12px]" style={{ color: MUTED }}>{block.size ? `${fmtSize(block.size)} · ` : ""}클릭하여 새 탭에서 열기</span>
+        </a>
+        <a href={href} download={block.name || "file"} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: BROWN }} title="다운로드" aria-label="다운로드"><Download size={15} /></a>
+      </div>
+    ) : (
+      <div className="flex items-center gap-3 rounded-[10px] border px-4 py-3" style={{ borderColor: LINE, background: PANEL }}>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white" style={{ background: BROWN }}><Paperclip size={16} /></span>
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-semibold" style={{ color: DEEP }}>{block.name || "파일"}</span>
-          <span className="text-[12px]" style={{ color: MUTED }}>{block.size ? fmtSize(block.size) : ""} · 클릭하여 다운로드</span>
+          <span className="text-[12px]" style={{ color: MUTED }}>파일이 아직 업로드되지 않았습니다.</span>
         </span>
-      </button>
+      </div>
     );
+  }
   // link
   return (
     <a href={block.url || "#"} target="_blank" rel="noreferrer" className="flex items-start gap-3 rounded-[10px] border px-4 py-3 transition hover:border-[#8C6E59]" style={{ borderColor: LINE }}>
