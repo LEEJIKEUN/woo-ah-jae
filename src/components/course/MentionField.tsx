@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type Member = { id: string; name: string };
 
@@ -15,6 +15,7 @@ export default function MentionField({
   className,
   style,
   onEnter,
+  autoFocus = false,
 }: {
   as?: "textarea" | "input";
   value: string;
@@ -25,12 +26,25 @@ export default function MentionField({
   className?: string;
   style?: React.CSSProperties;
   onEnter?: () => void;
+  autoFocus?: boolean;
 }) {
   const elRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [anchor, setAnchor] = useState(0);
   const [hi, setHi] = useState(0);
+
+  // 수정 진입 시 자동 포커스 + 커서를 맨 끝으로 (기존 내용 뒤에서 바로 이어쓰기)
+  useEffect(() => {
+    if (!autoFocus) return;
+    const el = elRef.current;
+    if (!el) return;
+    el.focus();
+    const end = el.value.length;
+    try { el.setSelectionRange(end, end); } catch { /* input type 에 따라 미지원 가능 */ }
+    // 최초 마운트에서만 실행
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function refresh(v: string, caret: number) {
     const before = v.slice(0, caret);

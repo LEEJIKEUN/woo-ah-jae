@@ -249,13 +249,12 @@ export default function CourseBoard({
     }
   }
 
-  async function editComment(postId: string, commentId: string, body: string) {
-    const t = body.trim();
-    if (!t) return false;
+  async function editComment(postId: string, commentId: string, body: string, file: UpFile | null, removeFile: boolean) {
+    // 본문/새 첨부/기존 첨부 중 하나는 있어야 함(빈 저장 방지는 작성칸에서 이미 걸러짐). 최종 검증은 서버에서.
     const res = await fetch(`/api/courses/${courseId}/posts/${postId}/comments/${commentId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: t }),
+      body: JSON.stringify({ body: body.trim(), file: file ?? undefined, removeFile }),
     });
     if (res.ok) {
       await loadComments(postId);
@@ -381,7 +380,7 @@ export default function CourseBoard({
                           currentUserId={currentUserId}
                           onSubmit={(body, parentId, file) => submitComment(p.id, body, parentId, file)}
                           onDelete={(commentId) => deleteComment(p.id, commentId)}
-                          onEdit={(commentId, body) => editComment(p.id, commentId, body)}
+                          onEdit={(commentId, body, file, removeFile) => editComment(p.id, commentId, body, file, removeFile)}
                           onLike={(commentId) => likeComment(p.id, commentId)}
                         />
                       </div>
@@ -420,15 +419,45 @@ function readAsDataUrl(f: File): Promise<string> {
   });
 }
 
-/** 이모지·파일첨부(10MB) 지원 댓글/답글 작성칸. onSubmit 성공 시 true 반환. */
-function CommentComposer({ members, onSubmit, placeholder, compact = false }: { members: Member[]; onSubmit: (body: string, file: UpFile | null) => Promise<boolean>; placeholder: string; compact?: boolean }) {
-  const [text, setText] = useState("");
-  const [file, setFile] = useState<UpFile | null>(null);
+type ExistingFile = { name: string; size: number; mime: string };
+
+/**
+ * 이모지·파일첨부(10MB)·@멘션·Shift+Enter 줄바꿈을 지원하는 댓글/답글/수정 공용 작성칸.
+ * 새 작성: initialText/initialFile 없이 사용 → 전송 성공 시 내용 초기화.
+ * 수정: initialText·initialFile 로 기존 값 채우고 submitLabel="저장"·onCancel 지정.
+ * onSubmit(body, file, removeFile) — file: 새로 첨부한 파일(교체), removeFile: 기존 첨부 제거. 성공 시 true.
+ */
+function CommentComposer({
+  members,
+  onSubmit,
+  placeholder,
+  compact = false,
+  initialText = "",
+  initialFile = null,
+  submitLabel,
+  onCancel,
+  autoFocus = false,
+}: {
+  members: Member[];
+  onSubmit: (body: string, file: UpFile | null, removeFile: boolean) => Promise<boolean>;
+  placeholder: string;
+  compact?: boolean;
+  initialText?: string;
+  initialFile?: ExistingFile | null;
+  submitLabel?: string;
+  onCancel?: () => void;
+  autoFocus?: boolean;
+}) {
+  const isEdit = !!submitLabel;
+  const [text, setText] = useState(initialText);
+  const [file, setFile] = useState<UpFile | null>(null); // 새로 고른 파일(dataUrl 포함)
+  const [existing, setExisting] = useState<ExistingFile | null>(initialFile); // 수정 시 기존 첨부
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const h = compact ? "h-9" : "h-10";
+  const attachment = file ?? existing; // 화면에 표시할 유효 첨부
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -438,29 +467,33 @@ function CommentComposer({ members, onSubmit, placeholder, compact = false }: { 
     setErr(null);
     try {
       setFile({ name: f.name, size: f.size, mime: f.type, dataUrl: await readAsDataUrl(f) });
+      setExisting(null); // 새 파일이 기존 첨부를 교체
     } catch {
       setErr("파일을 읽지 못했습니다.");
     }
   }
   async function submit() {
     if (busy) return;
-    if (!text.trim() && !file) return;
+    if (!text.trim() && !file && !existing) return;
     setBusy(true);
     setErr(null);
-    const ok = await onSubmit(text, file);
+    // 새 파일도 없고 기존 첨부도 남아있지 않은데 원래 첨부가 있었다면 → 제거 요청
+    const removeFile = !file && !existing && !!initialFile;
+    const ok = await onSubmit(text, file, removeFile);
     setBusy(false);
-    if (ok) { setText(""); setFile(null); }
-    else setErr("등록에 실패했습니다.");
+    if (ok) {
+      if (!isEdit) { setText(""); setFile(null); setExisting(null); } // 새 작성칸만 초기화
+    } else setErr(isEdit ? "수정에 실패했습니다." : "등록에 실패했습니다.");
   }
   const iconBtn = `grid ${h} w-9 shrink-0 place-items-center rounded-[8px] border transition hover:border-[#8C6E59]`;
 
   return (
     <div className="mt-3">
       {err ? <p className="mb-1 text-[11.5px] font-semibold" style={{ color: "#a6402c" }}>{err}</p> : null}
-      {file ? (
+      {attachment ? (
         <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-1 text-[11.5px]" style={{ borderColor: LINE, color: DEEP }}>
-          📎 <span className="max-w-[180px] truncate">{file.name}</span>
-          <button type="button" onClick={() => setFile(null)} aria-label="첨부 취소" style={{ color: MUTED }}><X size={12} /></button>
+          📎 <span className="max-w-[180px] truncate">{attachment.name}</span>
+          <button type="button" onClick={() => { setFile(null); setExisting(null); }} aria-label="첨부 취소" style={{ color: MUTED }}><X size={12} /></button>
         </div>
       ) : null}
       <div className="flex items-end gap-1.5">
@@ -471,9 +504,16 @@ function CommentComposer({ members, onSubmit, placeholder, compact = false }: { 
         <input ref={fileRef} type="file" onChange={onFile} className="hidden" />
         <button type="button" onClick={() => fileRef.current?.click()} className={iconBtn} style={{ borderColor: "#E7E2D6", color: BROWN }} aria-label="파일 첨부"><Paperclip size={15} /></button>
         <div className="min-w-0 flex-1">
-          <MentionField as="textarea" rows={1} value={text} onChange={setText} members={members} onEnter={() => void submit()} placeholder={placeholder} className={`max-h-40 w-full resize-none rounded-[8px] border px-3 py-2 text-[13.5px] leading-6 outline-none [field-sizing:content] focus:border-[#8C6E59]`} style={{ borderColor: "#E7E2D6", color: BODY, minHeight: 38 }} />
+          <MentionField as="textarea" rows={1} value={text} onChange={setText} members={members} onEnter={() => void submit()} placeholder={placeholder} autoFocus={autoFocus} className={`max-h-40 w-full resize-none rounded-[8px] border px-3 py-2 text-[13.5px] leading-6 outline-none [field-sizing:content] focus:border-[#8C6E59]`} style={{ borderColor: isEdit ? BROWN : "#E7E2D6", color: BODY, minHeight: 38 }} />
         </div>
-        <button type="button" onClick={() => void submit()} disabled={busy} className={`grid ${h} w-9 shrink-0 place-items-center rounded-[8px] text-white disabled:opacity-50`} style={{ background: BROWN }} aria-label="등록"><Send size={compact ? 14 : 16} /></button>
+        {isEdit ? (
+          <>
+            <button type="button" onClick={() => void submit()} disabled={busy} className={`shrink-0 rounded-[8px] px-3 ${h} text-[12px] font-bold text-white disabled:opacity-50`} style={{ background: BROWN }}>{submitLabel}</button>
+            {onCancel ? <button type="button" onClick={onCancel} className={`shrink-0 rounded-[8px] border px-3 ${h} text-[12px] font-semibold`} style={{ borderColor: LINE, color: SUB }}>취소</button> : null}
+          </>
+        ) : (
+          <button type="button" onClick={() => void submit()} disabled={busy} className={`grid ${h} w-9 shrink-0 place-items-center rounded-[8px] text-white disabled:opacity-50`} style={{ background: BROWN }} aria-label="등록"><Send size={compact ? 14 : 16} /></button>
+        )}
       </div>
     </div>
   );
@@ -501,7 +541,7 @@ function CommentsSection({
   currentUserId: string;
   onSubmit: (body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
-  onEdit: (commentId: string, body: string) => Promise<boolean>;
+  onEdit: (commentId: string, body: string, file: UpFile | null, removeFile: boolean) => Promise<boolean>;
   onLike: (commentId: string) => void;
 }) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -576,21 +616,15 @@ function CommentNode({
   setReplyingTo: (id: string | null) => void;
   onSubmit: (body: string, parentCommentId: string | null, file?: { name: string; size: number; mime: string; dataUrl: string } | null) => Promise<boolean>;
   onDelete: (commentId: string) => void;
-  onEdit: (commentId: string, body: string) => Promise<boolean>;
+  onEdit: (commentId: string, body: string, file: UpFile | null, removeFile: boolean) => Promise<boolean>;
   onLike: (commentId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [editText, setEditText] = useState(node.body);
   const badge = roleBadge(node.authorRole);
   const canDelete = canModerate || node.authorId === currentUserId;
   const canEdit = node.authorId === currentUserId;
   const isReplying = replyingTo === node.id;
   const indent = Math.min(depth, 4) * 20;
-
-  async function saveEdit() {
-    const ok = await onEdit(node.id, editText);
-    if (ok) setEditing(false);
-  }
 
   return (
     <li style={{ marginLeft: indent }}>
@@ -602,21 +636,21 @@ function CommentNode({
           <span style={{ color: MUTED }}>· {fmtDate(node.createdAt)}</span>
         </div>
         {editing ? (
-          <div className="mt-1.5 flex items-center gap-2">
-            <input
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); void saveEdit(); }
-                if (e.key === "Escape") setEditing(false);
-              }}
-              className="h-9 flex-1 rounded-[8px] border px-3 text-[13px] outline-none focus:border-[#8C6E59]"
-              style={{ borderColor: BROWN, color: BODY }}
-              autoFocus
-            />
-            <button type="button" onClick={() => void saveEdit()} className="rounded-[8px] px-3 py-2 text-[12px] font-bold text-white" style={{ background: BROWN }}>저장</button>
-            <button type="button" onClick={() => setEditing(false)} className="rounded-[8px] border px-3 py-2 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
-          </div>
+          <CommentComposer
+            compact
+            autoFocus
+            members={members}
+            initialText={node.body}
+            initialFile={node.file}
+            submitLabel="저장"
+            onCancel={() => setEditing(false)}
+            placeholder="댓글 수정 (@이름 언급 · 줄바꿈 ⇧/Shift+Enter)"
+            onSubmit={async (body, file, removeFile) => {
+              const ok = await onEdit(node.id, body, file, removeFile);
+              if (ok) setEditing(false);
+              return ok;
+            }}
+          />
         ) : (
           <>
             {node.body ? <LinkifiedText text={node.body} className="mt-1 block text-[14px] leading-6" style={{ color: BODY }} /> : null}
@@ -637,7 +671,7 @@ function CommentNode({
             <button type="button" onClick={() => setReplyingTo(isReplying ? null : node.id)} style={{ color: DEEP }}>답글</button>
           ) : null}
           {canEdit && !editing ? (
-            <button type="button" onClick={() => { setEditText(node.body); setEditing(true); }} style={{ color: DEEP }}>수정</button>
+            <button type="button" onClick={() => setEditing(true)} style={{ color: DEEP }}>수정</button>
           ) : null}
           {canDelete ? (
             <button type="button" onClick={() => onDelete(node.id)} style={{ color: "#a6402c" }}>삭제</button>
