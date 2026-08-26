@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { gateAiEval } from "@/lib/mentoring/ai-eval-gate";
 import { collectStudentDossier } from "@/lib/mentoring/dossier";
+import { buildDossierPdf } from "@/lib/mentoring/dossier-pdf";
 import { generateSete } from "@/lib/mentoring/generate-sete";
 import { getReportFileData } from "@/lib/mentoring-store";
 import { readUpload } from "@/lib/private-file";
@@ -45,8 +46,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const includeCommunity = body?.includeCommunity !== false;
   const includeReportPdf = body?.includeReportPdf !== false;
 
-  // 1) 활동 취합(외부 API 미사용)
+  // 1) 활동 취합(외부 API 미사용) → 정리 PDF 생성(우아재 안에서)
   const dossier = await collectStudentDossier(courseId, studentId, { includeCommunity });
+  const dossierPdf = await buildDossierPdf({ title: `${dossier.studentName} 학생 활동 정리`, sections: dossier.sections });
 
   // 2) 보고서 PDF 원본 첨부(있으면)
   let reportPdfBase64: string | undefined;
@@ -58,12 +60,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         if (buf && buf.length < MAX_REPORT_PDF_BYTES) reportPdfBase64 = buf.toString("base64");
       }
     } catch {
-      /* 보고서 첨부 실패는 무시하고 텍스트만으로 진행 */
+      /* 보고서 첨부 실패는 무시하고 정리 PDF 만으로 진행 */
     }
   }
 
-  // 3) Claude 생성(2000바이트 미만 강제)
-  const gen = await generateSete(dossier.text, reportPdfBase64);
+  // 3) Claude 가 정리 PDF(+보고서 PDF)를 읽고 세특 생성(2000바이트 미만 강제)
+  const gen = await generateSete({ dossierPdfBase64: dossierPdf.toString("base64"), reportPdfBase64 });
   if (!gen.ok) return NextResponse.json({ error: gen.error }, { status: 502 });
 
   // 4) 저장(생성 시 손수정 이력 초기화)

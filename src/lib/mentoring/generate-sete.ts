@@ -2,8 +2,8 @@ import { SETE_SYSTEM_PROMPT } from "@/lib/mentoring/sete-prompt";
 import { byteLen, truncateToSentenceBytes } from "@/lib/mentoring/bytes";
 
 /**
- * dossier(+선택적 보고서 PDF)를 근거로 Claude API 를 호출해 2000바이트 미만 세특을 생성한다.
- * exam/analyze.ts 의 호출 패턴을 재사용하되 top-level system(=이식한 생기부 프롬프트)을 사용한다.
+ * ② 세특 생성 — 우아재 안에서 만든 '활동 정리 PDF'(+학생 보고서 PDF)를 Claude API 가 직접 읽어
+ * 2000바이트 미만 세특(생기부 양식)을 작성한다. exam/analyze.ts 의 document 첨부 패턴 재사용.
  */
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const BYTE_LIMIT = 2000;
@@ -14,12 +14,15 @@ type ContentBlock =
   | { type: "text"; text: string }
   | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string } };
 
+function doc(base64: string): ContentBlock {
+  return { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } };
+}
+
 function extractText(data: unknown): string {
   const blocks = (data as { content?: { type: string; text?: string }[] })?.content ?? [];
   return blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n").trim();
 }
 
-// 모델이 코드펜스·따옴표로 감싸는 경우 정리
 function cleanOutput(s: string): string {
   let t = s.trim();
   t = t.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
@@ -41,7 +44,7 @@ async function callClaude(model: string, apiKey: string, messages: { role: "user
   return cleanOutput(extractText(await res.json()));
 }
 
-export async function generateSete(dossierText: string, reportPdfBase64?: string): Promise<GenSete> {
+export async function generateSete(opts: { dossierPdfBase64: string; reportPdfBase64?: string }): Promise<GenSete> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { ok: false, error: "AI 키(ANTHROPIC_API_KEY)가 설정되지 않았습니다. 관리자에게 문의하세요." };
   const model = process.env.SETE_AI_MODEL || process.env.EXAM_AI_MODEL || "claude-sonnet-4-6";
@@ -49,14 +52,13 @@ export async function generateSete(dossierText: string, reportPdfBase64?: string
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60_000);
   try {
-    const userContent: ContentBlock[] = [];
-    if (reportPdfBase64) userContent.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: reportPdfBase64 } });
-    userContent.push({ type: "text", text: `${dossierText}\n\n위 자료를 근거로 이 학생의 과목 세특을 2000바이트(NEIS 한글 3바이트) 이하로 작성하라. 본문만 출력.` });
+    const userContent: ContentBlock[] = [doc(opts.dossierPdfBase64)];
+    if (opts.reportPdfBase64) userContent.push(doc(opts.reportPdfBase64));
+    userContent.push({ type: "text", text: "첨부한 '활동 정리 PDF'(및 학생 보고서 PDF)를 근거로 이 학생의 과목 세특을 2000바이트(NEIS 한글 3바이트) 이하로 작성하라. 본문만 출력." });
 
     let text = await callClaude(model, apiKey, [{ role: "user", content: userContent }], controller.signal);
     if (!text) return { ok: false, error: "AI 응답이 비어 있습니다. 다시 시도해 주세요." };
 
-    // 2000바이트 초과 시 1회 재작성 요청
     if (byteLen(text) > BYTE_LIMIT) {
       const retry = await callClaude(model, apiKey, [
         { role: "user", content: userContent },
@@ -65,7 +67,6 @@ export async function generateSete(dossierText: string, reportPdfBase64?: string
       ], controller.signal);
       if (retry) text = retry;
     }
-    // 그래도 초과면 문장 경계로 하드 트림
     if (byteLen(text) > BYTE_LIMIT) text = truncateToSentenceBytes(text, BYTE_LIMIT);
 
     return { ok: true, text, byteCount: byteLen(text), model };

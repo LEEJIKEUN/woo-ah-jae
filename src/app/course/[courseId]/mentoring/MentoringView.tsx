@@ -215,6 +215,9 @@ export default function MentoringView({
   const [editingAi, setEditingAi] = useState(false);
   const [aiDraft, setAiDraft] = useState("");
   const [includeCommunity, setIncludeCommunity] = useState(true);
+  const [aiInfo, setAiInfo] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
   const seteDirtyRef = useRef(false); // 세특 편집 중이면 SSE 로 덮어쓰지 않음
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -281,6 +284,8 @@ export default function MentoringView({
     setAiEval(null);
     setEditingAi(false);
     setAiError(null);
+    setAiInfo(null);
+    setReportError(null);
     if (!isStaff || !studentId) return;
     let alive = true;
     fetch(`/api/courses/${courseId}/mentoring/ai-eval?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" })
@@ -316,6 +321,7 @@ export default function MentoringView({
     if (aiLoading || !studentId) return;
     setAiLoading(true);
     setAiError(null);
+    setAiInfo(null);
     try {
       const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval`, {
         method: "POST",
@@ -347,6 +353,49 @@ export default function MentoringView({
       /* 무시 */
     } finally {
       setEditingAi(false);
+    }
+  }
+  // AI 세특을 학생과 공유되는 '세특(참고)' 칸으로 반영(기존 멘토링 sete 액션 재사용 → 학생 SSE로 전달)
+  async function applyToSete() {
+    if (!aiEval?.evalText || !studentId) return;
+    if (!window.confirm("이 세특을 학생과 공유되는 '세특(참고)' 칸으로 반영할까요? 기존 세특(참고) 내용은 덮어쓰여집니다.")) return;
+    setAiInfo(null);
+    try {
+      const res = await postRoom(courseId, studentId, { action: "sete", body: aiEval.evalText });
+      if (res.ok) { setSete(aiEval.evalText); setAiInfo("세특(참고) 칸에 반영되었습니다."); }
+      else setAiError("세특(참고) 반영에 실패했습니다.");
+    } catch {
+      setAiError("세특(참고) 반영 중 오류가 발생했습니다.");
+    }
+  }
+  // 최종 평가 보고서 PDF — 새 탭을 먼저 열고(팝업 차단 회피) 생성 완료 시 그 탭에 표시
+  async function openEvalReport() {
+    if (reportLoading || !studentId) return;
+    const win = window.open("", "_blank");
+    if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#555'>평가 보고서를 생성하는 중입니다… (최대 1분)</p>");
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, includeCommunity }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        if (win) win.close();
+        setReportError(d?.error ?? "평가 보고서 생성에 실패했습니다.");
+        return;
+      }
+      const url = URL.createObjectURL(await res.blob());
+      if (win) win.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      if (win) win.close();
+      setReportError("평가 보고서 생성 중 오류가 발생했습니다.");
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -1217,7 +1266,7 @@ export default function MentoringView({
               </div>
             </div>
 
-            {/* AI 세특 평가 — 관리자·퍼실 전용(학생 미노출). 학생 활동 취합 → 생기부 세특 초안 */}
+            {/* AI 세특 평가 — 관리자·퍼실 전용(학생 미노출). ①활동정리PDF → ②세특(+세특참고 반영) → ③최종 평가보고서 */}
             {isStaff ? (
               <div className={`order-7 rounded-[14px] bg-white ${vis("aieval")}`} style={{ border: `1px solid ${CARD}` }}>
                 <div className="flex items-start justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
@@ -1225,52 +1274,63 @@ export default function MentoringView({
                     <span className="break-keep">AI 세특 평가</span>
                     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 관리자 전용</span>
                   </p>
-                  {aiEval && aiEval.evalText ? (() => {
-                    const used = byteLen(editingAi ? aiDraft : aiEval.evalText);
-                    const over = used > AI_LIMIT;
-                    return (
-                      <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
-                        <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{AI_LIMIT}byte</b>
-                      </span>
-                    );
-                  })() : null}
                 </div>
-                <div className="px-4 py-4">
-                  {aiLoading ? (
-                    <p className="text-[13px]" style={{ color: SUB }}>AI가 세특을 작성 중입니다… (최대 1분)</p>
-                  ) : editingAi ? (
-                    <textarea value={aiDraft} onChange={(e) => setAiDraft(truncateToBytes(e.target.value, Math.floor(AI_LIMIT * 1.1)))} rows={8} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(aiDraft) > AI_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
-                  ) : aiEval && aiEval.evalText ? (
-                    <LinkifiedText text={aiEval.evalText} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
-                  ) : (
-                    <p className="text-[13px] leading-6" style={{ color: SUB }}>학생이 우아재에 남긴 활동(탐구보고서·게시판·1:1채팅·자료함·성취기준 등)을 모아 생기부 양식의 세특 초안을 생성합니다. 학생에게는 보이지 않습니다.</p>
-                  )}
-                  {aiError ? <p className="mt-2 text-[12px]" style={{ color: "#a6402c" }}>{aiError}</p> : null}
-                  {aiEval && aiEval.evalText && !editingAi ? (
-                    <p className="mt-2 text-[11px]" style={{ color: MUTED }}>{aiEval.editedBy ? "관리자 수정됨" : "AI 생성"}{aiEval.model ? ` · ${aiEval.model}` : ""}</p>
-                  ) : null}
+                <div className="space-y-3 px-4 py-4">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
+                    <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동(강좌 외) 포함
+                  </label>
 
-                  {editingAi ? (
-                    <div className="mt-3 flex justify-end gap-1.5">
-                      <button type="button" onClick={() => void saveAiEdit()} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
-                      <button type="button" onClick={cancelEditAi} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                  {/* ① 활동 정리 PDF */}
+                  <div className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
+                    <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>① 활동 정리 자료</p>
+                    <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생이 남긴 모든 활동 원문을 요소별로 모은 자료(평가 전).</p>
+                    <a href={`/api/courses/${courseId}/mentoring/ai-eval/pdf?studentId=${encodeURIComponent(studentId)}&community=${includeCommunity ? 1 : 0}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: DEEP }}><Download size={12} /> 정리 PDF 다운로드</a>
+                  </div>
+
+                  {/* ② AI 세특 */}
+                  <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>② AI 세특 (생기부 양식)</p>
+                      {aiEval && aiEval.evalText ? (() => {
+                        const used = byteLen(editingAi ? aiDraft : aiEval.evalText);
+                        const over = used > AI_LIMIT;
+                        return <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}><span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{AI_LIMIT}byte</b></span>;
+                      })() : null}
                     </div>
-                  ) : (
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
-                        <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동 포함
-                      </label>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {aiEval && aiEval.hasDossier ? (
-                          <a href={`/api/courses/${courseId}/mentoring/ai-eval/pdf?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: DEEP }}><Download size={12} /> 자료 PDF</a>
-                        ) : null}
-                        {aiEval && aiEval.evalText ? (
-                          <button type="button" onClick={startEditAi} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
-                        ) : null}
-                        <button type="button" onClick={() => void generateAiEval()} disabled={aiLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{aiEval && aiEval.evalText ? "다시 생성" : "생성"}</button>
+                    {aiLoading ? (
+                      <p className="text-[13px]" style={{ color: SUB }}>AI가 정리 자료를 읽고 세특을 작성 중입니다… (최대 1분)</p>
+                    ) : editingAi ? (
+                      <textarea value={aiDraft} onChange={(e) => setAiDraft(truncateToBytes(e.target.value, Math.floor(AI_LIMIT * 1.1)))} rows={8} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(aiDraft) > AI_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
+                    ) : aiEval && aiEval.evalText ? (
+                      <LinkifiedText text={aiEval.evalText} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
+                    ) : (
+                      <p className="text-[13px] leading-6" style={{ color: SUB }}>정리 자료를 바탕으로 2000바이트 미만 세특 초안을 생성합니다.</p>
+                    )}
+                    {aiError ? <p className="mt-2 text-[12px]" style={{ color: "#a6402c" }}>{aiError}</p> : null}
+                    {aiInfo ? <p className="mt-2 text-[12px] font-semibold" style={{ color: "#2f7d55" }}>{aiInfo}</p> : null}
+                    {aiEval && aiEval.evalText && !editingAi ? <p className="mt-2 text-[11px]" style={{ color: MUTED }}>{aiEval.editedBy ? "관리자 수정됨" : "AI 생성"}{aiEval.model ? ` · ${aiEval.model}` : ""}</p> : null}
+
+                    {editingAi ? (
+                      <div className="mt-3 flex justify-end gap-1.5">
+                        <button type="button" onClick={() => void saveAiEdit()} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
+                        <button type="button" onClick={cancelEditAi} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5">
+                        {aiEval && aiEval.evalText ? <button type="button" onClick={() => void applyToSete()} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: "#2f7d55", color: "#2f7d55" }}><Check size={12} /> 세특(참고)에 반영</button> : null}
+                        {aiEval && aiEval.evalText ? <button type="button" onClick={startEditAi} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button> : null}
+                        <button type="button" onClick={() => void generateAiEval()} disabled={aiLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{aiEval && aiEval.evalText ? "다시 생성" : "세특 생성"}</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ③ 최종 평가 보고서 */}
+                  <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
+                    <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>③ 최종 평가 보고서</p>
+                    <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>요소별 원문 + 평가·피드백 + 세특을 담은 보고서를 새 탭으로 엽니다.</p>
+                    {reportError ? <p className="mb-2 text-[12px]" style={{ color: "#a6402c" }}>{reportError}</p> : null}
+                    <button type="button" onClick={() => void openEvalReport()} disabled={reportLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {reportLoading ? "보고서 생성 중…" : "평가 보고서 열기"}</button>
+                  </div>
                 </div>
               </div>
             ) : null}
