@@ -295,6 +295,20 @@ export default function MentoringView({
     return () => { alive = false; };
   }, [courseId, studentId, isStaff]);
 
+  // 선택한 학생을 URL(?student=)에 반영 → 새로고침해도 보던 학생 탭 유지(page.tsx 가 ?student= 를 읽어 초기 선택)
+  useEffect(() => {
+    if (!(isStaff || isParent) || !studentId) return;
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get("student") !== studentId) {
+        u.searchParams.set("student", studentId);
+        window.history.replaceState(null, "", u.toString());
+      }
+    } catch {
+      /* 무시 */
+    }
+  }, [studentId, isStaff, isParent]);
+
   function startEditSete() {
     setSeteDraft(sete);
     seteDirtyRef.current = true;

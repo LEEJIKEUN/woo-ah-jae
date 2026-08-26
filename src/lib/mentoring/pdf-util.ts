@@ -78,6 +78,37 @@ export class PdfWriter {
     }
   }
 
+  /** 현재 위치에 가로 구분선. */
+  rule(color: RGB = rgb(0.85, 0.82, 0.75)) {
+    const lh = 8;
+    if (this.y - lh < MARGIN) { this.page = this.doc.addPage([PAGE_W, PAGE_H]); this.pageCount += 1; this.y = PAGE_H - MARGIN; }
+    this.page.drawLine({ start: { x: MARGIN, y: this.y - 3 }, end: { x: PAGE_W - MARGIN, y: this.y - 3 }, thickness: 0.7, color });
+    this.y -= lh;
+  }
+
+  /** 새 페이지 시작(제목/구분면 용). */
+  newPage() {
+    this.page = this.doc.addPage([PAGE_W, PAGE_H]);
+    this.pageCount += 1;
+    this.y = PAGE_H - MARGIN;
+  }
+
+  /** 다른 PDF(원본 첨부)의 페이지를 라벨과 함께 이 문서 뒤에 그대로 이어붙인다. */
+  async appendPdf(bytes: Buffer, label: string, maxPages = 40) {
+    this.newPage();
+    this.para(label, { size: 12, color: rgb(0.32, 0.27, 0.22) });
+    this.rule();
+    try {
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const idxs = src.getPageIndices().slice(0, maxPages);
+      const copied = await this.doc.copyPages(src, idxs);
+      for (const p of copied) { this.doc.addPage(p); this.pageCount += 1; }
+      if (src.getPageCount() > maxPages) { this.newPage(); this.para(`… 이 첨부는 ${maxPages}페이지까지만 포함했습니다(원본 ${src.getPageCount()}페이지).`, { size: 10, color: rgb(0.5, 0.5, 0.5) }); }
+    } catch {
+      this.para("(이 파일은 PDF로 불러오지 못해 원본을 첨부하지 못했습니다.)", { size: 10, color: rgb(0.6, 0.3, 0.2), gapBefore: 4 });
+    }
+  }
+
   async save(): Promise<Buffer> {
     return Buffer.from(await this.doc.save());
   }
