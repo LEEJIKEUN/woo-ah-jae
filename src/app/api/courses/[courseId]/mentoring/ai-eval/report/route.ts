@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if ("error" in gate) return gate.error;
   const includeCommunity = body?.includeCommunity !== false;
 
-  const d = await collectStudentDossier(courseId, gate.studentId, { includeCommunity });
+  const d = await collectStudentDossier(courseId, gate.studentId, { includeCommunity, extractPdfText: true });
   if (!d.text.trim()) return NextResponse.json({ error: "자료가 없습니다." }, { status: 404 });
 
   const titles = d.sections.filter((s) => s.body.trim() !== "(없음)").map((s) => s.title);

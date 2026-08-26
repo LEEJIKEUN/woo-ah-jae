@@ -340,7 +340,7 @@ export default function MentoringView({
       const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, includeReportPdf: true, includeCommunity }),
+        body: JSON.stringify({ studentId, includeCommunity }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok) { setAiError(d?.error ?? "생성에 실패했습니다."); return; }
