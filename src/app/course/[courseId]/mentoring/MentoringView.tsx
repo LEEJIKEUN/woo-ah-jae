@@ -37,6 +37,7 @@ const FIELD_LIMITS: Partial<Record<FieldKey, number>> = {
 };
 const BOOK_LIMITS = { motive: 90, review: 260, influence: 260 } as const;
 const SETE_LIMIT = 1500; // 과목별 세부능력 특기사항(참고)
+const AI_LIMIT = 2000; // AI 세특 평가(생기부 양식) — 2000바이트 미만
 const OVER_RED = "#dc2626";
 
 type Report = Record<FieldKey, string>;
@@ -71,6 +72,7 @@ function assignmentOpenHref(courseId: string, id: string, name: string) {
 type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 type PeerReviewGroup = { column: number; items: PeerReview[] };
 type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[] };
+type AiEval = { evalText: string; aiText: string; byteCount: number; model: string; editedBy: string | null; generatedAt: string | null; hasDossier: boolean };
 const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
@@ -173,6 +175,8 @@ export default function MentoringView({
   const [studentId, setStudentId] = useState(initialStudentId);
   const [mobileSection, setMobileSection] = useState<string>("report"); // 모바일 섹션 필터
   const vis = (key: string) => (mobileSection === key ? "" : "hidden xl:block"); // 데스크톱은 항상 표시
+  // 모바일 섹션 탭 — AI 세특은 스태프에게만 노출(학생은 탭조차 안 보임)
+  const sections = isStaff ? [...SECTIONS, { key: "aieval", label: "AI 세특" }] : SECTIONS;
   const [report, setReport] = useState<Report>(blankReport());
   const [reportFile, setReportFile] = useState<FileMeta | null>(null);
   const [chat, setChat] = useState<ChatMsg[]>([]);
@@ -204,6 +208,13 @@ export default function MentoringView({
   const [noticeDraft, setNoticeDraft] = useState("");
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
   const [noticeEditDraft, setNoticeEditDraft] = useState("");
+  // AI 세특 평가(관리자·퍼실 전용, 학생 미노출)
+  const [aiEval, setAiEval] = useState<AiEval | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [editingAi, setEditingAi] = useState(false);
+  const [aiDraft, setAiDraft] = useState("");
+  const [includeCommunity, setIncludeCommunity] = useState(true);
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
   const seteDirtyRef = useRef(false); // 세특 편집 중이면 SSE 로 덮어쓰지 않음
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -265,6 +276,20 @@ export default function MentoringView({
     return () => { alive = false; };
   }, [courseId]);
 
+  // AI 세특 로드(스태프 전용) — 방 SSE 와 분리, 학생/학부모는 요청조차 하지 않음
+  useEffect(() => {
+    setAiEval(null);
+    setEditingAi(false);
+    setAiError(null);
+    if (!isStaff || !studentId) return;
+    let alive = true;
+    fetch(`/api/courses/${courseId}/mentoring/ai-eval?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d) setAiEval(d as AiEval); })
+      .catch(() => { /* 무시 */ });
+    return () => { alive = false; };
+  }, [courseId, studentId, isStaff]);
+
   function startEditSete() {
     setSeteDraft(sete);
     seteDirtyRef.current = true;
@@ -283,6 +308,45 @@ export default function MentoringView({
     } finally {
       seteDirtyRef.current = false;
       setEditingSete(false);
+    }
+  }
+
+  // ── AI 세특 평가(관리자·퍼실 전용) ──
+  async function generateAiEval() {
+    if (aiLoading || !studentId) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, includeReportPdf: true, includeCommunity }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) { setAiError(d?.error ?? "생성에 실패했습니다."); return; }
+      setAiEval(d as AiEval);
+      setEditingAi(false);
+    } catch {
+      setAiError("생성 중 오류가 발생했습니다.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+  function startEditAi() { setAiDraft(aiEval?.evalText ?? ""); setEditingAi(true); }
+  function cancelEditAi() { setEditingAi(false); }
+  async function saveAiEdit() {
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/edit`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, evalText: aiDraft }),
+      });
+      const d = await res.json().catch(() => null);
+      if (res.ok && d?.ok) setAiEval((prev) => (prev ? { ...prev, evalText: aiDraft, byteCount: d.byteCount, editedBy: d.editedBy } : prev));
+    } catch {
+      /* 무시 */
+    } finally {
+      setEditingAi(false);
     }
   }
 
@@ -605,7 +669,7 @@ export default function MentoringView({
         <>
           {/* 모바일: 섹션 필터 (좁은 화면에서 한 섹션씩 보기) */}
           <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 xl:hidden">
-            {SECTIONS.map((s) => (
+            {sections.map((s) => (
               <button key={s.key} type="button" onClick={() => setMobileSection(s.key)} className="shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition" style={mobileSection === s.key ? { background: BROWN, color: "#fff", borderColor: BROWN } : { borderColor: LINE, color: SUB, background: "#fff" }}>
                 {s.label}
               </button>
@@ -1152,6 +1216,64 @@ export default function MentoringView({
                 {assignErr ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{assignErr}</p> : null}
               </div>
             </div>
+
+            {/* AI 세특 평가 — 관리자·퍼실 전용(학생 미노출). 학생 활동 취합 → 생기부 세특 초안 */}
+            {isStaff ? (
+              <div className={`order-7 rounded-[14px] bg-white ${vis("aieval")}`} style={{ border: `1px solid ${CARD}` }}>
+                <div className="flex items-start justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
+                  <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] font-bold" style={{ color: INK }}>
+                    <span className="break-keep">AI 세특 평가</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 관리자 전용</span>
+                  </p>
+                  {aiEval && aiEval.evalText ? (() => {
+                    const used = byteLen(editingAi ? aiDraft : aiEval.evalText);
+                    const over = used > AI_LIMIT;
+                    return (
+                      <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}>
+                        <span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{AI_LIMIT}byte</b>
+                      </span>
+                    );
+                  })() : null}
+                </div>
+                <div className="px-4 py-4">
+                  {aiLoading ? (
+                    <p className="text-[13px]" style={{ color: SUB }}>AI가 세특을 작성 중입니다… (최대 1분)</p>
+                  ) : editingAi ? (
+                    <textarea value={aiDraft} onChange={(e) => setAiDraft(truncateToBytes(e.target.value, Math.floor(AI_LIMIT * 1.1)))} rows={8} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(aiDraft) > AI_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
+                  ) : aiEval && aiEval.evalText ? (
+                    <LinkifiedText text={aiEval.evalText} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
+                  ) : (
+                    <p className="text-[13px] leading-6" style={{ color: SUB }}>학생이 우아재에 남긴 활동(탐구보고서·게시판·1:1채팅·자료함·성취기준 등)을 모아 생기부 양식의 세특 초안을 생성합니다. 학생에게는 보이지 않습니다.</p>
+                  )}
+                  {aiError ? <p className="mt-2 text-[12px]" style={{ color: "#a6402c" }}>{aiError}</p> : null}
+                  {aiEval && aiEval.evalText && !editingAi ? (
+                    <p className="mt-2 text-[11px]" style={{ color: MUTED }}>{aiEval.editedBy ? "관리자 수정됨" : "AI 생성"}{aiEval.model ? ` · ${aiEval.model}` : ""}</p>
+                  ) : null}
+
+                  {editingAi ? (
+                    <div className="mt-3 flex justify-end gap-1.5">
+                      <button type="button" onClick={() => void saveAiEdit()} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
+                      <button type="button" onClick={cancelEditAi} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
+                        <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동 포함
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {aiEval && aiEval.hasDossier ? (
+                          <a href={`/api/courses/${courseId}/mentoring/ai-eval/pdf?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: DEEP }}><Download size={12} /> 자료 PDF</a>
+                        ) : null}
+                        {aiEval && aiEval.evalText ? (
+                          <button type="button" onClick={startEditAi} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button>
+                        ) : null}
+                        <button type="button" onClick={() => void generateAiEval()} disabled={aiLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{aiEval && aiEval.evalText ? "다시 생성" : "생성"}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </aside>
           </div>
         </>

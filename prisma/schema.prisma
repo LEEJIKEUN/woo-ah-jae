@@ -392,6 +392,22 @@ model MentoringSete {
   @@id([courseId, studentId])
 }
 
+/** AI 생성 세특 평가(생기부 양식) — 관리자·퍼실 전용, 학생 미노출. 멘토링 방(강좌+학생)별 1개. */
+model MentoringAiEval {
+  courseId    String
+  studentId   String
+  evalText    String   @default("") // 최종 세특(관리자 수정 반영)
+  aiText      String   @default("") // AI 원본(수정 전, 비교/되돌리기용)
+  byteCount   Int      @default(0)  // NEIS UTF-8 바이트(서버에서 재계산)
+  dossier     String   @default("") // 집계 스냅샷(재생성·PDF 근거, 상한 적용)
+  model       String   @default("") // 사용한 모델명
+  editedBy    String? // 마지막으로 손수정한 스태프 userId(없으면 AI 원본)
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([courseId, studentId])
+}
+
 /** 알림 — 수강 강좌 공지·내 글 댓글·과제(피어리뷰) 배정 등 변동 시 수신자에게 생성. */
 model Notification {
   id        String    @id @default(cuid())
