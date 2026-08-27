@@ -50,9 +50,12 @@ function capBody(body: string, cap = CAP_SECTION): string {
   return c.length < t.length ? `${c}\n…(이하 생략)` : c;
 }
 
-export async function collectStudentDossier(courseId: string, studentId: string, opts?: { includeCommunity?: boolean; extractPdfText?: boolean }): Promise<DossierResult> {
+export async function collectStudentDossier(courseId: string, studentId: string, opts?: { includeCommunity?: boolean; extractPdfText?: boolean; maxTotalBytes?: number }): Promise<DossierResult> {
   const includeCommunity = opts?.includeCommunity ?? true;
   const doExtract = opts?.extractPdfText ?? false;
+  // AI 입력(text)의 전체 상한. 기본 48KB. 평가 보고서는 지연(TTFT) 단축을 위해 더 작게 넘긴다.
+  // 참고: sections(원문 렌더용)는 이 상한과 무관하게 항상 전량 유지된다.
+  const totalCap = Math.max(8 * 1024, opts?.maxTotalBytes ?? CAP_TOTAL);
 
   const [user, rep, books, msgs, notices, assignments, standards, posts, postComments] = await Promise.all([
     prisma.user.findUnique({ where: { id: studentId }, select: { studentProfile: { select: { realName: true } } } }),
@@ -164,7 +167,7 @@ export async function collectStudentDossier(courseId: string, studentId: string,
 
   const header = `# ${studentName} 학생 활동 종합 (강좌 ${courseId})\n아래는 학생이 우아재에서 남긴 활동의 취합본이다(업로드 문서 원문 포함). 여기에 없는 사실은 지어내지 않는다.\n`;
   let text = `${header}\n${sections.map((s) => `## ${s.title}\n${s.body}`).join("\n\n")}`;
-  if (byteLen(text) > CAP_TOTAL) text = `${truncateToBytes(text, CAP_TOTAL)}\n…(전체 분량 초과로 일부 생략)`;
+  if (byteLen(text) > totalCap) text = `${truncateToBytes(text, totalCap)}\n…(전체 분량 초과로 일부 생략)`;
 
   return { text, byteCount: byteLen(text), hasReportPdf, studentName, sections };
 }

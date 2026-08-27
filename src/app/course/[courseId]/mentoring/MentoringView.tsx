@@ -823,7 +823,7 @@ export default function MentoringView({
           <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>③ 최종 평가 보고서</p>
           <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>요소별 원문 + 평가·피드백 + 세특을 담은 보고서(Claude 사용). 생성하면 오른쪽에 다운로드 탭이 쌓이고, 재다운로드는 추가 비용이 없습니다.</p>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            <button type="button" onClick={() => void generateGenFile("report")} disabled={genBusy.report} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {genBusy.report ? "보고서 생성 중… (최대 1분)" : "평가 보고서 생성"}</button>
+            <button type="button" onClick={() => void generateGenFile("report")} disabled={genBusy.report} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {genBusy.report ? "보고서 생성 중… (최대 2분)" : "평가 보고서 생성"}</button>
             {genFiles.filter((f) => f.kind === "report").map((f) => (
               <span key={f.id} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] border py-1 pl-2 pr-1 text-[11.5px]" style={{ borderColor: LINE, background: "#fff", color: DEEP }}>
                 <a href={`/api/courses/${courseId}/mentoring/ai-eval/files/${f.id}?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline" title="열기/다운로드"><FileText size={11} /> 평가 보고서({f.label})</a>

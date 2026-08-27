@@ -65,7 +65,8 @@ export async function buildDossierArchivePdf(courseId: string, studentId: string
 
 /** ③ 최종 평가 보고서 PDF(요소별 원문 + AI 평가/피드백 + 세특). Claude 사용. */
 export async function buildEvalReportPdfFor(courseId: string, studentId: string, includeCommunity: boolean): Promise<{ ok: true; pdf: Buffer } | { ok: false; error: string }> {
-  const d = await collectStudentDossier(courseId, studentId, { includeCommunity, extractPdfText: true });
+  // 보고서 AI 입력은 26KB로 축소해 지연(TTFT) 단축 — 원문 표시용 sections 는 전량 유지된다.
+  const d = await collectStudentDossier(courseId, studentId, { includeCommunity, extractPdfText: true, maxTotalBytes: 26 * 1024 });
   if (!d.text.trim()) return { ok: false, error: "자료가 없습니다." };
   const titles = d.sections.filter((s) => s.body.trim() !== "(없음)").map((s) => s.title);
   const gen = await generateEvalFeedback(d.text, titles);
