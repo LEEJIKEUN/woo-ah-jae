@@ -36,7 +36,8 @@ const FIELD_LIMITS: Partial<Record<FieldKey, number>> = {
   topic: 90, motive: 300, process: 600, result: 300, difficulty: 240, overcome: 360, learned: 300, references: 300,
 };
 const BOOK_LIMITS = { motive: 90, review: 260, influence: 260 } as const;
-const SETE_LIMIT = 1500; // 과목별 세부능력 특기사항(참고)
+const SETE_LIMIT = 1500; // 과목별 세부능력 특기사항(참고) — 권장 기준(초과 시 빨간 표시)
+const SETE_INPUT_MAX = 2000; // 실제 입력 허용 상한(기준 초과해도 여기까지는 입력 가능)
 const AI_LIMIT = 2000; // AI 세특 평가(생기부 양식) — 2000바이트 미만
 const OVER_RED = "#dc2626";
 
@@ -1138,7 +1139,7 @@ export default function MentoringView({
               </div>
               <div className="px-4 py-4">
                 {editingSete ? (
-                  <textarea value={seteDraft} onChange={(e) => setSeteDraft(truncateToBytes(e.target.value, Math.floor(SETE_LIMIT * 1.1)))} rows={6} placeholder="이 학생의 과목별 세부능력 특기사항을 작성하세요." className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(seteDraft) > SETE_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
+                  <textarea value={seteDraft} onChange={(e) => setSeteDraft(truncateToBytes(e.target.value, SETE_INPUT_MAX))} rows={6} placeholder="이 학생의 과목별 세부능력 특기사항을 작성하세요." className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(seteDraft) > SETE_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
                 ) : sete ? (
                   <LinkifiedText text={sete} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
                 ) : (
