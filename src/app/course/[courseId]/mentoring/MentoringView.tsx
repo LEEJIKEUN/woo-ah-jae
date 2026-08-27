@@ -215,8 +215,9 @@ export default function MentoringView({
   const [aiDraft, setAiDraft] = useState("");
   const [includeCommunity, setIncludeCommunity] = useState(true);
   const [aiInfo, setAiInfo] = useState<string | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  const [genFiles, setGenFiles] = useState<{ id: string; kind: string; label: string }[]>([]);
+  const [genBusy, setGenBusy] = useState<{ dossier: boolean; report: boolean }>({ dossier: false, report: false });
+  const [genError, setGenError] = useState<string | null>(null);
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
   const seteDirtyRef = useRef(false); // 세특 편집 중이면 SSE 로 덮어쓰지 않음
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -284,12 +285,17 @@ export default function MentoringView({
     setEditingAi(false);
     setAiError(null);
     setAiInfo(null);
-    setReportError(null);
+    setGenError(null);
+    setGenFiles([]);
     if (!isStaff || !studentId) return;
     let alive = true;
     fetch(`/api/courses/${courseId}/mentoring/ai-eval?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive && d) setAiEval(d as AiEval); })
+      .catch(() => { /* 무시 */ });
+    fetch(`/api/courses/${courseId}/mentoring/ai-eval/files?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && Array.isArray(d.files)) setGenFiles(d.files); })
       .catch(() => { /* 무시 */ });
     return () => { alive = false; };
   }, [courseId, studentId, isStaff]);
@@ -381,34 +387,32 @@ export default function MentoringView({
       setAiError("세특(참고) 반영 중 오류가 발생했습니다.");
     }
   }
-  // 최종 평가 보고서 PDF — 새 탭을 먼저 열고(팝업 차단 회피) 생성 완료 시 그 탭에 표시
-  async function openEvalReport() {
-    if (reportLoading || !studentId) return;
-    const win = window.open("", "_blank");
-    if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#555'>평가 보고서를 생성하는 중입니다… (최대 1분)</p>");
-    setReportLoading(true);
-    setReportError(null);
+  // 생성 파일(활동 정리·평가 보고서) — 1회 생성해 저장하고 다운로드 탭으로 누적. 다운로드는 재생성/비용 없음.
+  async function generateGenFile(kind: "dossier" | "report") {
+    if (genBusy[kind] || !studentId) return;
+    setGenBusy((s) => ({ ...s, [kind]: true }));
+    setGenError(null);
     try {
-      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/report`, {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, includeCommunity }),
+        body: JSON.stringify({ studentId, kind, includeCommunity }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => null);
-        if (win) win.close();
-        setReportError(d?.error ?? "평가 보고서 생성에 실패했습니다.");
-        return;
-      }
-      const url = URL.createObjectURL(await res.blob());
-      if (win) win.location.href = url;
-      else window.open(url, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const d = await res.json().catch(() => null);
+      if (!res.ok || !d?.id) { setGenError(d?.error ?? "생성에 실패했습니다."); return; }
+      setGenFiles((prev) => [...prev, { id: d.id, kind: d.kind, label: d.label }]); // 오른쪽으로 누적
     } catch {
-      if (win) win.close();
-      setReportError("평가 보고서 생성 중 오류가 발생했습니다.");
+      setGenError("생성 중 오류가 발생했습니다.");
     } finally {
-      setReportLoading(false);
+      setGenBusy((s) => ({ ...s, [kind]: false }));
+    }
+  }
+  async function deleteGenFile(id: string) {
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/files/${id}?studentId=${encodeURIComponent(studentId)}`, { method: "DELETE" });
+      if (res.ok) setGenFiles((prev) => prev.filter((f) => f.id !== id));
+    } catch {
+      /* 무시 */
     }
   }
 
@@ -767,10 +771,19 @@ export default function MentoringView({
         <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
           <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동(강좌 외) 포함
         </label>
+        {genError ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{genError}</p> : null}
         <div className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
           <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>① 활동 정리 자료</p>
-          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생이 남긴 모든 활동 원문을 요소별로 모은 자료(평가 전).</p>
-          <a href={`/api/courses/${courseId}/mentoring/ai-eval/pdf?studentId=${encodeURIComponent(studentId)}&community=${includeCommunity ? 1 : 0}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: DEEP }}><Download size={12} /> 정리 PDF 다운로드</a>
+          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생 활동 원문 + 제출 과제 원본을 모은 PDF. 생성하면 오른쪽에 다운로드 탭이 쌓이고, 재다운로드는 추가 비용이 없습니다.</p>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <button type="button" onClick={() => void generateGenFile("dossier")} disabled={genBusy.dossier} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{genBusy.dossier ? "생성 중…" : "정리 자료 생성"}</button>
+            {genFiles.filter((f) => f.kind === "dossier").map((f) => (
+              <span key={f.id} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] border py-1 pl-2 pr-1 text-[11.5px]" style={{ borderColor: LINE, background: "#fff", color: DEEP }}>
+                <a href={`/api/courses/${courseId}/mentoring/ai-eval/files/${f.id}?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline" title="열기/다운로드"><Download size={11} /> 정리 PDF({f.label})</a>
+                <button type="button" onClick={() => void deleteGenFile(f.id)} className="grid h-4 w-4 place-items-center rounded hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={11} /></button>
+              </span>
+            ))}
+          </div>
         </div>
         <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
           <div className="mb-1 flex items-center justify-between gap-2">
@@ -808,9 +821,16 @@ export default function MentoringView({
         </div>
         <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
           <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>③ 최종 평가 보고서</p>
-          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>요소별 원문 + 평가·피드백 + 세특을 담은 보고서를 새 탭으로 엽니다.</p>
-          {reportError ? <p className="mb-2 text-[12px]" style={{ color: "#a6402c" }}>{reportError}</p> : null}
-          <button type="button" onClick={() => void openEvalReport()} disabled={reportLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {reportLoading ? "보고서 생성 중…" : "평가 보고서 열기"}</button>
+          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>요소별 원문 + 평가·피드백 + 세특을 담은 보고서(Claude 사용). 생성하면 오른쪽에 다운로드 탭이 쌓이고, 재다운로드는 추가 비용이 없습니다.</p>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <button type="button" onClick={() => void generateGenFile("report")} disabled={genBusy.report} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {genBusy.report ? "보고서 생성 중… (최대 1분)" : "평가 보고서 생성"}</button>
+            {genFiles.filter((f) => f.kind === "report").map((f) => (
+              <span key={f.id} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] border py-1 pl-2 pr-1 text-[11.5px]" style={{ borderColor: LINE, background: "#fff", color: DEEP }}>
+                <a href={`/api/courses/${courseId}/mentoring/ai-eval/files/${f.id}?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline" title="열기/다운로드"><FileText size={11} /> 평가 보고서({f.label})</a>
+                <button type="button" onClick={() => void deleteGenFile(f.id)} className="grid h-4 w-4 place-items-center rounded hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={11} /></button>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

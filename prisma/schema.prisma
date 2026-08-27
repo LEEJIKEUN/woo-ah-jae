@@ -408,6 +408,22 @@ model MentoringAiEval {
   @@id([courseId, studentId])
 }
 
+/** 생성해 저장한 PDF(활동 정리·최종 평가 보고서) — 관리자·퍼실 전용. 생성 1회당 1행+R2 오브젝트.
+ *  다운로드는 재생성 없이 저장본을 서빙(추가 비용 없음), 새로고침·재접속에도 유지. */
+model MentoringGenFile {
+  id        String   @id @default(cuid())
+  courseId  String
+  studentId String
+  kind      String // "dossier"(활동 정리) | "report"(최종 평가 보고서)
+  label     String   @default("") // 표시용 타임스탬프(YYMMDD_HHMM)
+  fileKey   String // R2 키(r2://...)
+  size      Int      @default(0)
+  createdBy String? // 생성한 스태프 userId
+  createdAt DateTime @default(now())
+
+  @@index([courseId, studentId, kind, createdAt])
+}
+
 /** 알림 — 수강 강좌 공지·내 글 댓글·과제(피어리뷰) 배정 등 변동 시 수신자에게 생성. */
 model Notification {
   id        String    @id @default(cuid())
