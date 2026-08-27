@@ -214,7 +214,7 @@ export default function MentoringView({
   const [aiError, setAiError] = useState<string | null>(null);
   const [editingAi, setEditingAi] = useState(false);
   const [aiDraft, setAiDraft] = useState("");
-  const [includeCommunity, setIncludeCommunity] = useState(true);
+  const includeCommunity = true; // 생성 시 항상 커뮤니티 활동(강좌 외) 포함
   const [aiInfo, setAiInfo] = useState<string | null>(null);
   const [genFiles, setGenFiles] = useState<{ id: string; kind: string; label: string }[]>([]);
   const [genBusy, setGenBusy] = useState<{ dossier: boolean; report: boolean }>({ dossier: false, report: false });
@@ -769,9 +769,6 @@ export default function MentoringView({
         </p>
       </div>
       <div className="space-y-3 px-6 py-5">
-        <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
-          <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동(강좌 외) 포함
-        </label>
         {genError ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{genError}</p> : null}
         <div className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
           <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>① 활동 정리 자료</p>
