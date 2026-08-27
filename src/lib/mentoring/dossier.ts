@@ -91,7 +91,8 @@ export async function collectStudentDossier(courseId: string, studentId: string,
       if (n >= MAX_ASSIGN_EXTRACT) break;
       if (!isPdf(a.name, a.mime)) continue; // 동영상 등은 원문 추출 대상 아님
       try {
-        const buf = await readUpload({ key: a.fileKey });
+        // 과제는 presign 업로드라 fileKey 가 원시 R2 키(r2:// 접두 없음) → 정규화해야 읽힌다
+        const buf = await readUpload({ key: a.fileKey.startsWith("r2://") ? a.fileKey : `r2://${a.fileKey}` });
         if (!buf || buf.length > MAX_ATTACH_BYTES) continue;
         const t = await extractPdfText(buf, 6000);
         parts.push(t ? `[과제${a.column + 1}: ${a.name}]\n${t}` : `[과제${a.column + 1}: ${a.name}] (텍스트 추출 불가 — 스캔본 등)`);

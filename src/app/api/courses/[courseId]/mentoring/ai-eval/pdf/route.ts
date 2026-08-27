@@ -45,7 +45,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (attachments.length >= MAX_ATTACH_COUNT) break;
     if (!isPdf(a.name, a.mime)) continue; // 동영상 등은 본문 목록에만
     try {
-      const buf = await readUpload({ key: a.fileKey });
+      // 과제는 presign 업로드라 fileKey 가 원시 R2 키(r2:// 접두 없음) → 정규화해야 읽힌다
+      const buf = await readUpload({ key: a.fileKey.startsWith("r2://") ? a.fileKey : `r2://${a.fileKey}` });
       if (buf && buf.length <= MAX_ATTACH_BYTES) attachments.push({ label: `첨부 원본 · 과제${a.column + 1} (${a.name})`, bytes: buf });
     } catch { /* 개별 첨부 실패는 건너뜀 */ }
   }
