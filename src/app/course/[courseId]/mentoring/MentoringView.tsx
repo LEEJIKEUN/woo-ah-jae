@@ -89,7 +89,6 @@ const SECTIONS = [
   { key: "chat", label: "1:1 멘토링" },
   { key: "drive", label: "자료함" },
   { key: "books", label: "독서활동" },
-  { key: "assignment", label: "과제" },
 ] as const;
 
 function byteLen(s: string) {
@@ -176,7 +175,7 @@ export default function MentoringView({
   const [mobileSection, setMobileSection] = useState<string>("report"); // 모바일 섹션 필터
   const vis = (key: string) => (mobileSection === key ? "" : "hidden xl:block"); // 데스크톱은 항상 표시
   // 모바일 섹션 탭 — AI 세특은 스태프에게만 노출(학생은 탭조차 안 보임)
-  const sections = isStaff ? [...SECTIONS, { key: "aieval", label: "AI 세특" }] : SECTIONS;
+  const sections = SECTIONS;
   const [report, setReport] = useState<Report>(blankReport());
   const [reportFile, setReportFile] = useState<FileMeta | null>(null);
   const [chat, setChat] = useState<ChatMsg[]>([]);
@@ -689,6 +688,134 @@ export default function MentoringView({
     }
   }
 
+  // 과제 업로드 — 탐구 보고서 아래에, 모두에게 동일 표시(학생 제출·전원 열람)
+  const assignmentPanel = (
+    <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+      <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: CARD }}>
+        <p className="flex items-center gap-1.5 text-[16px] font-bold" style={{ color: INK }}>
+          <Upload size={15} style={{ color: BROWN }} /> 과제 업로드
+        </p>
+        <span className="text-[12px]" style={{ color: MUTED }}>{assignments.filter((a) => a.column >= 0 && a.column <= 4).length} / {ASSIGN_SLOTS.length}</span>
+      </div>
+      <div className="space-y-3 px-6 py-5">
+        {ASSIGN_SLOTS.map((col) => {
+          const a = assignments.find((x) => x.column === col);
+          const uploadingHere = isStudent && assignPct !== null && uploadCol === col;
+          const isVid = a ? (a.mime || "").startsWith("video/") : false;
+          const url = a ? `/api/courses/${courseId}/mentoring/assignment/${a.id}` : "";
+          const openHref = a ? assignmentOpenHref(courseId, a.id, a.name) : "";
+          return (
+            <div key={col}>
+              <p className="mb-1.5 text-[12.5px] font-bold" style={{ color: DEEP }}>과제{col + 1}</p>
+              {uploadingHere ? (
+                <div className="rounded-[10px] border px-3 py-3" style={{ borderColor: LINE }}>
+                  <p className="mb-1.5 text-[12.5px] font-semibold" style={{ color: DEEP }}>업로드 중… {assignPct}% (닫지 마세요)</p>
+                  <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${assignPct}%`, background: BROWN }} />
+                  </div>
+                </div>
+              ) : a ? (
+                <div className="flex items-center gap-2 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "#E7E2D6", background: PANEL }}>
+                  <a href={openHref} target="_blank" rel="noreferrer" className="min-w-0 flex-1" title="열기">
+                    <span className="block truncate text-[13px] font-semibold hover:underline" style={{ color: DEEP }}>{a.name}</span>
+                    <span className="text-[11px]" style={{ color: MUTED }}>{a.at} · {fmtSize(a.size)} · {isVid ? "동영상" : "PDF"}</span>
+                  </a>
+                  <a href={`${url}?download=1`} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={15} /></a>
+                  {isStudent || isStaff ? (
+                    <button type="button" onClick={() => void removeAssignment(a.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={15} /></button>
+                  ) : null}
+                </div>
+              ) : isStudent ? (
+                <button
+                  type="button"
+                  onClick={() => triggerAssignUpload(col)}
+                  disabled={assignPct !== null}
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-3.5 text-[13px] transition hover:border-[#8C6E59] disabled:opacity-50"
+                  style={{ borderColor: LINE, color: SUB }}
+                >
+                  <Upload size={15} /> 과제 파일 추가
+                </button>
+              ) : (
+                <p className="rounded-[10px] border border-dashed py-3 text-center text-[12px]" style={{ borderColor: LINE, color: MUTED }}>미제출</p>
+              )}
+            </div>
+          );
+        })}
+
+        {isStudent ? (
+          <>
+            <input ref={assignInputRef} type="file" accept={ASSIGN_ACCEPT} onChange={onAssignmentFile} className="hidden" />
+            <p className="text-[11px] leading-5" style={{ color: MUTED }}>PDF, 동영상 파일만 업로드할 수 있습니다. (최대 2GB)</p>
+            <p className="mt-0.5 text-[11px] leading-5" style={{ color: MUTED }}>업로드 가능한 동영상 : {VIDEO_LABEL}</p>
+          </>
+        ) : null}
+        {assignErr ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{assignErr}</p> : null}
+      </div>
+    </div>
+  );
+
+  // AI 세특 평가 — 관리자·퍼실 전용(상호 피드백 자리). ①활동정리PDF → ②세특(+세특참고 반영) → ③최종 평가보고서
+  const aiEvalPanel = (
+    <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
+      <div className="flex items-start justify-between gap-2 border-b px-6 py-4" style={{ borderColor: CARD }}>
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[16px] font-bold" style={{ color: INK }}>
+          <span className="break-keep">AI 세특 평가</span>
+          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 관리자 전용</span>
+        </p>
+      </div>
+      <div className="space-y-3 px-6 py-5">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
+          <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동(강좌 외) 포함
+        </label>
+        <div className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
+          <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>① 활동 정리 자료</p>
+          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생이 남긴 모든 활동 원문을 요소별로 모은 자료(평가 전).</p>
+          <a href={`/api/courses/${courseId}/mentoring/ai-eval/pdf?studentId=${encodeURIComponent(studentId)}&community=${includeCommunity ? 1 : 0}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: DEEP }}><Download size={12} /> 정리 PDF 다운로드</a>
+        </div>
+        <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>② AI 세특 (생기부 양식)</p>
+            {aiEval && aiEval.evalText ? (() => {
+              const used = byteLen(editingAi ? aiDraft : aiEval.evalText);
+              const over = used > AI_LIMIT;
+              return <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}><span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{AI_LIMIT}byte</b></span>;
+            })() : null}
+          </div>
+          {aiLoading ? (
+            <p className="text-[13px]" style={{ color: SUB }}>AI가 정리 자료를 읽고 세특을 작성 중입니다… (최대 1분)</p>
+          ) : editingAi ? (
+            <textarea value={aiDraft} onChange={(e) => setAiDraft(truncateToBytes(e.target.value, Math.floor(AI_LIMIT * 1.1)))} rows={8} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(aiDraft) > AI_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
+          ) : aiEval && aiEval.evalText ? (
+            <LinkifiedText text={aiEval.evalText} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
+          ) : (
+            <p className="text-[13px] leading-6" style={{ color: SUB }}>정리 자료를 바탕으로 2000바이트 미만 세특 초안을 생성합니다.</p>
+          )}
+          {aiError ? <p className="mt-2 text-[12px]" style={{ color: "#a6402c" }}>{aiError}</p> : null}
+          {aiInfo ? <p className="mt-2 text-[12px] font-semibold" style={{ color: "#2f7d55" }}>{aiInfo}</p> : null}
+          {aiEval && aiEval.evalText && !editingAi ? <p className="mt-2 text-[11px]" style={{ color: MUTED }}>{aiEval.editedBy ? "관리자 수정됨" : "AI 생성"}{aiEval.model ? ` · ${aiEval.model}` : ""}</p> : null}
+          {editingAi ? (
+            <div className="mt-3 flex justify-end gap-1.5">
+              <button type="button" onClick={() => void saveAiEdit()} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
+              <button type="button" onClick={cancelEditAi} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5">
+              {aiEval && aiEval.evalText ? <button type="button" onClick={() => void applyToSete()} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: "#2f7d55", color: "#2f7d55" }}><Check size={12} /> 세특(참고)에 반영</button> : null}
+              {aiEval && aiEval.evalText ? <button type="button" onClick={startEditAi} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button> : null}
+              <button type="button" onClick={() => void generateAiEval()} disabled={aiLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{aiEval && aiEval.evalText ? "다시 생성" : "세특 생성"}</button>
+            </div>
+          )}
+        </div>
+        <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
+          <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>③ 최종 평가 보고서</p>
+          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>요소별 원문 + 평가·피드백 + 세특을 담은 보고서를 새 탭으로 엽니다.</p>
+          {reportError ? <p className="mb-2 text-[12px]" style={{ color: "#a6402c" }}>{reportError}</p> : null}
+          <button type="button" onClick={() => void openEvalReport()} disabled={reportLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {reportLoading ? "보고서 생성 중…" : "평가 보고서 열기"}</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex w-full items-start" style={{ background: "#fff" }}>
       <ClassroomSidebar courseId={courseId} isStaff={isStaff} isParent={isParent} />
@@ -840,7 +967,10 @@ export default function MentoringView({
             ) : null}
           </section>
 
-          {/* 상호 피드백 — 항상 표시(기본 안내), 배정 시 과제별로 누적 */}
+          {assignmentPanel}
+
+          {/* 관리자·퍼실 = AI 세특 평가 / 학생·학부모 = 상호 피드백 (탐구 보고서·과제 아래) */}
+          {isStaff ? aiEvalPanel : (
           <div className="rounded-[14px] bg-white" style={{ border: `1px solid ${CARD}` }}>
             <div className="border-b px-6 py-4" style={{ borderColor: CARD }}>
               <h2 className="text-[16px] font-bold" style={{ color: INK }}>상호 피드백</h2>
@@ -900,9 +1030,10 @@ export default function MentoringView({
               )}
             </div>
           </div>
+          )}
           </div>
 
-          {/* 우: 개별공지 → 세특 → 1:1 멘토링 → 자료함 → 독서활동상황 → 과제 업로드 (flex order로 정렬) */}
+          {/* 우: 개별공지 → 세특 → 1:1 멘토링 → 자료함 → 독서활동상황 (flex order로 정렬) */}
           <aside className="flex flex-col gap-4">
             {/* 독서활동상황 */}
             <div className={`order-5 rounded-[14px] bg-white ${vis("books")}`} style={{ border: `1px solid ${CARD}` }}>
@@ -1215,139 +1346,6 @@ export default function MentoringView({
                 )}
               </div>
             </div>
-
-            {/* 과제 업로드 — 학생 제출(PDF·동영상) */}
-            <div className={`order-6 rounded-[14px] bg-white ${vis("assignment")}`} style={{ border: `1px solid ${CARD}` }}>
-              <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: CARD }}>
-                <p className="flex items-center gap-1.5 text-[14px] font-bold" style={{ color: INK }}>
-                  <Upload size={14} style={{ color: BROWN }} /> 과제 업로드
-                </p>
-                <span className="text-[12px]" style={{ color: MUTED }}>{assignments.filter((a) => a.column >= 0 && a.column <= 4).length} / {ASSIGN_SLOTS.length}</span>
-              </div>
-              <div className="space-y-3 px-4 py-4">
-                {ASSIGN_SLOTS.map((col) => {
-                  const a = assignments.find((x) => x.column === col);
-                  const uploadingHere = isStudent && assignPct !== null && uploadCol === col;
-                  const isVid = a ? (a.mime || "").startsWith("video/") : false;
-                  const url = a ? `/api/courses/${courseId}/mentoring/assignment/${a.id}` : "";
-                  const openHref = a ? assignmentOpenHref(courseId, a.id, a.name) : "";
-                  return (
-                    <div key={col}>
-                      <p className="mb-1.5 text-[12.5px] font-bold" style={{ color: DEEP }}>과제{col + 1}</p>
-                      {uploadingHere ? (
-                        <div className="rounded-[10px] border px-3 py-3" style={{ borderColor: LINE }}>
-                          <p className="mb-1.5 text-[12.5px] font-semibold" style={{ color: DEEP }}>업로드 중… {assignPct}% (닫지 마세요)</p>
-                          <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "#EDE7DA" }}>
-                            <div className="h-full rounded-full transition-all" style={{ width: `${assignPct}%`, background: BROWN }} />
-                          </div>
-                        </div>
-                      ) : a ? (
-                        <div className="flex items-center gap-2 rounded-[10px] border px-3 py-2.5" style={{ borderColor: "#E7E2D6", background: PANEL }}>
-                          <a href={openHref} target="_blank" rel="noreferrer" className="min-w-0 flex-1" title="열기">
-                            <span className="block truncate text-[13px] font-semibold hover:underline" style={{ color: DEEP }}>{a.name}</span>
-                            <span className="text-[11px]" style={{ color: MUTED }}>{a.at} · {fmtSize(a.size)} · {isVid ? "동영상" : "PDF"}</span>
-                          </a>
-                          <a href={`${url}?download=1`} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: BROWN }} aria-label="다운로드"><Download size={15} /></a>
-                          {isStudent || isStaff ? (
-                            <button type="button" onClick={() => void removeAssignment(a.id)} className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={15} /></button>
-                          ) : null}
-                        </div>
-                      ) : isStudent ? (
-                        <button
-                          type="button"
-                          onClick={() => triggerAssignUpload(col)}
-                          disabled={assignPct !== null}
-                          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed py-3.5 text-[13px] transition hover:border-[#8C6E59] disabled:opacity-50"
-                          style={{ borderColor: LINE, color: SUB }}
-                        >
-                          <Upload size={15} /> 과제 파일 추가
-                        </button>
-                      ) : (
-                        <p className="rounded-[10px] border border-dashed py-3 text-center text-[12px]" style={{ borderColor: LINE, color: MUTED }}>미제출</p>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {isStudent ? (
-                  <>
-                    <input ref={assignInputRef} type="file" accept={ASSIGN_ACCEPT} onChange={onAssignmentFile} className="hidden" />
-                    <p className="text-[11px] leading-5" style={{ color: MUTED }}>PDF, 동영상 파일만 업로드할 수 있습니다. (최대 2GB)</p>
-                    <p className="mt-0.5 text-[11px] leading-5" style={{ color: MUTED }}>업로드 가능한 동영상 : {VIDEO_LABEL}</p>
-                  </>
-                ) : null}
-                {assignErr ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{assignErr}</p> : null}
-              </div>
-            </div>
-
-            {/* AI 세특 평가 — 관리자·퍼실 전용(학생 미노출). ①활동정리PDF → ②세특(+세특참고 반영) → ③최종 평가보고서 */}
-            {isStaff ? (
-              <div className={`order-7 rounded-[14px] bg-white ${vis("aieval")}`} style={{ border: `1px solid ${CARD}` }}>
-                <div className="flex items-start justify-between gap-2 border-b px-4 py-3" style={{ borderColor: CARD }}>
-                  <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[14px] font-bold" style={{ color: INK }}>
-                    <span className="break-keep">AI 세특 평가</span>
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium" style={{ color: MUTED }}><Lock size={11} /> 관리자 전용</span>
-                  </p>
-                </div>
-                <div className="space-y-3 px-4 py-4">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px]" style={{ color: SUB }}>
-                    <input type="checkbox" checked={includeCommunity} onChange={(e) => setIncludeCommunity(e.target.checked)} /> 커뮤니티 활동(강좌 외) 포함
-                  </label>
-
-                  {/* ① 활동 정리 PDF */}
-                  <div className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
-                    <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>① 활동 정리 자료</p>
-                    <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생이 남긴 모든 활동 원문을 요소별로 모은 자료(평가 전).</p>
-                    <a href={`/api/courses/${courseId}/mentoring/ai-eval/pdf?studentId=${encodeURIComponent(studentId)}&community=${includeCommunity ? 1 : 0}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold transition hover:border-[#8C6E59]" style={{ borderColor: LINE, color: DEEP }}><Download size={12} /> 정리 PDF 다운로드</a>
-                  </div>
-
-                  {/* ② AI 세특 */}
-                  <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>② AI 세특 (생기부 양식)</p>
-                      {aiEval && aiEval.evalText ? (() => {
-                        const used = byteLen(editingAi ? aiDraft : aiEval.evalText);
-                        const over = used > AI_LIMIT;
-                        return <span className="shrink-0 whitespace-nowrap text-[11px]" style={{ color: over ? OVER_RED : MUTED }}><span className={over ? "font-bold" : ""}>{used}byte</span> / <b>{AI_LIMIT}byte</b></span>;
-                      })() : null}
-                    </div>
-                    {aiLoading ? (
-                      <p className="text-[13px]" style={{ color: SUB }}>AI가 정리 자료를 읽고 세특을 작성 중입니다… (최대 1분)</p>
-                    ) : editingAi ? (
-                      <textarea value={aiDraft} onChange={(e) => setAiDraft(truncateToBytes(e.target.value, Math.floor(AI_LIMIT * 1.1)))} rows={8} className="w-full resize-y rounded-[8px] border px-3 py-2 text-[13.5px] leading-7 outline-none focus:border-[#8C6E59]" style={{ borderColor: byteLen(aiDraft) > AI_LIMIT ? OVER_RED : "#E7E2D6", color: BODY }} />
-                    ) : aiEval && aiEval.evalText ? (
-                      <LinkifiedText text={aiEval.evalText} className="block text-[13.5px] leading-7" style={{ color: BODY }} />
-                    ) : (
-                      <p className="text-[13px] leading-6" style={{ color: SUB }}>정리 자료를 바탕으로 2000바이트 미만 세특 초안을 생성합니다.</p>
-                    )}
-                    {aiError ? <p className="mt-2 text-[12px]" style={{ color: "#a6402c" }}>{aiError}</p> : null}
-                    {aiInfo ? <p className="mt-2 text-[12px] font-semibold" style={{ color: "#2f7d55" }}>{aiInfo}</p> : null}
-                    {aiEval && aiEval.evalText && !editingAi ? <p className="mt-2 text-[11px]" style={{ color: MUTED }}>{aiEval.editedBy ? "관리자 수정됨" : "AI 생성"}{aiEval.model ? ` · ${aiEval.model}` : ""}</p> : null}
-
-                    {editingAi ? (
-                      <div className="mt-3 flex justify-end gap-1.5">
-                        <button type="button" onClick={() => void saveAiEdit()} className="rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}>저장</button>
-                        <button type="button" onClick={cancelEditAi} className="rounded-[6px] border px-3 py-1.5 text-[12px] font-semibold" style={{ borderColor: LINE, color: SUB }}>취소</button>
-                      </div>
-                    ) : (
-                      <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5">
-                        {aiEval && aiEval.evalText ? <button type="button" onClick={() => void applyToSete()} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: "#2f7d55", color: "#2f7d55" }}><Check size={12} /> 세특(참고)에 반영</button> : null}
-                        {aiEval && aiEval.evalText ? <button type="button" onClick={startEditAi} className="inline-flex items-center gap-1 rounded-[6px] border px-3 py-1.5 text-[12px] font-bold" style={{ borderColor: BROWN, color: BROWN }}><Pencil size={12} /> 수정</button> : null}
-                        <button type="button" onClick={() => void generateAiEval()} disabled={aiLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{aiEval && aiEval.evalText ? "다시 생성" : "세특 생성"}</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ③ 최종 평가 보고서 */}
-                  <div className="rounded-[10px] border p-3" style={{ borderColor: LINE }}>
-                    <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>③ 최종 평가 보고서</p>
-                    <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>요소별 원문 + 평가·피드백 + 세특을 담은 보고서를 새 탭으로 엽니다.</p>
-                    {reportError ? <p className="mb-2 text-[12px]" style={{ color: "#a6402c" }}>{reportError}</p> : null}
-                    <button type="button" onClick={() => void openEvalReport()} disabled={reportLoading} className="inline-flex items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: DEEP }}><FileText size={12} /> {reportLoading ? "보고서 생성 중…" : "평가 보고서 열기"}</button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </aside>
           </div>
         </>
