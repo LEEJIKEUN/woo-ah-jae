@@ -93,19 +93,35 @@ export class PdfWriter {
     this.y = PAGE_H - MARGIN;
   }
 
-  /** 다른 PDF(원본 첨부)의 페이지를 라벨과 함께 이 문서 뒤에 그대로 이어붙인다. */
+  /**
+   * 다른 PDF(원본 첨부)의 페이지를 이 문서 뒤에 그대로 이어붙인다.
+   * 별도 빈 라벨 페이지를 만들지 않고, 원본 '첫 페이지 상단'에 라벨을 얹어 원본이 그 페이지부터 시작되게 한다.
+   */
   async appendPdf(bytes: Buffer, label: string, maxPages = 40) {
-    this.newPage();
-    this.para(label, { size: 12, color: rgb(0.32, 0.27, 0.22) });
-    this.rule();
     try {
       const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const total = src.getPageCount();
       const idxs = src.getPageIndices().slice(0, maxPages);
       const copied = await this.doc.copyPages(src, idxs);
-      for (const p of copied) { this.doc.addPage(p); this.pageCount += 1; }
-      if (src.getPageCount() > maxPages) { this.newPage(); this.para(`… 이 첨부는 ${maxPages}페이지까지만 포함했습니다(원본 ${src.getPageCount()}페이지).`, { size: 10, color: rgb(0.5, 0.5, 0.5) }); }
+      copied.forEach((p, i) => {
+        this.doc.addPage(p);
+        this.pageCount += 1;
+        if (i === 0) {
+          // 원본 첫 페이지 상단 여백에 라벨 스탬프(원본 내용과 안 겹치게 얇은 흰 배경)
+          const size = 8;
+          const { width, height } = p.getSize();
+          const tw = Math.min(this.font.widthOfTextAtSize(label, size), width - 40);
+          p.drawRectangle({ x: 16, y: height - 15, width: tw + 14, height: 13, color: rgb(1, 1, 1), opacity: 0.9, borderColor: rgb(0.85, 0.82, 0.75), borderWidth: 0.5 });
+          p.drawText(label, { x: 22, y: height - 12, size, font: this.font, color: rgb(0.42, 0.33, 0.25), maxWidth: width - 44 });
+        }
+      });
+      if (total > maxPages) {
+        this.newPage();
+        this.para(`… 이 첨부는 ${maxPages}페이지까지만 포함했습니다(원본 ${total}페이지).`, { size: 10, color: rgb(0.5, 0.5, 0.5) });
+      }
     } catch {
-      this.para("(이 파일은 PDF로 불러오지 못해 원본을 첨부하지 못했습니다.)", { size: 10, color: rgb(0.6, 0.3, 0.2), gapBefore: 4 });
+      this.newPage();
+      this.para(`${label} — (이 파일은 PDF로 불러오지 못해 원본을 첨부하지 못했습니다.)`, { size: 10, color: rgb(0.6, 0.3, 0.2) });
     }
   }
 
