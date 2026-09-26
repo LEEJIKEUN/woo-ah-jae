@@ -1,7 +1,7 @@
 import { jwtVerify } from "jose";
 import { NextRequest, NextResponse } from "next/server";
 import { MaintenanceStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getMaintenanceState } from "@/lib/maintenance";
 
 const SESSION_COOKIE = "wooahjae_session";
 
@@ -36,9 +36,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Global maintenance gate for non-admins
-  const maintenance = await prisma.maintenance.findUnique({ where: { id: "singleton" } });
-  if (maintenance?.status === MaintenanceStatus.ACTIVE) {
+  // Global maintenance gate for non-admins. Uses the cached lookup so this
+  // per-request check doesn't hit the DB every time (which kept Neon awake).
+  const maintenance = await getMaintenanceState();
+  if (maintenance.status === MaintenanceStatus.ACTIVE) {
     const role = await getRoleFromRequest(req);
     if (role !== "ADMIN") {
       const maintenanceUrl = new URL("/maintenance", req.url);

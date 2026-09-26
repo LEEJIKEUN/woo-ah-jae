@@ -64,9 +64,9 @@ export default function WatchProgressView({ courseId }: { courseId: string }) {
   }, [courseId]);
 
   useEffect(() => { void load(); }, [load]);
-  // 실시간 갱신 — 2초마다 폴링
+  // 실시간 갱신 — 5초마다 폴링 (2초는 로스터 갱신엔 과도, 체감 동일하고 DB 부하만 큼)
   useEffect(() => {
-    const t = setInterval(() => void load(), 2000);
+    const t = setInterval(() => void load(), 5000);
     return () => clearInterval(t);
   }, [load]);
 
