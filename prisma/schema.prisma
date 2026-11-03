@@ -420,6 +420,8 @@ model MentoringGenFile {
   size      Int      @default(0)
   createdBy String? // 생성한 스태프 userId
   createdAt DateTime @default(now())
+  sentAt    DateTime? // 학생에게 보낸 시각(kind=report 전용) — null 이면 학생에게 비공개
+  sentBy    String?   // 보낸 스태프 userId
 
   @@index([courseId, studentId, kind, createdAt])
 }

@@ -6,6 +6,7 @@ import { Lock, Send, ChevronLeft, Plus, X, Upload, FileText, Download, Pencil, P
 import EmojiPicker from "@/components/ui/EmojiPicker";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
 import LinkifiedText from "@/components/LinkifiedText";
+import { DOSSIER_SECTIONS, toggleSet } from "@/lib/mentoring/dossier-items";
 
 /* 우아재 서재 톤 */
 const BROWN = "#8C6E59";
@@ -72,7 +73,8 @@ function assignmentOpenHref(courseId: string, id: string, name: string) {
 }
 type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 type PeerReviewGroup = { column: number; items: PeerReview[] };
-type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[] };
+type FinalReport = { id: string; label: string; sentAt: string };
+type Room = { report: Report; reportFile: FileMeta | null; books: Book[]; chat: ChatMsg[]; notices: Notice[]; assignments: Assignment[]; sete: string; peerReviews: PeerReviewGroup[]; finalReport?: FinalReport | null };
 type AiEval = { evalText: string; aiText: string; byteCount: number; model: string; editedBy: string | null; generatedAt: string | null; hasDossier: boolean };
 const BLANK_BOOK: Book = { book: "", author: "", motive: "", review: "", influence: "" };
 function blankReport(): Report {
@@ -184,6 +186,7 @@ export default function MentoringView({
   const [notices, setNotices] = useState<Notice[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [peerReviews, setPeerReviews] = useState<PeerReviewGroup[]>([]);
+  const [finalReport, setFinalReport] = useState<FinalReport | null>(null); // 교사가 보낸 최종 평가 보고서(SSE 실시간)
   const [standards, setStandards] = useState<StdItem[]>([]);
   const [assignErr, setAssignErr] = useState<string | null>(null);
   const [assignPct, setAssignPct] = useState<number | null>(null);
@@ -216,9 +219,12 @@ export default function MentoringView({
   const [aiDraft, setAiDraft] = useState("");
   const includeCommunity = true; // 생성 시 항상 커뮤니티 활동(강좌 외) 포함
   const [aiInfo, setAiInfo] = useState<string | null>(null);
-  const [genFiles, setGenFiles] = useState<{ id: string; kind: string; label: string }[]>([]);
+  const [genFiles, setGenFiles] = useState<{ id: string; kind: string; label: string; sentAt?: string | null }[]>([]);
   const [genBusy, setGenBusy] = useState<{ dossier: boolean; report: boolean }>({ dossier: false, report: false });
   const [genError, setGenError] = useState<string | null>(null);
+  // 정리 자료 포함 항목 선택 — 기본 전체. 학생을 바꿔도 선택은 유지(같은 기준으로 여러 명 뽑기 편하게).
+  const [dossierSecs, setDossierSecs] = useState<Set<string>>(() => new Set(DOSSIER_SECTIONS.map((x) => x.key)));
+  const [dossierCols, setDossierCols] = useState<Set<number>>(() => new Set(ASSIGN_SLOTS));
   const dirtyRef = useRef(false); // 보고서를 편집 중(미저장)이면 SSE 로 덮어쓰지 않음
   const seteDirtyRef = useRef(false); // 세특 편집 중이면 SSE 로 덮어쓰지 않음
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -240,6 +246,7 @@ export default function MentoringView({
     setNotices([]);
     setAssignments([]);
     setPeerReviews([]);
+    setFinalReport(null);
     setSete("");
     setEditingSete(false);
     seteDirtyRef.current = false;
@@ -254,6 +261,7 @@ export default function MentoringView({
         setNotices(Array.isArray(room.notices) ? room.notices : []);
         setAssignments(Array.isArray(room.assignments) ? room.assignments : []);
         setPeerReviews(Array.isArray(room.peerReviews) ? room.peerReviews : []);
+        setFinalReport(room.finalReport ?? null);
         if (!seteDirtyRef.current) setSete(typeof room.sete === "string" ? room.sete : "");
         setReportFile(room.reportFile ?? null);
         if (!dirtyRef.current) setReport({ ...blankReport(), ...(room.report ?? {}) });
@@ -391,17 +399,29 @@ export default function MentoringView({
   // 생성 파일(활동 정리·평가 보고서) — 1회 생성해 저장하고 다운로드 탭으로 누적. 다운로드는 재생성/비용 없음.
   async function generateGenFile(kind: "dossier" | "report") {
     if (genBusy[kind] || !studentId) return;
+    // 정리 자료: 체크한 항목만(미제출 슬롯·없는 보고서 첨부는 제외해 보냄). 둘 다 비면 생성하지 않음.
+    let include: { sections: string[]; assignmentColumns: number[] } | undefined;
+    if (kind === "dossier") {
+      include = {
+        sections: [...dossierSecs].filter((k) => k !== "report_file" || !!reportFile),
+        assignmentColumns: [...dossierCols].filter((c) => assignments.some((a) => a.column === c)),
+      };
+      if (include.sections.length === 0 && include.assignmentColumns.length === 0) {
+        setGenError("정리 자료에 포함할 항목을 1개 이상 체크하세요.");
+        return;
+      }
+    }
     setGenBusy((s) => ({ ...s, [kind]: true }));
     setGenError(null);
     try {
       const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, kind, includeCommunity }),
+        body: JSON.stringify({ studentId, kind, includeCommunity, ...(include ? { include } : {}) }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.id) { setGenError(d?.error ?? "생성에 실패했습니다."); return; }
-      setGenFiles((prev) => [...prev, { id: d.id, kind: d.kind, label: d.label }]); // 오른쪽으로 누적
+      setGenFiles((prev) => [...prev, { id: d.id, kind: d.kind, label: d.label, sentAt: d.sentAt ?? null }]); // 오른쪽으로 누적
     } catch {
       setGenError("생성 중 오류가 발생했습니다.");
     } finally {
@@ -414,6 +434,30 @@ export default function MentoringView({
       if (res.ok) setGenFiles((prev) => prev.filter((f) => f.id !== id));
     } catch {
       /* 무시 */
+    }
+  }
+  // 최종 평가 보고서 보내기/회수 — 학생 멘토링 페이지의 '내려받기' 잠금을 풀거나 다시 잠근다(방 SSE 로 즉시 반영)
+  async function sendReport(id: string) {
+    setGenError(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/files/${id}/send?studentId=${encodeURIComponent(studentId)}`, { method: "POST" });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) { setGenError(d?.error ?? "보내기에 실패했습니다."); return; }
+      setGenFiles((prev) => prev.map((f) => (f.id === id ? { ...f, sentAt: d?.sentAt ?? new Date().toISOString() } : f)));
+      setAiInfo("학생에게 보냈습니다 — 학생 페이지의 「최종 평가 보고서 내려받기」가 활성화됩니다.");
+    } catch {
+      setGenError("보내는 중 오류가 발생했습니다.");
+    }
+  }
+  async function recallReport(id: string) {
+    setGenError(null);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/files/${id}/send?studentId=${encodeURIComponent(studentId)}`, { method: "DELETE" });
+      if (!res.ok) { setGenError("회수에 실패했습니다."); return; }
+      setGenFiles((prev) => prev.map((f) => (f.id === id ? { ...f, sentAt: null } : f)));
+      setAiInfo("회수했습니다 — 학생 페이지의 내려받기가 다시 잠깁니다.");
+    } catch {
+      setGenError("회수 중 오류가 발생했습니다.");
     }
   }
 
@@ -772,7 +816,42 @@ export default function MentoringView({
         {genError ? <p className="text-[12px]" style={{ color: "#a6402c" }}>{genError}</p> : null}
         <div className="rounded-[10px] border p-3" style={{ borderColor: LINE, background: PANEL }}>
           <p className="text-[12.5px] font-bold" style={{ color: DEEP }}>① 활동 정리 자료</p>
-          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생 활동 원문 + 제출 과제 원본을 모은 PDF. 생성하면 오른쪽에 다운로드 탭이 쌓이고, 재다운로드는 추가 비용이 없습니다.</p>
+          <p className="mb-2 mt-0.5 text-[11.5px] leading-5" style={{ color: SUB }}>학생 활동 원문 + 제출 과제 원본을 모은 PDF. 아래에서 체크한 항목만 담깁니다. 생성하면 오른쪽에 다운로드 탭이 쌓이고, 재다운로드는 추가 비용이 없습니다.</p>
+          {/* 포함 항목 선택 — 섹션 체크 + 과제 슬롯 체크(미제출·첨부 없음은 비활성) */}
+          <div className="mb-2 rounded-[8px] border bg-white px-2.5 py-2" style={{ borderColor: LINE }}>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[11.5px] font-bold" style={{ color: INK }}>포함 항목</span>
+              <span className="flex shrink-0 items-center gap-1.5 text-[11px]">
+                <button type="button" onClick={() => { setDossierSecs(new Set(DOSSIER_SECTIONS.map((x) => x.key))); setDossierCols(new Set(ASSIGN_SLOTS)); }} className="hover:underline" style={{ color: BROWN }}>전체 선택</button>
+                <span style={{ color: LINE }}>|</span>
+                <button type="button" onClick={() => { setDossierSecs(new Set()); setDossierCols(new Set()); }} className="hover:underline" style={{ color: MUTED }}>전체 해제</button>
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {DOSSIER_SECTIONS.map((x) => {
+                const disabled = x.key === "report_file" && !reportFile;
+                return (
+                  <label key={x.key} className={`inline-flex items-center gap-1 text-[11.5px] ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`} style={{ color: INK }} title={disabled ? "첨부된 탐구 보고서 파일이 없습니다" : undefined}>
+                    <input type="checkbox" className="accent-[#8C6E59]" checked={!disabled && dossierSecs.has(x.key)} disabled={disabled} onChange={() => setDossierSecs((prev) => toggleSet(prev, x.key))} />
+                    {x.label}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-1.5" style={{ borderColor: CARD }}>
+              <span className="text-[11px] font-bold" style={{ color: SUB }}>과제(목록+원본 첨부)</span>
+              {ASSIGN_SLOTS.map((c) => {
+                const a = assignments.find((x) => x.column === c);
+                return (
+                  <label key={c} className={`inline-flex items-center gap-1 text-[11.5px] ${a ? "cursor-pointer" : "cursor-not-allowed opacity-45"}`} style={{ color: INK }} title={a ? a.name : "미제출"}>
+                    <input type="checkbox" className="accent-[#8C6E59]" checked={!!a && dossierCols.has(c)} disabled={!a} onChange={() => setDossierCols((prev) => toggleSet(prev, c))} />
+                    과제{c + 1}
+                    {a ? null : <span className="text-[10px]" style={{ color: MUTED }}>(미제출)</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             <button type="button" onClick={() => void generateGenFile("dossier")} disabled={genBusy.dossier} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] px-3 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90 disabled:opacity-50" style={{ background: BROWN }}>{genBusy.dossier ? "생성 중…" : "정리 자료 생성"}</button>
             {genFiles.filter((f) => f.kind === "dossier").map((f) => (
@@ -825,6 +904,11 @@ export default function MentoringView({
             {genFiles.filter((f) => f.kind === "report").map((f) => (
               <span key={f.id} className="inline-flex shrink-0 items-center gap-1 rounded-[6px] border py-1 pl-2 pr-1 text-[11.5px]" style={{ borderColor: LINE, background: "#fff", color: DEEP }}>
                 <a href={`/api/courses/${courseId}/mentoring/ai-eval/files/${f.id}?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline" title="열기/다운로드"><FileText size={11} /> 평가 보고서({f.label})</a>
+                {f.sentAt ? (
+                  <button type="button" onClick={() => void recallReport(f.id)} className="inline-flex items-center gap-0.5 rounded px-1 text-[10.5px] font-bold hover:bg-[#E8F3EC]" style={{ color: "#2f7d55" }} title="학생에게 보냄 — 누르면 회수(다시 잠금)"><Check size={10} /> 보냄</button>
+                ) : (
+                  <button type="button" onClick={() => void sendReport(f.id)} className="inline-flex items-center gap-0.5 rounded px-1 text-[10.5px] font-bold hover:underline" style={{ color: BROWN }} title="학생에게 보내기 — 학생 멘토링 페이지에서 내려받기 활성화"><Send size={10} /> 보내기</button>
+                )}
                 <button type="button" onClick={() => void deleteGenFile(f.id)} className="grid h-4 w-4 place-items-center rounded hover:bg-[#F0EBE0]" style={{ color: MUTED }} aria-label="삭제"><Trash2 size={11} /></button>
               </span>
             ))}
@@ -1157,6 +1241,18 @@ export default function MentoringView({
               </div>
             </div>
 
+            {/* 최종 평가 보고서 내려받기 — 교사가 '보내기' 하면 활성(방 SSE 실시간). 학생·학부모·스태프 공통 */}
+            <div className={`order-2 rounded-[12px] px-4 py-2.5 ${mobileSection === "sete" || mobileSection === "chat" ? "" : "hidden xl:block"}`} style={{ border: `1px solid ${CARD}`, background: PANEL }}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: INK }}><FileText size={13} style={{ color: BROWN }} /> 최종 평가 보고서</span>
+                {finalReport ? (
+                  <a href={`/api/courses/${courseId}/mentoring/ai-eval/files/${finalReport.id}?studentId=${encodeURIComponent(studentId)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[12px] font-bold text-white transition hover:opacity-90" style={{ background: BROWN }}><Download size={12} /> 내려받기</a>
+                ) : (
+                  <span className="inline-flex cursor-not-allowed items-center gap-1 rounded-[6px] border px-2.5 py-1 text-[12px] font-semibold" style={{ borderColor: LINE, color: MUTED, background: "#fff" }} title="아직 교사가 보내지 않았습니다"><Lock size={12} /> 내려받기 (잠김)</span>
+                )}
+              </div>
+              <p className="mt-1 text-[11.5px]" style={{ color: SUB }}>{finalReport ? `교사가 보낸 보고서 · ${finalReport.sentAt}` : "아직 교사가 보내지 않았습니다. 보내면 바로 열립니다."}</p>
+            </div>
 
             {/* 1:1 멘토링 (실시간, 카카오톡식) */}
             <div className={`order-3 flex-col rounded-[14px] bg-white ${mobileSection === "chat" ? "flex xl:flex" : "hidden xl:flex"}`} style={{ border: `1px solid ${CARD}` }}>

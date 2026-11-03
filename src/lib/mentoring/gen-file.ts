@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { collectStudentDossier } from "@/lib/mentoring/dossier";
+import { collectStudentDossier, dossierIncludeSummary, type DossierInclude } from "@/lib/mentoring/dossier";
 import { buildDossierPdf } from "@/lib/mentoring/dossier-pdf";
 import { buildEvalReportPdf } from "@/lib/mentoring/eval-report-pdf";
 import { generateEvalFeedback } from "@/lib/mentoring/eval-report";
@@ -32,17 +32,27 @@ export function genStamp(d: Date): string {
   }
 }
 
-/** ① 활동 정리 PDF(요소별 요약 + 학생 업로드 원본 PDF 병합). 외부 API 미사용. */
-export async function buildDossierArchivePdf(courseId: string, studentId: string, includeCommunity: boolean): Promise<{ ok: true; pdf: Buffer } | { ok: false; error: string }> {
-  const d = await collectStudentDossier(courseId, studentId, { includeCommunity });
+/**
+ * ① 활동 정리 PDF(요소별 요약 + 학생 업로드 원본 PDF 병합). 외부 API 미사용.
+ * include 로 담을 항목(섹션·과제 슬롯)을 고를 수 있다 — 생략하면 전부. 원본 첨부도 같은 선택을 따른다.
+ */
+export async function buildDossierArchivePdf(courseId: string, studentId: string, includeCommunity: boolean, include?: DossierInclude): Promise<{ ok: true; pdf: Buffer; summary: string } | { ok: false; error: string }> {
+  const d = await collectStudentDossier(courseId, studentId, { includeCommunity, include });
+  if (!d.sections.length) return { ok: false, error: "포함할 항목을 1개 이상 선택하세요." };
   if (!d.text.trim()) return { ok: false, error: "자료가 없습니다." };
+  const secOn = (k: string) => !include?.sections || include.sections.includes(k);
+  const colOn = (c: number) => !include?.assignmentColumns || include.assignmentColumns.includes(c);
 
   const attachments: { label: string; bytes: Buffer }[] = [];
+  let hasReportFile = false;
   try {
     const rep = await getReportFileData(courseId, studentId);
     if (rep && isPdf(rep.name, rep.mime)) {
-      const buf = await readUpload({ key: rep.key, data: rep.data });
-      if (buf && buf.length <= MAX_ATTACH_BYTES) attachments.push({ label: `첨부 원본 · 탐구 보고서 (${rep.name})`, bytes: buf });
+      hasReportFile = true;
+      if (secOn("report_file")) {
+        const buf = await readUpload({ key: rep.key, data: rep.data });
+        if (buf && buf.length <= MAX_ATTACH_BYTES) attachments.push({ label: `첨부 원본 · 탐구 보고서 (${rep.name})`, bytes: buf });
+      }
     }
   } catch {
     /* 보고서 첨부 실패는 무시 */
@@ -50,6 +60,7 @@ export async function buildDossierArchivePdf(courseId: string, studentId: string
   const asgs = await prisma.mentoringAssignment.findMany({ where: { courseId, studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }], select: { name: true, mime: true, fileKey: true, column: true } });
   for (const a of asgs) {
     if (attachments.length >= MAX_ATTACH_COUNT) break;
+    if (!colOn(a.column)) continue; // 선택 제외 슬롯
     if (!isPdf(a.name, a.mime)) continue;
     try {
       const buf = await readUpload({ key: r2Key(a.fileKey) });
@@ -59,8 +70,14 @@ export async function buildDossierArchivePdf(courseId: string, studentId: string
     }
   }
 
-  const pdf = await buildDossierPdf({ title: `${d.studentName} 학생 활동 정리`, subtitle: `강좌 ${courseId} · 원본 첨부 ${attachments.length}건`, sections: d.sections, attachments });
-  return { ok: true, pdf };
+  const summary = dossierIncludeSummary(include, { submittedColumns: [...new Set(asgs.map((a) => a.column))], hasReportFile });
+  const pdf = await buildDossierPdf({
+    title: `${d.studentName} 학생 활동 정리`,
+    subtitle: `강좌 ${courseId}${summary ? ` · 포함: ${summary}` : ""} · 원본 첨부 ${attachments.length}건`,
+    sections: d.sections,
+    attachments,
+  });
+  return { ok: true, pdf, summary };
 }
 
 /** ③ 최종 평가 보고서 PDF(요소별 원문 + AI 평가/피드백 + 세특). Claude 사용. */

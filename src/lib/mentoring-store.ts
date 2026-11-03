@@ -30,6 +30,8 @@ export type Notice = { id: string; body: string; at: string; updated: boolean };
 export type Assignment = { id: string; name: string; size: number; mime: string; at: string; column: number };
 export type PeerReview = { assignmentId: string | null; name: string; status: string; resubmittedAt: string | null };
 export type PeerReviewGroup = { column: number; items: PeerReview[] };
+/** 교사가 학생에게 보낸 최종 평가 보고서(최신 1건). 없으면 학생 화면은 '내려받기 잠김'. */
+export type FinalReport = { id: string; label: string; sentAt: string };
 export type MentoringRoom = {
   report: Report;
   reportFile: FileMeta | null;
@@ -39,13 +41,14 @@ export type MentoringRoom = {
   assignments: Assignment[];
   sete: string;
   peerReviews: PeerReviewGroup[];
+  finalReport: FinalReport | null;
 };
 
 function blankReport(): Report {
   return { topic: "", motive: "", process: "", result: "", difficulty: "", overcome: "", learned: "", standard: "", references: "" };
 }
 export function emptyRoom(): MentoringRoom {
-  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [], assignments: [], sete: "", peerReviews: [] };
+  return { report: blankReport(), reportFile: null, books: [], chat: [], notices: [], assignments: [], sete: "", peerReviews: [], finalReport: null };
 }
 
 function fmtAt(d: Date): string {
@@ -71,13 +74,15 @@ function fmtStamp(d: Date): string {
 
 /** 방 전체 스냅샷(메타데이터). 파일 실제 바이트(dataUrl)는 포함하지 않는다 — 다운로드는 file 라우트로. */
 export async function loadRoom(courseId: string, studentId: string): Promise<MentoringRoom> {
-  const [rep, books, msgs, notices, assignments, sete] = await Promise.all([
+  const [rep, books, msgs, notices, assignments, sete, sentReport] = await Promise.all([
     prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } } }),
     prisma.mentoringBook.findMany({ where: { courseId, studentId }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
     prisma.mentoringMessage.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "asc" }, take: -500 }),
     prisma.mentoringNotice.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "desc" } }),
     prisma.mentoringAssignment.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "asc" } }),
     prisma.mentoringSete.findUnique({ where: { courseId_studentId: { courseId, studentId } }, select: { body: true } }),
+    // 보낸 최종 평가 보고서(최신) — 컬럼 미적용 DB 대비 폴백 null
+    prisma.mentoringGenFile.findFirst({ where: { courseId, studentId, kind: "report", sentAt: { not: null } }, orderBy: { sentAt: "desc" }, select: { id: true, label: true, sentAt: true } }).catch(() => null),
   ]);
 
   const report: Report = rep
@@ -106,6 +111,7 @@ export async function loadRoom(courseId: string, studentId: string): Promise<Men
     assignments: assignments.map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime, at: fmtAt(a.createdAt), column: a.column })),
     sete: sete?.body ?? "",
     peerReviews: await loadPeerReviews(courseId, studentId),
+    finalReport: sentReport?.sentAt ? { id: sentReport.id, label: sentReport.label, sentAt: fmtAt(sentReport.sentAt) } : null,
   };
 }
 

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { gateAiEval } from "@/lib/mentoring/ai-eval-gate";
 import { collectStudentDossier } from "@/lib/mentoring/dossier";
 import { generateSete } from "@/lib/mentoring/generate-sete";
+import { loadRoom, saveSete } from "@/lib/mentoring-store";
+import { publishMentoring } from "@/lib/mentoring-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -34,14 +36,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 /**
  * 학생 활동 취합(업로드 PDF 원문 텍스트 포함) → 정리본 텍스트 단일 소스를 Claude 로 읽혀 세특 생성 → 저장.
  * 스태프 전용. 이미지/PDF 페이지 토큰 없이 텍스트로만 보내 저렴.
+ * applyToSete=true 면 생성 직후 학생과 공유되는 '세특(참고)' 칸에도 반영(덮어쓰기)하고 방 SSE 로 푸시한다(일괄 처리용).
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const body = (await request.json().catch(() => null)) as { studentId?: unknown; includeCommunity?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { studentId?: unknown; includeCommunity?: unknown; applyToSete?: unknown } | null;
   const gate = await gateAiEval(request, courseId, body?.studentId);
   if ("error" in gate) return gate.error;
   const { studentId } = gate;
   const includeCommunity = body?.includeCommunity !== false;
+  const applyToSete = body?.applyToSete === true;
 
   // 1) 활동 취합(외부 API 미사용) + 업로드 PDF 원문 텍스트 추출 → 단일 정리본 텍스트
   const dossier = await collectStudentDossier(courseId, studentId, { includeCommunity, extractPdfText: true });
@@ -58,5 +62,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     create: { courseId, studentId, evalText: gen.text, aiText: gen.text, byteCount: gen.byteCount, dossier: dossierStore, model: gen.model, editedBy: null, generatedAt: now },
     update: { evalText: gen.text, aiText: gen.text, byteCount: gen.byteCount, dossier: dossierStore, model: gen.model, editedBy: null, generatedAt: now },
   });
-  return NextResponse.json(toJson(row));
+
+  // 4) (옵션) 세특(참고) 칸 반영 → 학생 화면 실시간 갱신
+  let applied = false;
+  if (applyToSete) {
+    await saveSete(courseId, studentId, gen.text);
+    applied = true;
+    try { publishMentoring(courseId, studentId, await loadRoom(courseId, studentId)); } catch { /* 무시 */ }
+  }
+  return NextResponse.json({ ...toJson(row), applied });
 }

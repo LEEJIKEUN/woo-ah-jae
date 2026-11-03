@@ -7,8 +7,10 @@ import { getEnrolledUserIds } from "@/lib/enrollment-store";
 import { getCourse } from "@/lib/course/content";
 import { prisma } from "@/lib/prisma";
 import ClassroomSidebar from "@/components/course/ClassroomSidebar";
-import LinkifiedText from "@/components/LinkifiedText";
 import PeerReviewButton from "./PeerReviewButton";
+import SeteCell from "./SeteCell";
+import BatchPanel from "./BatchPanel";
+import { loadAiEvalOverview } from "@/lib/mentoring/overview";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
@@ -35,6 +37,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
 
   const course = getCourse(courseId);
   const ids = await getEnrolledUserIds(courseId);
+  const overview = await loadAiEvalOverview(courseId); // 하단 일괄 처리 패널 초기 현황
 
   const [users, setes, books, assignments] = await Promise.all([
     ids.length ? prisma.user.findMany({ where: { id: { in: ids }, lifecycleStatus: "ACTIVE" }, select: { id: true, email: true, studentProfile: { select: { realName: true } } } }) : Promise.resolve([]),
@@ -82,7 +85,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
         </Link>
         <h1 className="text-[26px] font-normal" style={{ ...serif, color: INK }}>세특·과제 현황</h1>
         <p className="mt-1 text-[13.5px]" style={{ color: SUB }}>
-          {course?.title ?? courseId} · 수강생 {rows.length}명 · 이름 오름차순. 과제는 최대 {MAX_ASSIGN_COLS}개까지 표시됩니다.
+          {course?.title ?? courseId} · 수강생 {rows.length}명 · 이름 오름차순. 세특은 첫 문장만 보이며 ‘더보기’로 펼칩니다. 과제는 최대 {MAX_ASSIGN_COLS}개까지 표시됩니다.
         </p>
 
         <div className="mt-5 overflow-x-auto rounded-[12px] border" style={{ borderColor: CARD }}>
@@ -91,7 +94,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
               <tr style={{ background: PANEL, color: INK }}>
                 <th className={`${th} sticky z-20`} style={{ borderColor: CARD, width: 56, minWidth: 56, left: 0, background: PANEL }}>번호</th>
                 <th className={`${th} sticky z-20`} style={{ borderColor: CARD, width: 120, minWidth: 120, left: 56, background: PANEL, boxShadow: "6px 0 8px -6px rgba(0,0,0,0.18)" }}>이름</th>
-                <th className={th} style={{ borderColor: CARD, minWidth: 300 }}>과목별 세부능력 특기사항</th>
+                <th className={th} style={{ borderColor: CARD, minWidth: 400 }}>과목별 세부능력 특기사항</th>
                 <th className={th} style={{ borderColor: CARD, width: 64 }}>byte</th>
                 <th className={th} style={{ borderColor: CARD, minWidth: 200 }}>독서활동상황</th>
                 {Array.from({ length: MAX_ASSIGN_COLS }, (_, i) => (
@@ -119,7 +122,7 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
                       </Link>
                     </td>
                     <td className={td} style={{ borderColor: CARD, color: BODY }}>
-                      {r.sete ? <LinkifiedText text={r.sete} className="leading-6" /> : <span style={{ color: MUTED }}>-</span>}
+                      {r.sete ? <SeteCell text={r.sete} /> : <span style={{ color: MUTED }}>-</span>}
                     </td>
                     <td className={td} style={{ borderColor: CARD, color: r.byte > 500 ? "#a6402c" : MUTED, textAlign: "right" }}>{r.byte}</td>
                     <td className={td} style={{ borderColor: CARD, color: BODY }}>
@@ -152,6 +155,8 @@ export default async function StatusPage({ params }: { params: Promise<{ courseI
         <p className="mt-1 flex items-center gap-1 text-[12px]" style={{ color: MUTED }}>
           <Download size={12} /> 과제 파일명을 누르면 새 탭에서 열립니다. 세특은 이름을 눌러 학생 멘토링에서 작성/수정합니다.
         </p>
+
+        <BatchPanel courseId={courseId} initialRows={overview} />
       </main>
     </div>
   );

@@ -9,8 +9,10 @@ import { isUserEnrolled } from "@/lib/enrollment-store";
  * 퍼실은 담당 강좌만. 대상 학생은 해당 강좌 수강생이어야 한다.
  */
 export type AiEvalGate = { userId: string; role: string; studentId: string };
+export type AiEvalCourseGate = { userId: string; role: string };
 
-export async function gateAiEval(request: NextRequest, courseId: string, studentId: unknown): Promise<AiEvalGate | { error: NextResponse }> {
+/** 학생 지정 없는 강좌 단위 스태프 게이트(현황 집계 등). */
+export async function gateAiEvalCourse(request: NextRequest, courseId: string): Promise<AiEvalCourseGate | { error: NextResponse }> {
   if (!getCourse(courseId)) return { error: NextResponse.json({ error: "강좌를 찾을 수 없습니다." }, { status: 404 }) };
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
@@ -21,10 +23,16 @@ export async function gateAiEval(request: NextRequest, courseId: string, student
   if (session.role === "FACILITATOR" && !(await isFacilitatorOfCourse(courseId, session.userId))) {
     return { error: NextResponse.json({ error: "담당 강좌가 아닙니다." }, { status: 403 }) };
   }
+  return { userId: session.userId, role: session.role };
+}
+
+export async function gateAiEval(request: NextRequest, courseId: string, studentId: unknown): Promise<AiEvalGate | { error: NextResponse }> {
+  const course = await gateAiEvalCourse(request, courseId);
+  if ("error" in course) return course;
 
   const sid = typeof studentId === "string" ? studentId : "";
   if (!sid) return { error: NextResponse.json({ error: "학생을 선택해 주세요." }, { status: 400 }) };
   if (!(await isUserEnrolled(courseId, sid))) return { error: NextResponse.json({ error: "수강생이 아닙니다." }, { status: 400 }) };
 
-  return { userId: session.userId, role: session.role, studentId: sid };
+  return { userId: course.userId, role: course.role, studentId: sid };
 }
