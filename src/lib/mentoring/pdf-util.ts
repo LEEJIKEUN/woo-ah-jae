@@ -3,7 +3,7 @@ import path from "node:path";
 import { PDFDocument, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
-/** 한글 PDF 공통 유틸(pdf-lib + fontkit + NanumGothic 서브셋). 자동 줄바꿈 포함. */
+/** 한글 PDF 공통 유틸(pdf-lib + fontkit + NanumGothic 전체 임베드). 자동 줄바꿈 포함. */
 export const PAGE_W = 595.28; // A4
 export const PAGE_H = 841.89;
 export const MARGIN = 50;
@@ -50,7 +50,9 @@ export class PdfWriter {
   static async create(): Promise<PdfWriter> {
     const doc = await PDFDocument.create();
     doc.registerFontkit(fontkit);
-    const font = await doc.embedFont(fontBytes(), { subset: true });
+    // ⚠️ subset:true 금지 — pdf-lib 에 번들된 fontkit(1.1.1)이 NanumGothic 글리프를 재인코딩하며 glyf 데이터를 손상시켜
+    //    뷰어(Preview·MuPDF 등)에서 한글 상당수가 빈칸으로 보였음(2026-11-04 확인). 폰트 전체(힌팅 제거 1.36MB)를 그대로 임베드한다.
+    const font = await doc.embedFont(fontBytes(), { subset: false });
     const page = doc.addPage([PAGE_W, PAGE_H]);
     return new PdfWriter(doc, font, page, PAGE_H - MARGIN, 1);
   }
