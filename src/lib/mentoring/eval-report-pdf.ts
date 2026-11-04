@@ -36,9 +36,14 @@ export async function buildEvalReportPdf(opts: { studentName: string; courseId: 
     w.para(`◆ ${sec.title}`, { size: 12, color: TITLE, gapBefore: 12 });
 
     w.para("· 원문", { size: 9.5, color: MUTED, gapBefore: 4 });
-    for (const line of sec.body.split("\n")) {
-      if (line.trim() === "") { w.gap(3); continue; }
-      w.para(line, { size: 10, color: BODY, gapBefore: 1, indent: 12 });
+    if (sec.table) {
+      if (sec.table.caption) w.para(sec.table.caption, { size: 10, color: BODY, gapBefore: 1, indent: 12 });
+      w.table(sec.table.columns, sec.table.rows, { widths: sec.table.widths, gapBefore: 5, size: 9, indent: 12 });
+    } else {
+      for (const line of sec.body.split("\n")) {
+        if (line.trim() === "") { w.gap(3); continue; }
+        w.para(line, { size: 10, color: BODY, gapBefore: 1, indent: 12 });
+      }
     }
 
     const fb = fbByTitle.get(sec.title);

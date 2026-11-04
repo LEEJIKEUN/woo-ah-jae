@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { gradeExam, type GradeAnswer, type GradeQuestion } from "@/lib/exam/grade";
+import type { DossierTable } from "@/lib/mentoring/dossier";
 
 /**
  * 활동 정리 '시험 결과' 섹션 — 강의실 '시험' 탭에서 학생에게 배정된 시험의 응시 상태·자동채점 점수·오답 문항 번호.
+ * - formatExamSection: 텍스트(AI 입력·폴백). 시험마다 항목별 줄바꿈으로 구조를 드러낸다.
+ * - examSectionTable: PDF 표(머리글 + 시험 1행).
  * 정답(answerKey)은 본문에 쓰지 않는다(점수·번호만). 주관식 자동채점은 표기 차이로 오채점될 수 있어 참고용.
  */
 export type ExamRow = {
@@ -14,6 +17,19 @@ export type ExamRow = {
   attempt: { status: string; startedAt: Date; deadlineAt: Date; submittedAt: Date | null } | null;
   questions: GradeQuestion[];
   answers: GradeAnswer[];
+};
+
+/** 시험 1건의 정돈된 요약(텍스트·표 공용). */
+export type ExamSummaryItem = {
+  name: string; // 제목 (과목)
+  period: string; // "11/1 23:24 ~ 11/11 23:24" | ""
+  status: string; // 제출 | 시간 만료 자동 제출 | 응시 중 (미제출) | 미응시 (마감) | 미응시 (응시 가능)
+  when: string; // 제출 시각 | ""
+  score: string; // "70 / 100점" | ""
+  correct: string; // "7/10문항" | "답안 작성 1/5문항" | ""
+  wrong: string; // "8, 9, 10" | "없음(전부 정답)" | ""
+  taken: boolean; // 제출·만료(채점 대상)
+  scoreValue: number | null;
 };
 
 /** KST "M/D HH:mm" */
@@ -29,36 +45,71 @@ function fmtDT(d: Date): string {
 }
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
-/** 순수 함수 — 시험 행들을 정리 본문으로. 배정된 시험이 없으면 "". */
-export function formatExamSection(rows: ExamRow[], now: Date = new Date()): string {
-  if (!rows.length) return "";
-  const lines: string[] = [];
-  let taken = 0;
-  let scoreSum = 0;
-  for (const r of rows) {
-    const label = `${r.title}${r.subject ? ` (${r.subject})` : ""}`;
-    const period = r.opensAt || r.closesAt ? ` · 응시기간 ${r.opensAt ? fmtDT(r.opensAt) : ""}~${r.closesAt ? fmtDT(r.closesAt) : ""}` : "";
+export function summarizeExamRows(rows: ExamRow[], now: Date = new Date()): ExamSummaryItem[] {
+  return rows.map((r) => {
+    const name = `${r.title}${r.subject ? ` (${r.subject})` : ""}`;
+    const period = r.opensAt || r.closesAt ? `${r.opensAt ? fmtDT(r.opensAt) : ""} ~ ${r.closesAt ? fmtDT(r.closesAt) : ""}`.trim() : "";
     const closed = (!!r.closesAt && now > r.closesAt) || r.examStatus === "closed";
     const total = r1(r.questions.reduce((s, q) => s + q.points, 0));
     if (!r.attempt) {
-      lines.push(`- ${label}${period} · ${closed ? `미응시(마감) · 0/${total}점` : "미응시(응시 가능)"}`);
-      continue;
+      return closed
+        ? { name, period, status: "미응시 (마감)", when: "", score: `0 / ${total}점`, correct: "", wrong: "", taken: false, scoreValue: null }
+        : { name, period, status: "미응시 (응시 가능)", when: "", score: "", correct: "", wrong: "", taken: false, scoreValue: null };
     }
     if (r.attempt.status === "in_progress") {
       const answered = r.answers.filter((a) => a.choice != null || !!(a.textAnswer && a.textAnswer.trim())).length;
-      lines.push(`- ${label}${period} · 응시 중(미제출) · 답안 작성 ${answered}/${r.questions.length}문항`);
-      continue;
+      return { name, period, status: "응시 중 (미제출)", when: fmtDT(r.attempt.startedAt), score: "", correct: `답안 작성 ${answered}/${r.questions.length}문항`, wrong: "", taken: false, scoreValue: null };
     }
     const g = gradeExam(r.questions, r.answers);
-    taken += 1;
-    scoreSum += g.score;
     const wrong = g.per.filter((p) => !p.correct).map((p) => p.number);
-    const when = r.attempt.submittedAt ?? r.attempt.deadlineAt;
-    const wrongText = wrong.length ? `오답 문항 ${wrong.slice(0, 40).join(", ")}${wrong.length > 40 ? " …" : ""}` : "전부 정답";
-    lines.push(`- ${label}${period} · ${r.attempt.status === "expired" ? "시간 만료 자동 제출" : "제출"} ${fmtDT(when)} · 점수 ${g.score}/${g.total}점 · 정답 ${g.correctCount}/${r.questions.length}문항 · ${wrongText}`);
-  }
-  const head = `요약: 배정 ${rows.length}회 · 응시(제출) ${taken}회${taken ? ` · 평균 ${r1(scoreSum / taken)}점` : ""}`;
-  return [head, ...lines].join("\n");
+    return {
+      name,
+      period,
+      status: r.attempt.status === "expired" ? "시간 만료 자동 제출" : "제출",
+      when: fmtDT(r.attempt.submittedAt ?? r.attempt.deadlineAt),
+      score: `${g.score} / ${g.total}점`,
+      correct: `${g.correctCount}/${r.questions.length}문항`,
+      wrong: wrong.length ? `${wrong.slice(0, 40).join(", ")}${wrong.length > 40 ? " …" : ""}` : "없음(전부 정답)",
+      taken: true,
+      scoreValue: g.score,
+    };
+  });
+}
+
+/** 요약 한 줄: "배정 3회 · 응시(제출) 2회 · 평균 35점" */
+export function examSummaryHead(items: ExamSummaryItem[]): string {
+  const taken = items.filter((i) => i.taken);
+  const avg = taken.length ? r1(taken.reduce((s, i) => s + (i.scoreValue ?? 0), 0) / taken.length) : null;
+  return `배정 ${items.length}회 · 응시(제출) ${taken.length}회${avg !== null ? ` · 평균 ${avg}점` : ""}`;
+}
+
+/** 순수 함수 — 텍스트 본문(AI 입력·폴백). 배정된 시험이 없으면 "". */
+export function formatExamSection(rows: ExamRow[], now: Date = new Date()): string {
+  if (!rows.length) return "";
+  const items = summarizeExamRows(rows, now);
+  const blocks = items.map((it) => {
+    const lines = [`■ ${it.name}`];
+    if (it.period) lines.push(`  - 응시 기간: ${it.period}`);
+    lines.push(`  - 상태: ${it.status}${it.when ? ` (${it.when})` : ""}`);
+    if (it.score) lines.push(`  - 점수: ${it.score}${it.correct && it.taken ? ` · 정답 ${it.correct}` : ""}`);
+    else if (it.correct) lines.push(`  - 진행: ${it.correct}`);
+    if (it.wrong) lines.push(`  - 오답 문항: ${it.wrong}`);
+    return lines.join("\n");
+  });
+  return [`요약: ${examSummaryHead(items)}`, "", ...blocks].join("\n");
+}
+
+/** PDF 표. 배정된 시험이 없으면 null. */
+export function examSectionTable(rows: ExamRow[], now: Date = new Date()): DossierTable | null {
+  if (!rows.length) return null;
+  const items = summarizeExamRows(rows, now);
+  return {
+    caption: `요약: ${examSummaryHead(items)}`,
+    columns: ["시험", "응시 기간", "상태", "점수", "정답", "오답 문항"],
+    widths: [2.9, 2.3, 1.9, 1.5, 1.2, 1.8],
+    // 응시 기간은 시작/끝을 두 줄로, 상태는 상태/시각을 두 줄로(셀 내 줄바꿈)
+    rows: items.map((it) => [it.name, it.period ? it.period.replace(" ~ ", " ~\n") : "-", it.when ? `${it.status}\n${it.when}` : it.status, it.score || "-", it.correct || "-", it.wrong || "-"]),
+  };
 }
 
 /** 학생에게 배정됐거나 응시 기록이 있는 시험(초안 제외)을 로드. 시험 기능을 안 쓰면 []. */

@@ -30,6 +30,12 @@ export async function buildDossierPdf(opts: {
     opts.sections.forEach((s, i) => {
       w.para(`${i + 1}. ${s.title}`, { size: 13, color: H2, gapBefore: 13 });
       w.rule();
+      if (s.table) {
+        // 표 섹션(시험 결과 등): 요약 한 줄 + 표
+        if (s.table.caption) w.para(s.table.caption, { size: 10.5, color: BODY, gapBefore: 2 });
+        w.table(s.table.columns, s.table.rows, { widths: s.table.widths, gapBefore: 6, size: 9.5 });
+        return;
+      }
       for (const line of s.body.split("\n")) {
         if (line.trim() === "") { w.gap(4); continue; }
         const indent = /^(-|\[|\d+\.|『)/.test(line.trim()) ? 8 : 0;

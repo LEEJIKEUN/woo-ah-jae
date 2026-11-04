@@ -3,7 +3,7 @@ import { byteLen, truncateToBytes } from "@/lib/mentoring/bytes";
 import { readUpload } from "@/lib/private-file";
 import { getReportFileData } from "@/lib/mentoring-store";
 import { extractPdfText } from "@/lib/mentoring/pdf-text";
-import { formatExamSection, loadExamRows, type ExamRow } from "@/lib/mentoring/exam-summary";
+import { examSectionTable, formatExamSection, loadExamRows, type ExamRow } from "@/lib/mentoring/exam-summary";
 
 /**
  * 학생이 우아재에서 남긴 모든 활동을 요소(섹션)별로 취합한다. 외부 API 미사용.
@@ -13,7 +13,9 @@ import { formatExamSection, loadExamRows, type ExamRow } from "@/lib/mentoring/e
  * opts.extractPdfText=true 이면 업로드한 보고서·과제 PDF의 '텍스트'를 추출해 정리본에 포함한다
  * (스캔본 등 추출 불가 시 안내 문구만). AI 입력용 취합에서만 켠다.
  */
-export type DossierSection = { key: string; title: string; body: string };
+/** PDF 렌더용 표(선택). body 는 항상 텍스트로도 유지(AI 입력·폴백). */
+export type DossierTable = { caption?: string; columns: string[]; rows: string[][]; widths?: number[] };
+export type DossierSection = { key: string; title: string; body: string; table?: DossierTable };
 export type DossierResult = { text: string; byteCount: number; hasReportPdf: boolean; studentName: string; sections: DossierSection[] };
 
 /**
@@ -267,7 +269,7 @@ export async function collectStudentDossier(courseId: string, studentId: string,
   if (secOn("board")) sections.push({ key: "board", title: "강좌 토론 게시판 활동", body: fullBody(boardParts.join("\n\n")) });
 
   // 7) 시험 결과(강의실 '시험' 탭) — 배정된 시험의 응시 상태·자동채점 점수·오답 문항 번호(정답은 미기재)
-  if (secOn("exam")) sections.push({ key: "exam", title: "시험 결과", body: fullBody(formatExamSection(examRows)) });
+  if (secOn("exam")) sections.push({ key: "exam", title: "시험 결과", body: fullBody(formatExamSection(examRows)), table: examSectionTable(examRows) ?? undefined });
 
   // 8) 강좌 성취기준(맥락)
   if (secOn("standards")) sections.push({ key: "standards", title: "강좌 성취기준(참고)", body: fullBody(standards.map((s) => `- ${s.area ? `[${s.area}] ` : ""}${s.code ? `${s.code} ` : ""}${s.content}`).join("\n")) });

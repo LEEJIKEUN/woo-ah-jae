@@ -42,6 +42,7 @@ export function wrapText(text: string, font: PDFFont, size: number, maxWidth = C
 }
 
 type ParaOpts = { size?: number; color?: RGB; gapBefore?: number; indent?: number; maxPages?: number };
+type TableOpts = { size?: number; widths?: number[]; indent?: number; gapBefore?: number; color?: RGB; lineColor?: RGB; headerBg?: RGB };
 
 /** 페이지·커서를 관리하며 줄바꿈 문단을 순서대로 쓰는 라이터. */
 export class PdfWriter {
@@ -78,6 +79,60 @@ export class PdfWriter {
       this.page.drawText(line, { x, y: this.y - this.font.heightAtSize(size), size, font: this.font, color });
       this.y -= lh;
     }
+  }
+
+  /**
+   * 표 — 머리글 행 + 데이터 행. 셀 안 자동 줄바꿈, 행 단위로 페이지를 넘기며 새 페이지엔 머리글을 반복한다.
+   * widths 는 열 너비 비율(합계 무관). 빈 셀은 "-" 로.
+   */
+  table(columns: string[], rows: string[][], opts: TableOpts = {}) {
+    const size = opts.size ?? 9.5;
+    const color = opts.color ?? rgb(0.15, 0.15, 0.15);
+    const lineColor = opts.lineColor ?? rgb(0.85, 0.82, 0.75);
+    const headerBg = opts.headerBg ?? rgb(0.975, 0.965, 0.945);
+    const x0 = MARGIN + (opts.indent ?? 0);
+    const totalW = CONTENT_W - (opts.indent ?? 0);
+    const ratios = opts.widths && opts.widths.length === columns.length ? opts.widths : columns.map(() => 1);
+    const sum = ratios.reduce((a, b) => a + b, 0);
+    const widths = ratios.map((r) => (r / sum) * totalW);
+    const padX = 4;
+    const padY = 3.5;
+    const fh = this.font.heightAtSize(size);
+    const lh = fh * 1.35;
+    if (opts.gapBefore) this.y -= opts.gapBefore;
+
+    const layout = (cells: string[]) => {
+      // 셀 안 명시적 줄바꿈(\n)은 줄 단위로 나눈 뒤 각 줄을 폭에 맞춰 다시 접는다(pdf-lib drawText 에 \n 을 넘기면 행 밖으로 흘러넘침)
+      const lines = columns.map((_, i) => ((cells[i] ?? "").trim() || "-").split("\n").flatMap((seg) => wrapText(seg.trim(), this.font, size, widths[i] - padX * 2)));
+      const h = Math.max(1, ...lines.map((l) => l.length)) * lh + padY * 2;
+      return { lines, h };
+    };
+    const topLine = () => this.page.drawLine({ start: { x: x0, y: this.y }, end: { x: x0 + totalW, y: this.y }, thickness: 0.8, color: lineColor });
+    const paint = (lines: string[][], h: number, header: boolean) => {
+      const top = this.y;
+      if (header) this.page.drawRectangle({ x: x0, y: top - h, width: totalW, height: h, color: headerBg });
+      let cx = x0;
+      lines.forEach((ls, i) => {
+        ls.forEach((ln, j) => this.page.drawText(ln, { x: cx + padX, y: top - padY - fh - j * lh, size, font: this.font, color }));
+        cx += widths[i];
+      });
+      this.page.drawLine({ start: { x: x0, y: top - h }, end: { x: x0 + totalW, y: top - h }, thickness: header ? 0.8 : 0.4, color: lineColor });
+      this.y = top - h;
+    };
+    const head = layout(columns);
+    if (this.y - head.h - lh < MARGIN) this.newPage();
+    topLine();
+    paint(head.lines, head.h, true);
+    for (const r of rows) {
+      const body = layout(r);
+      if (this.y - body.h < MARGIN) {
+        this.newPage();
+        topLine();
+        paint(head.lines, head.h, true);
+      }
+      paint(body.lines, body.h, false);
+    }
+    this.y -= 4;
   }
 
   /** 현재 위치에 가로 구분선. */
