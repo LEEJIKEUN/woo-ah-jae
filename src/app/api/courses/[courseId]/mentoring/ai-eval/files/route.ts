@@ -39,15 +39,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const body = (await request.json().catch(() => null)) as { studentId?: unknown; kind?: unknown; includeCommunity?: unknown; include?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { studentId?: unknown; kind?: unknown; include?: unknown } | null;
   const gate = await gateAiEval(request, courseId, body?.studentId);
   if ("error" in gate) return gate.error;
   const { studentId } = gate;
   const kind = body?.kind === "report" ? "report" : body?.kind === "dossier" ? "dossier" : null;
   if (!kind) return NextResponse.json({ error: "종류가 올바르지 않습니다." }, { status: 400 });
   if (!r2Enabled()) return NextResponse.json({ error: "저장소(R2)가 설정되지 않았습니다." }, { status: 500 });
-  const includeCommunity = body?.includeCommunity !== false;
-
   // 정리 자료 포함 항목(선택) — 알 수 없는 키·범위 밖 슬롯은 버린다.
   let include: DossierInclude | undefined;
   if (kind === "dossier" && body?.include && typeof body.include === "object") {
@@ -60,8 +58,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const built = kind === "report"
-    ? await buildEvalReportPdfFor(courseId, studentId, includeCommunity)
-    : await buildDossierArchivePdf(courseId, studentId, includeCommunity, include);
+    ? await buildEvalReportPdfFor(courseId, studentId)
+    : await buildDossierArchivePdf(courseId, studentId, include);
   if (!built.ok) return NextResponse.json({ error: built.error }, { status: kind === "report" ? 502 : 400 });
 
   const now = new Date();

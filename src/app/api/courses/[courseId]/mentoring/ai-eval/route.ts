@@ -40,15 +40,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const body = (await request.json().catch(() => null)) as { studentId?: unknown; includeCommunity?: unknown; applyToSete?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { studentId?: unknown; applyToSete?: unknown } | null;
   const gate = await gateAiEval(request, courseId, body?.studentId);
   if ("error" in gate) return gate.error;
   const { studentId } = gate;
-  const includeCommunity = body?.includeCommunity !== false;
   const applyToSete = body?.applyToSete === true;
 
   // 1) 활동 취합(외부 API 미사용) + 업로드 PDF 원문 텍스트 추출 → 단일 정리본 텍스트
-  const dossier = await collectStudentDossier(courseId, studentId, { includeCommunity, extractPdfText: true });
+  const dossier = await collectStudentDossier(courseId, studentId, { extractPdfText: true });
 
   // 2) 정리본 텍스트만 Claude 로 읽혀 세특 생성(2000바이트 미만 강제)
   const gen = await generateSete(dossier.text);

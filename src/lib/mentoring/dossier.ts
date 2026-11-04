@@ -3,6 +3,7 @@ import { byteLen, truncateToBytes } from "@/lib/mentoring/bytes";
 import { readUpload } from "@/lib/private-file";
 import { getReportFileData } from "@/lib/mentoring-store";
 import { extractPdfText } from "@/lib/mentoring/pdf-text";
+import { formatExamSection, loadExamRows, type ExamRow } from "@/lib/mentoring/exam-summary";
 
 /**
  * 학생이 우아재에서 남긴 모든 활동을 요소(섹션)별로 취합한다. 외부 API 미사용.
@@ -21,8 +22,8 @@ export type DossierResult = { text: string; byteCount: number; hasReportPdf: boo
  * - assignmentColumns: 포함할 과제 슬롯(0=과제1 … 4=과제5). 목록·원본 추출·원본 첨부 모두 이 슬롯만. 빈 배열이면 과제 섹션 제외.
  */
 export type DossierInclude = { sections?: string[]; assignmentColumns?: number[] };
-export const DOSSIER_SECTION_KEYS = ["report", "report_file", "books", "chat", "notice", "board", "community", "standards"] as const;
-const SECTION_SHORT: Record<string, string> = { report: "보고서", report_file: "보고서원본", books: "독서", chat: "대화", notice: "공지", board: "게시판", community: "커뮤니티", standards: "성취기준" };
+export const DOSSIER_SECTION_KEYS = ["report", "report_file", "books", "chat", "board", "exam", "standards"] as const;
+const SECTION_SHORT: Record<string, string> = { report: "보고서", report_file: "보고서원본", books: "독서", chat: "대화", board: "게시판", exam: "시험", standards: "성취기준" };
 
 /** 과제 슬롯 → "3-5" / "1,3,5" 같은 짧은 표기. */
 function colRange(cols: number[]): string {
@@ -56,14 +57,12 @@ const CAP_SECTION = 6 * 1024;
 const CAP_CHAT = 8 * 1024;
 // 토론 게시판: 학생당 댓글이 10~25KB(상호 피드백 댓글 포함) 규모. 6KB 였을 때 뒤쪽(=상호 피드백)이 통째로 잘렸음.
 const CAP_BOARD = 24 * 1024;
-const CAP_COMMUNITY = 6 * 1024;
 const CAP_REPORT_FILE = 12 * 1024;
 const CAP_ASSIGN_FILE = 16 * 1024;
 const CAP_TOTAL = 64 * 1024;
 const AI_CAPS: Record<string, number> = {
   chat: CAP_CHAT,
   board: CAP_BOARD,
-  community: CAP_COMMUNITY,
   report_file: CAP_REPORT_FILE,
   assignment_file: CAP_ASSIGN_FILE,
 };
@@ -116,8 +115,7 @@ function fmtDay(d: Date): string {
   }
 }
 
-export async function collectStudentDossier(courseId: string, studentId: string, opts?: { includeCommunity?: boolean; extractPdfText?: boolean; maxTotalBytes?: number; include?: DossierInclude }): Promise<DossierResult> {
-  const includeCommunity = opts?.includeCommunity ?? true;
+export async function collectStudentDossier(courseId: string, studentId: string, opts?: { extractPdfText?: boolean; maxTotalBytes?: number; include?: DossierInclude }): Promise<DossierResult> {
   const doExtract = opts?.extractPdfText ?? false;
   // 포함 항목 선택(정리 PDF 전용). 없으면 전부.
   const inc = opts?.include;
@@ -128,12 +126,12 @@ export async function collectStudentDossier(courseId: string, studentId: string,
   // 참고: sections(원문 렌더용)는 이 상한과 무관하게 항상 전량 유지된다.
   const totalCap = Math.max(8 * 1024, opts?.maxTotalBytes ?? CAP_TOTAL);
 
-  const [user, rep, books, msgs, notices, assignmentsAll, standards, posts, postComments, peerGot] = await Promise.all([
+  const [user, rep, books, msgs, examRows, assignmentsAll, standards, posts, postComments, peerGot] = await Promise.all([
     prisma.user.findUnique({ where: { id: studentId }, select: { studentProfile: { select: { realName: true } } } }),
     prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } } }),
     prisma.mentoringBook.findMany({ where: { courseId, studentId }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
     prisma.mentoringMessage.findMany({ where: { courseId, studentId, deletedAt: null }, orderBy: { createdAt: "asc" }, take: -MAX_CHAT_MSGS }),
-    prisma.mentoringNotice.findMany({ where: { courseId, studentId }, orderBy: { createdAt: "asc" } }),
+    secOn("exam") ? loadExamRows(courseId, studentId).catch(() => [] as ExamRow[]) : Promise.resolve([] as ExamRow[]),
     prisma.mentoringAssignment.findMany({ where: { courseId, studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }] }),
     prisma.mentoringAchievementStandard.findMany({ where: { courseId }, orderBy: { sort: "asc" }, select: { area: true, code: true, content: true } }),
     prisma.coursePost.findMany({ where: { courseId, authorId: studentId, kind: "DISCUSSION" }, orderBy: { createdAt: "asc" }, select: { id: true, title: true, body: true, kind: true, createdAt: true } }),
@@ -222,9 +220,6 @@ export async function collectStudentDossier(courseId: string, studentId: string,
   // 3) 1:1 멘토링 채팅
   if (secOn("chat")) sections.push({ key: "chat", title: "1:1 멘토링 대화", body: fullBody(msgs.filter((m) => m.text.trim()).map((m) => `[${m.senderRole === "teacher" ? "교사" : "학생"}] ${m.text.trim()}`).join("\n")) });
 
-  // 4) 개별 공지
-  if (secOn("notice")) sections.push({ key: "notice", title: "교사 개별 공지", body: fullBody(notices.map((no) => `- ${no.body.trim()}`).join("\n")) });
-
   // 5) 제출 과제(이름/슬롯) — 선택한 슬롯만
   if (assignmentsOn) sections.push({ key: "assignment", title: "제출 과제", body: fullBody(assignments.map((a) => `- 과제${a.column + 1}: ${a.name}`).join("\n")) });
   // 5-1) 과제 원문(추출)
@@ -269,17 +264,8 @@ export async function collectStudentDossier(courseId: string, studentId: string,
   }
   if (secOn("board")) sections.push({ key: "board", title: "강좌 토론 게시판 활동", body: fullBody(boardParts.join("\n\n")) });
 
-  // 7) 커뮤니티 게시판(옵션)
-  if (includeCommunity && secOn("community")) {
-    const [cPosts, cComments] = await Promise.all([
-      prisma.boardPost.findMany({ where: { authorId: studentId, status: "ACTIVE" }, orderBy: { createdAt: "asc" }, select: { title: true, content: true } }),
-      prisma.boardComment.findMany({ where: { authorId: studentId, status: "ACTIVE" }, orderBy: { createdAt: "asc" }, select: { content: true } }),
-    ]);
-    sections.push({ key: "community", title: "커뮤니티 게시판 활동 (강좌 외 포함 — 참고용)", body: fullBody([
-      ...cPosts.map((p) => `[글] ${p.title}${p.content?.trim() ? `\n${p.content.trim()}` : ""}`),
-      ...cComments.filter((c) => c.content.trim()).map((c) => `[댓글] ${c.content.trim()}`),
-    ].join("\n\n")) });
-  }
+  // 7) 시험 결과(강의실 '시험' 탭) — 배정된 시험의 응시 상태·자동채점 점수·오답 문항 번호(정답은 미기재)
+  if (secOn("exam")) sections.push({ key: "exam", title: "시험 결과", body: fullBody(formatExamSection(examRows)) });
 
   // 8) 강좌 성취기준(맥락)
   if (secOn("standards")) sections.push({ key: "standards", title: "강좌 성취기준(참고)", body: fullBody(standards.map((s) => `- ${s.area ? `[${s.area}] ` : ""}${s.code ? `${s.code} ` : ""}${s.content}`).join("\n")) });

@@ -26,8 +26,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const gate = await gateAiEval(request, courseId, studentId);
   if ("error" in gate) return gate.error;
 
-  const includeCommunity = url.searchParams.get("community") !== "0";
-  const d = await collectStudentDossier(courseId, gate.studentId, { includeCommunity });
+  const d = await collectStudentDossier(courseId, gate.studentId);
   if (!d.text.trim()) return new NextResponse("자료가 없습니다.", { status: 404 });
 
   // 원본 파일 첨부: 탐구보고서 PDF + 과제 PDF(동영상 제외)

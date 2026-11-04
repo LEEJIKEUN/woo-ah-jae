@@ -94,15 +94,15 @@ export default function BatchPanel({ courseId, initialRows }: { courseId: string
       assignmentColumns: [...cols].filter((c) => r.submittedColumns.includes(c)),
     };
     if (!include.sections.length && !include.assignmentColumns.length) throw new Error("포함 항목이 비어 있습니다.");
-    const d = await post<{ id: string; label: string; createdAt: string }>(`/api/courses/${courseId}/mentoring/ai-eval/files`, { studentId: r.id, kind: "dossier", includeCommunity: true, include });
+    const d = await post<{ id: string; label: string; createdAt: string }>(`/api/courses/${courseId}/mentoring/ai-eval/files`, { studentId: r.id, kind: "dossier", include });
     patchRow(r.id, (x) => ({ ...x, dossier: { id: d.id, label: d.label, createdAt: d.createdAt } }));
   }
   async function stepSete(r: OverviewRow) {
-    const d = await post<{ generatedAt: string; byteCount: number }>(`/api/courses/${courseId}/mentoring/ai-eval`, { studentId: r.id, includeCommunity: true, applyToSete: true });
+    const d = await post<{ generatedAt: string; byteCount: number }>(`/api/courses/${courseId}/mentoring/ai-eval`, { studentId: r.id, applyToSete: true });
     patchRow(r.id, (x) => ({ ...x, aiEval: { generatedAt: d.generatedAt, byteCount: d.byteCount, edited: false, applied: true } }));
   }
   async function stepReport(r: OverviewRow): Promise<string> {
-    const d = await post<{ id: string; label: string; createdAt: string }>(`/api/courses/${courseId}/mentoring/ai-eval/files`, { studentId: r.id, kind: "report", includeCommunity: true });
+    const d = await post<{ id: string; label: string; createdAt: string }>(`/api/courses/${courseId}/mentoring/ai-eval/files`, { studentId: r.id, kind: "report" });
     patchRow(r.id, (x) => ({ ...x, report: { id: d.id, label: d.label, createdAt: d.createdAt, sentAt: null } }));
     return d.id;
   }

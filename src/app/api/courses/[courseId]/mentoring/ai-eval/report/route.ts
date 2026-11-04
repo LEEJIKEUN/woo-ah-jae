@@ -13,12 +13,11 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await params;
-  const body = (await request.json().catch(() => null)) as { studentId?: unknown; includeCommunity?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { studentId?: unknown } | null;
   const gate = await gateAiEval(request, courseId, body?.studentId);
   if ("error" in gate) return gate.error;
-  const includeCommunity = body?.includeCommunity !== false;
 
-  const d = await collectStudentDossier(courseId, gate.studentId, { includeCommunity, extractPdfText: true });
+  const d = await collectStudentDossier(courseId, gate.studentId, { extractPdfText: true });
   if (!d.text.trim()) return NextResponse.json({ error: "자료가 없습니다." }, { status: 404 });
 
   const titles = d.sections.filter((s) => s.body.trim() !== "(없음)").map((s) => s.title);

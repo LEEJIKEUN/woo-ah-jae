@@ -36,8 +36,8 @@ export function genStamp(d: Date): string {
  * ① 활동 정리 PDF(요소별 요약 + 학생 업로드 원본 PDF 병합). 외부 API 미사용.
  * include 로 담을 항목(섹션·과제 슬롯)을 고를 수 있다 — 생략하면 전부. 원본 첨부도 같은 선택을 따른다.
  */
-export async function buildDossierArchivePdf(courseId: string, studentId: string, includeCommunity: boolean, include?: DossierInclude): Promise<{ ok: true; pdf: Buffer; summary: string } | { ok: false; error: string }> {
-  const d = await collectStudentDossier(courseId, studentId, { includeCommunity, include });
+export async function buildDossierArchivePdf(courseId: string, studentId: string, include?: DossierInclude): Promise<{ ok: true; pdf: Buffer; summary: string } | { ok: false; error: string }> {
+  const d = await collectStudentDossier(courseId, studentId, { include });
   if (!d.sections.length) return { ok: false, error: "포함할 항목을 1개 이상 선택하세요." };
   if (!d.text.trim()) return { ok: false, error: "자료가 없습니다." };
   const secOn = (k: string) => !include?.sections || include.sections.includes(k);
@@ -81,9 +81,9 @@ export async function buildDossierArchivePdf(courseId: string, studentId: string
 }
 
 /** ③ 최종 평가 보고서 PDF(요소별 원문 + AI 평가/피드백 + 세특). Claude 사용. */
-export async function buildEvalReportPdfFor(courseId: string, studentId: string, includeCommunity: boolean): Promise<{ ok: true; pdf: Buffer } | { ok: false; error: string }> {
+export async function buildEvalReportPdfFor(courseId: string, studentId: string): Promise<{ ok: true; pdf: Buffer } | { ok: false; error: string }> {
   // 보고서 AI 입력은 26KB로 축소해 지연(TTFT) 단축 — 원문 표시용 sections 는 전량 유지된다.
-  const d = await collectStudentDossier(courseId, studentId, { includeCommunity, extractPdfText: true, maxTotalBytes: 26 * 1024 });
+  const d = await collectStudentDossier(courseId, studentId, { extractPdfText: true, maxTotalBytes: 26 * 1024 });
   if (!d.text.trim()) return { ok: false, error: "자료가 없습니다." };
   const titles = d.sections.filter((s) => s.body.trim() !== "(없음)").map((s) => s.title);
   const gen = await generateEvalFeedback(d.text, titles);

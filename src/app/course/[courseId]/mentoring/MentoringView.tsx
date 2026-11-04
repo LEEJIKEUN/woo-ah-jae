@@ -217,7 +217,6 @@ export default function MentoringView({
   const [aiError, setAiError] = useState<string | null>(null);
   const [editingAi, setEditingAi] = useState(false);
   const [aiDraft, setAiDraft] = useState("");
-  const includeCommunity = true; // 생성 시 항상 커뮤니티 활동(강좌 외) 포함
   const [aiInfo, setAiInfo] = useState<string | null>(null);
   const [genFiles, setGenFiles] = useState<{ id: string; kind: string; label: string; sentAt?: string | null }[]>([]);
   const [genBusy, setGenBusy] = useState<{ dossier: boolean; report: boolean }>({ dossier: false, report: false });
@@ -354,7 +353,7 @@ export default function MentoringView({
       const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, includeCommunity }),
+        body: JSON.stringify({ studentId }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok) { setAiError(d?.error ?? "생성에 실패했습니다."); return; }
@@ -417,7 +416,7 @@ export default function MentoringView({
       const res = await fetch(`/api/courses/${courseId}/mentoring/ai-eval/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, kind, includeCommunity, ...(include ? { include } : {}) }),
+        body: JSON.stringify({ studentId, kind, ...(include ? { include } : {}) }),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.id) { setGenError(d?.error ?? "생성에 실패했습니다."); return; }
