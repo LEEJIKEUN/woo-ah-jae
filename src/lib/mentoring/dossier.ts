@@ -131,7 +131,9 @@ export async function collectStudentDossier(courseId: string, studentId: string,
     prisma.mentoringReport.findUnique({ where: { courseId_studentId: { courseId, studentId } } }),
     prisma.mentoringBook.findMany({ where: { courseId, studentId }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
     prisma.mentoringMessage.findMany({ where: { courseId, studentId, deletedAt: null }, orderBy: { createdAt: "asc" }, take: -MAX_CHAT_MSGS }),
-    secOn("exam") ? loadExamRows(courseId, studentId).catch(() => [] as ExamRow[]) : Promise.resolve([] as ExamRow[]),
+    secOn("exam")
+      ? loadExamRows(courseId, studentId).catch((e) => { console.error("[dossier] 시험 결과 조회 실패 — 섹션을 비움", courseId, studentId, e); return [] as ExamRow[]; })
+      : Promise.resolve([] as ExamRow[]),
     prisma.mentoringAssignment.findMany({ where: { courseId, studentId }, orderBy: [{ column: "asc" }, { createdAt: "asc" }] }),
     prisma.mentoringAchievementStandard.findMany({ where: { courseId }, orderBy: { sort: "asc" }, select: { area: true, code: true, content: true } }),
     prisma.coursePost.findMany({ where: { courseId, authorId: studentId, kind: "DISCUSSION" }, orderBy: { createdAt: "asc" }, select: { id: true, title: true, body: true, kind: true, createdAt: true } }),
